@@ -1,0 +1,52 @@
+# Maintainer: Jake McGinty <jake@tonari.no>
+
+# TODO(mcginty): Eventually move this to AUR once this is released publicly.
+
+pkgname=innernet-git
+pkgver=v0.12.7.r5.493d2b0
+pkgrel=1
+pkgdesc="A tool to manage WireGuard network topologies."
+#epoch=0
+arch=('x86_64')
+url="https://github.com/tonarino/innernet"
+license=('custom')
+depends=('sqlite')
+makedepends=('git' 'cargo')
+source=("$pkgname::git+ssh://git@github.com/tonarino/innernet")
+sha1sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  local tag=$(git tag --sort=-v:refname | grep '^v[0-9]' | head -1)
+  local commits_since=$(git rev-list $tag..HEAD --count)
+  echo "$tag.r$commits_since.$(git log --pretty=format:'%h' -n 1)"
+}
+
+build() {
+  cd "$pkgname"
+
+  cargo build --release --locked
+}
+
+check() {
+  cd "$pkgname"
+
+  cargo test --release --locked
+}
+
+package() {
+  cd "$pkgname"
+
+  install -Dm755 "target/release/innernet" "$pkgdir/usr/bin/innernet"
+  install -Dm755 "target/release/innernet-server" "$pkgdir/usr/bin/innernet-server"
+  ln -s "innernet" "$pkgdir/usr/bin/inn"
+
+  install -Dm644 "client/innernet@.service" "$pkgdir/usr/lib/systemd/system/innernet@.service"
+  install -Dm644 "server/innernet-server@.service" "$pkgdir/usr/lib/systemd/system/innernet-server@.service"
+
+  install -Dm644 "doc/innernet.8.gz" "$pkgdir/usr/share/man/man8/innernet.8.gz"
+  install -Dm644 "doc/innernet-server.8.gz" "$pkgdir/usr/share/man/man8/innernet-server.8.gz"
+}
+
+# vim:set ts=2 sw=2 et:
+

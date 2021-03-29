@@ -1,0 +1,12 @@
+[Unit]
+Description=innernet client daemon for %I
+After=network-online.target nss-lookup.target
+Wants=network-online.target nss-lookup.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/innernet up %i --daemon --interval 60
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

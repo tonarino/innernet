@@ -1,0 +1,17 @@
+[package]
+authors = ["K900 <me@0upti.me>", "Jake McGinty <jake@tonari.no>"]
+categories = ["external-ffi-bindings", "os::unix-apis"]
+description = "Raw bindings to the WireGuard embeddable C library"
+license = "LGPL-2.1-or-later"
+name = "wgctrl-sys"
+publish = false
+readme = "../README.md"
+repository = "https://gitlab.com/K900/wgctrl-rs"
+version = "1.0.0"
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+bindgen = { version = "0.57", default-features = false }
+cc = "1.0"

@@ -1,0 +1,11 @@
+[package]
+authors = ["Ryo Kawaguchi <ryo@kawagu.ch>"]
+description = "A simplistic /etc/hosts file editor."
+edition = "2018"
+license = "UNLICENSED"
+name = "hostsfile"
+publish = false
+version = "1.0.0"
+
+[dependencies]
+tempfile = "3"

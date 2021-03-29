@@ -1,0 +1,13 @@
+[Unit]
+Description=innernet server for %I
+After=network-online.target nss-lookup.target
+Wants=network-online.target nss-lookup.target
+
+[Service]
+Type=simple
+Environment="RUST_LOG=info"
+ExecStart=/usr/bin/innernet-server serve %i
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

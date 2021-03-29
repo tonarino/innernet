@@ -1,0 +1,54 @@
+[package]
+authors = ["Jake McGinty <me@jake.su>"]
+description = "A server to coordinate innernet networks."
+edition = "2018"
+license = "MIT"
+name = "server"
+publish = false
+readme = "README.md"
+version = "1.0.0"
+
+[[bin]]
+name = "innernet-server"
+path = "src/main.rs"
+
+[dependencies]
+colored = "2"
+crossbeam = "0.8"
+dashmap = "4"
+dialoguer = "0.8"
+hyper = "0.14"
+indoc = "1"
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" }
+libc = "0.2"
+libsqlite3-sys = "0.20"
+log = "0.4"
+parking_lot = "0.11"
+pretty_env_logger = "0.4"
+regex = { version = "1", default-features = false, features = ["std"] }
+rusqlite = "0.24"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shared = { path = "../shared" }
+structopt = "0.3"
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+toml = "0.5"
+warp = { version = "0.3", default-features = false }
+wgctrl = { path = "../wgctrl-rs" }
+
+[dev-dependencies]
+anyhow = "1"
+tempfile = "3"
+
+[package.metadata.deb]
+assets = [
+  ["target/release/innernet-server", "usr/bin/", "755"],
+  ["innernet-server@.service", "usr/lib/systemd/system/", "644"],
+  ["../doc/innernet-server.8.gz", "usr/share/man/man8/", "644"],
+]
+depends = "libc6, libgcc1, libsqlite3-0, zlib1g, systemd"
+maintainer = "tonari <hey@tonari.no>"
+name = "innernet-server"
+priority = "optional"
+section = "net"

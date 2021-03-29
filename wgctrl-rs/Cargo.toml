@@ -1,0 +1,23 @@
+[package]
+authors = ["K900 <me@0upti.me>"]
+categories = ["os::unix-apis"]
+description = "High level bindings to the WireGuard embeddable C library"
+edition = "2018"
+license = "LGPL-2.1-or-later"
+name = "wgctrl"
+publish = false
+readme = "../README.md"
+version = "1.0.0"
+
+[dependencies]
+base64 = "0.13"
+hex = "0.4"
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+wgctrl-sys = { path = "../wgctrl-sys" }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+rand_core = "0.6"
+x25519-dalek = { git = "https://github.com/mcginty/x25519-dalek", branch = "master" }
+subtle = "2"

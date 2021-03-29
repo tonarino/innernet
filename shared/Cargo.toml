@@ -1,0 +1,19 @@
+[package]
+authors = ["Jake McGinty <me@jake.su>"]
+edition = "2018"
+license = "MIT"
+name = "shared"
+publish = false
+version = "1.0.0"
+
+[dependencies]
+colored = "2.0"
+dialoguer = "0.8"
+indoc = "1"
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" }
+lazy_static = "1"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+toml = "0.5"
+ureq = { version = "2", default-features = false }
+wgctrl = { path = "../wgctrl-rs" }

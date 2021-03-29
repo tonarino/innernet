@@ -1,0 +1,5 @@
+target/
+*.db
+*.conf
+arch/pkg
+arch/innernet-git

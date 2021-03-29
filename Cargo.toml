@@ -1,0 +1,6 @@
+[workspace]
+members = ["server", "client", "hostsfile", "shared"]
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
