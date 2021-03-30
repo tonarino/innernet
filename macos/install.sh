@@ -25,6 +25,9 @@ if ! which wg > /dev/null; then
   cmd brew install wireguard-tools
 fi
 
+read -p "interface to listen on: "
+interface=${REPLY}
+
 info "installing launch daemon for innernet daemon script."
 echo "\
 <?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -36,7 +39,8 @@ echo "\
     <key>ProgramArguments</key>
     <array>
       <string>/usr/local/bin/innernet</string>
-      <string>fetch</string>
+      <string>up</string>
+      <string>${interface}</string>
       <string>--daemon</string>
       <string>--interval</string>
       <string>60</string>
