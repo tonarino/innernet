@@ -24,16 +24,24 @@ fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
 #[cfg(target_os = "macos")]
 pub fn set_addr(interface: &str, addr: IpNetwork) -> Result<(), Error> {
     let real_interface = wgctrl::backends::userspace::resolve_tun(interface).with_str(interface)?;
-    cmd(
-        "ifconfig",
-        &[
-            &real_interface,
-            "inet",
-            &addr.to_string(),
-            &addr.ip().to_string(),
-            "alias",
-        ],
-    )?;
+
+    if addr.is_ipv4() {
+        cmd(
+            "ifconfig",
+            &[
+                &real_interface,
+                "inet",
+                &addr.to_string(),
+                &addr.ip().to_string(),
+                "alias",
+            ],
+        )?;
+    } else {
+        cmd(
+            "ifconfig",
+            &[&real_interface, "inet6", &addr.to_string(), "alias"],
+        )?;
+    }
     cmd("ifconfig", &[&real_interface, "mtu", "1420"])?;
     Ok(())
 }
@@ -113,7 +121,7 @@ pub fn add_route(interface: &str, cidr: IpNetwork) -> Result<bool, Error> {
             &[
                 "-n",
                 "add",
-                "-inet",
+                if cidr.is_ipv4() { "-inet" } else { "-inet6" },
                 &cidr.to_string(),
                 "-interface",
                 &real_interface,
