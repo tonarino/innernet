@@ -152,6 +152,8 @@ innernet has only officially been tested on Linux and MacOS, but we hope to supp
 
 It's assumed that WireGuard is installed on your system, either via the kernel module in Linux 5.6 and later, or via the [`wireguard-go`](https://git.zx2c4.com/wireguard-go/about/) userspace implementation.
 
+[WireGuard Installation Instructions](https://www.wireguard.com/install/)
+
 If you're not already a WireGuard user, you may need to load the kernel module:
 
 ```sh
