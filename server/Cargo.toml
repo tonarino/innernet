@@ -52,3 +52,16 @@ maintainer = "tonari <hey@tonari.no>"
 name = "innernet-server"
 priority = "optional"
 section = "net"
+
+[package.metadata.rpm]
+package = "innernet-server"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.files]
+"../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
+"../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet-server.8.gz" }
+
+[package.metadata.rpm.targets]
+innernet-server = { path = "/usr/bin/innernet-server" }
