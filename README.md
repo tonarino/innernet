@@ -146,6 +146,26 @@ sudo innernet set-listen-port -u <interface>
 
 ## Installation
 
+innernet has only officially been tested on Linux and MacOS, but we hope to support as many platforms as is feasible!
+
+### Runtime Dependencies
+
+It's assumed that WireGuard is installed on your system, either via the kernel module in Linux 5.6 and later, or via the [`wireguard-go`](https://git.zx2c4.com/wireguard-go/about/) userspace implementation.
+
+[WireGuard Installation Instructions](https://www.wireguard.com/install/)
+
+If you're not already a WireGuard user, you may need to load the kernel module:
+
+```sh
+modprobe wireguard
+```
+
+You can make the kernel module loading persistent with:
+
+```sh
+echo wireguard > /etc/modules-load.d/wireguard.conf
+```
+
 ### Arch
 
 ```sh
@@ -169,9 +189,36 @@ sudo apt install ./innernet*.deb
 
 ## Development
 
+### `innernet-server` Build dependencies
+
+* `rustc` / `cargo` (version 1.46.0 or higher)
+* `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
+* `libsqlite3`
+
+Build:
+
+```sh
+cargo build --release --bin innernet-server
+```
+
+The resulting binary will be located at `./target/release/innernet-server`
+
+### `innernet` Client CLI Build dependencies
+
+* `rustc` / `cargo` (version 1.46.0 or higher)
+* `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
+
+Build:
+
+```sh
+cargo build --release --bin innernet
+```
+
+The resulting binary will be located at `./target/release/innernet`
+
 ### Releases
 
-1. Run `cargo release [--dry-run] [{]minor|major|patch|...]` to automatically bump the crates appropriately.
+1. Run `cargo release [--dry-run] [minor|major|patch|...]` to automatically bump the crates appropriately.
 2. Create a new git tag (ex. `v0.6.0`).
 3. Push (with tags) to the repo.
 
