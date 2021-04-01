@@ -2,6 +2,7 @@ ARG DISTRO
 ARG VER
 
 FROM ${DISTRO}:${VER} as builder
+LABEL stage=innernet-rpm-builder
 
 COPY . .
 
