@@ -7,28 +7,30 @@ cmd() {
   "$@"
 }
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 1 ]; then
   echo "Usage: $0 distro version (from docker hub), e.g:"
   echo
-  echo "$0 fedora 33"
+  echo "$0 fedora:33"
   exit 1
+else
+  SPLIT_ARG=(${1//:/ })
+  DISTRO=${SPLIT_ARG[0]}
+  VER=${SPLIT_ARG[1]}
+
+  if [[ -z "$DISTRO" || -z "$VER" ]]; then
+    echo "bad arg"
+    exit 1
+  fi
 fi
 
-SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
+SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 cd $SCRIPT_DIR/..
 
-
-echo "will pull from docker $1:$2"
-docker build --tag innernet-rpm-builder --file rpm/Dockerfile --build-arg DISTRO="$1" --build-arg VER="$2" .
-
-mkdir -p target/rpm
+cmd docker build --tag "innernet-rpm-$DISTRO$VER" --file rpm/Dockerfile --build-arg DISTRO=$DISTRO --build-arg VER=$VER .
 
 echo "exporting built rpm's from docker image"
-CONTAINER_ID="$(docker create innernet-rpm-builder -v)"
-docker export $CONTAINER_ID | tar xC target/rpm *.rpm
+cmd docker run --rm innernet-rpm-$DISTRO$VER sh -c "tar cf - target/rpm/*" | tar xv
 
 echo "cleaning up"
-docker container rm $CONTAINER_ID
-docker image prune --force --filter label=stage=innernet-rpm-builder
-docker image rm innernet-rpm-builder
+cmd docker image prune --force --filter label=stage=innernet-rpm
