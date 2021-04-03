@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt,
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write},
     net::IpAddr,
     path::{Path, PathBuf},
