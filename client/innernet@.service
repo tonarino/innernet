@@ -2,6 +2,7 @@
 Description=innernet client daemon for %I
 After=network-online.target nss-lookup.target
 Wants=network-online.target nss-lookup.target
+PartOf=innernet.target
 
 [Service]
 Type=simple
