@@ -19,7 +19,7 @@ dashmap = "4"
 dialoguer = "0.8"
 hyper = "0.14"
 indoc = "1"
-ipnetwork = { git = "https://github.com/mcginty/ipnetwork" }
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 libc = "0.2"
 libsqlite3-sys = "0.20"
 log = "0.4"
@@ -34,7 +34,7 @@ structopt = "0.3"
 thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 toml = "0.5"
-warp = { git = "https://github.com/tonarino/warp", default-features = false }
+warp = { git = "https://github.com/tonarino/warp", default-features = false } # pending https://github.com/seanmonstar/warp/issues/830
 wgctrl = { path = "../wgctrl-rs" }
 
 
