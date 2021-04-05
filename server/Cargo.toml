@@ -34,8 +34,12 @@ structopt = "0.3"
 thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 toml = "0.5"
-warp = { version = "0.3", default-features = false }
+warp = { git = "https://github.com/tonarino/warp", default-features = false }
 wgctrl = { path = "../wgctrl-rs" }
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+socket2 = { version = "0.4", features = ["all"] }
 
 [dev-dependencies]
 anyhow = "1"

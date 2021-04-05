@@ -1,5 +1,6 @@
 use colored::*;
 use error::handle_rejection;
+use hyper::{server::conn::AddrStream, Body, Request};
 use indoc::printdoc;
 use ipnetwork::IpNetwork;
 use parking_lot::Mutex;
@@ -7,10 +8,11 @@ use rusqlite::Connection;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use shared::IoErrorContext;
 use std::{
+    convert::Infallible,
     env,
     fs::File,
     io::prelude::*,
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, SocketAddr, TcpListener},
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
@@ -304,11 +306,41 @@ async fn serve(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
 
     log::info!("innernet-server {} starting.", VERSION);
     let routes = routes(context.clone()).with(warp::log("warp")).boxed();
-    warp::serve(routes)
-        .run((config.address, config.listen_port))
-        .await;
+
+    let listener = get_listener((config.address, config.listen_port).into(), interface)?;
+
+    let warp_svc = warp::service(routes);
+    let make_svc = hyper::service::make_service_fn(move |socket: &AddrStream| {
+        let remote_addr = socket.remote_addr();
+        let warp_svc = warp_svc.clone();
+        async move {
+            let svc = hyper::service::service_fn(move |req: Request<Body>| {
+                let warp_svc = warp_svc.clone();
+                async move { warp_svc.call_with_addr(req, Some(remote_addr)).await }
+            });
+            Ok::<_, Infallible>(svc)
+        }
+    });
+
+    hyper::Server::from_tcp(listener)?.serve(make_svc).await?;
 
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn get_listener(addr: SocketAddr, interface: &str) -> Result<TcpListener, Error> {
+    let listener = TcpListener::bind(&addr)?;
+    listener.set_nonblocking(true)?;
+    let sock = socket2::Socket::from(listener);
+    sock.bind_device(Some(interface.as_bytes()))?;
+    Ok(sock.into())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_listener(addr: SocketAddr, _interface: &str) -> Result<TcpListener, Error> {
+    let listener = TcpListener::bind(&addr)?;
+    listener.set_nonblocking(true)?;
+    Ok(listener)
 }
 
 pub fn routes(
