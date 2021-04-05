@@ -3,10 +3,10 @@ authors = ["Jake McGinty <jake@tonari.no>"]
 description = "A client to manage innernet network interfaces."
 edition = "2018"
 homepage = "https://github.com/tonarino/innernet"
-repository = "https://github.com/tonarino/innernet"
 license = "MIT"
 name = "client"
 publish = false
+repository = "https://github.com/tonarino/innernet"
 version = "1.0.0"
 
 [[bin]]
@@ -18,7 +18,7 @@ colored = "2"
 dialoguer = "0.8"
 hostsfile = { path = "../hostsfile" }
 indoc = "1"
-ipnetwork = { git = "https://github.com/mcginty/ipnetwork" }
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 lazy_static = "1"
 libc = "0.2"
 regex = { version = "1", default-features = false, features = ["std"] }

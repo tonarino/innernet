@@ -19,5 +19,5 @@ wgctrl-sys = { path = "../wgctrl-sys" }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 rand_core = "0.6"
-x25519-dalek = { git = "https://github.com/mcginty/x25519-dalek", branch = "master" }
 subtle = "2"
+x25519-dalek = { git = "https://github.com/mcginty/x25519-dalek", branch = "master" } # pending https://github.com/dalek-cryptography/x25519-dalek/pull/64

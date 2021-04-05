@@ -10,7 +10,7 @@ version = "1.0.0"
 colored = "2.0"
 dialoguer = "0.8"
 indoc = "1"
-ipnetwork = { git = "https://github.com/mcginty/ipnetwork" }
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 lazy_static = "1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
