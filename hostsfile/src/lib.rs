@@ -127,18 +127,16 @@ impl HostsBuilder {
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
     /// name already, it will be replaced with the new list instead.
-    pub fn write_to<P: AsRef<Path>>(&self, hosts_file: P) -> Result<()> {
-        let hosts_file = hosts_file.as_ref();
+    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> Result<()> {
+        let hosts_path = hosts_path.as_ref();
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
 
-        let mut lines = match File::open(hosts_file) {
-            Ok(file) => BufReader::new(file)
-                .lines()
-                .map(|line| line.unwrap())
-                .collect::<Vec<_>>(),
-            _ => Vec::new(),
-        };
+        let hosts_file = OpenOptions::new().read(true).create(true).open(hosts_path)?;
+        let mut lines = BufReader::new(hosts_file)
+            .lines()
+            .map(|line| line.unwrap())
+            .collect::<Vec<_>>();
 
         let begin = lines.iter().position(|line| line.trim() == begin_marker);
         let end = lines.iter().position(|line| line.trim() == end_marker);
@@ -160,20 +158,20 @@ impl HostsBuilder {
             _ => {
                 return Err(Box::new(Error(format!(
                     "start or end marker missing in {:?}",
-                    &hosts_file
+                    &hosts_path
                 ))));
             },
         };
 
         // The tempfile should be in the same filesystem as the hosts file.
-        let hosts_dir = hosts_file
+        let hosts_dir = hosts_path
             .parent()
             .expect("hosts file must be an absolute file path");
         let temp_dir = tempfile::Builder::new().tempdir_in(hosts_dir)?;
         let temp_path = temp_dir.path().join("hosts");
 
         // Copy the existing hosts file to preserve permissions.
-        fs::copy(&hosts_file, &temp_path)?;
+        fs::copy(&hosts_path, &temp_path)?;
 
         let mut file = File::create(&temp_path)?;
 
@@ -192,7 +190,7 @@ impl HostsBuilder {
         }
 
         // Move the file atomically to avoid a partial state.
-        fs::rename(&temp_path, &hosts_file)?;
+        fs::rename(&temp_path, &hosts_path)?;
 
         Ok(())
     }
