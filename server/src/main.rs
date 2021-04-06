@@ -327,6 +327,12 @@ async fn serve(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
     Ok(())
 }
 
+/// This function differs per OS, because different operating systems have
+/// opposing characteristics when binding to a specific IP address.
+/// On Linux, binding to a specific local IP address does *not* bind it to
+/// that IP's interface, allowing for spoofing attacks.
+///
+/// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(target_os = "linux")]
 fn get_listener(addr: SocketAddr, interface: &str) -> Result<TcpListener, Error> {
     let listener = TcpListener::bind(&addr)?;
@@ -336,6 +342,12 @@ fn get_listener(addr: SocketAddr, interface: &str) -> Result<TcpListener, Error>
     Ok(sock.into())
 }
 
+/// BSD-likes do seem to bind to an interface when binding to an IP,
+/// according to the internet, but we may want to explicitly use
+/// IP_BOUND_IF in the future regardless. This isn't currently in
+/// the socket2 crate however, so we aren't currently using it.
+///
+/// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(not(target_os = "linux"))]
 fn get_listener(addr: SocketAddr, _interface: &str) -> Result<TcpListener, Error> {
     let listener = TcpListener::bind(&addr)?;
