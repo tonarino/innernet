@@ -1,11 +1,15 @@
-use crate::{DeviceConfigBuilder, DeviceInfo, PeerConfig, PeerInfo, PeerStats};
+use crate::{
+    DeviceConfigBuilder, DeviceInfo, InvalidInterfaceName, PeerConfig, PeerInfo,
+    PeerStats,
+};
 
 #[cfg(target_os = "linux")]
 use crate::Key;
 
 use std::{
-    fs, io,
-    io::{prelude::*, BufReader},
+    convert::TryInto,
+    fs,
+    io::{self, prelude::*, BufReader},
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::Command,
@@ -100,9 +104,10 @@ impl From<ConfigParser> for DeviceInfo {
 }
 
 impl ConfigParser {
-    fn new(name: &str) -> Self {
+    /// Returns `None` if an invalid device name was provided.
+    fn new(name: &str) -> Result<Self, InvalidInterfaceName> {
         let device_info = DeviceInfo {
-            name: name.to_string(),
+            name: name.try_into()?,
             public_key: None,
             private_key: None,
             fwmark: None,
@@ -112,10 +117,10 @@ impl ConfigParser {
             __cant_construct_me: (),
         };
 
-        Self {
+        Ok(Self {
             device_info,
             current_peer: None,
-        }
+        })
     }
 
     fn add_line(&mut self, line: &str) -> Result<(), std::io::Error> {
@@ -234,7 +239,8 @@ pub fn get_by_name(name: &str) -> Result<DeviceInfo, io::Error> {
     let mut reader = BufReader::new(sock);
     let mut buf = String::new();
 
-    let mut parser = ConfigParser::new(name);
+    let mut parser = ConfigParser::new(name)?;
+
     loop {
         match reader.read_line(&mut buf)? {
             0 | 1 if buf == "\n" => break,

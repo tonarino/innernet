@@ -1,13 +1,10 @@
 use crate::{
     backends,
-    device::{AllowedIp, PeerConfig},
+    device::{AllowedIp, InterfaceName, PeerConfig},
     key::{Key, KeyPair},
 };
 
-use std::{
-    io,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-};
+use std::{convert::TryInto, io, net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr}};
 
 /// Builds and represents a configuration that can be applied to a WireGuard interface.
 ///
@@ -173,7 +170,8 @@ impl DeviceConfigBuilder {
     #[cfg(target_os = "linux")]
     pub fn apply(self, iface: &str) -> io::Result<()> {
         if backends::kernel::exists() {
-            backends::kernel::apply(self, iface)
+            let iface = iface.try_into()?;
+            backends::kernel::apply(self, &iface)
         } else {
             backends::userspace::apply(self, iface)
         }
@@ -353,6 +351,6 @@ impl PeerConfigBuilder {
 
 /// Deletes an existing WireGuard interface by name.
 #[cfg(target_os = "linux")]
-pub fn delete_interface(iface: &str) -> io::Result<()> {
+pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
     backends::kernel::delete_interface(iface)
 }

@@ -1,9 +1,8 @@
+use libc::c_char;
+
 use crate::{backends, key::Key};
 
-use std::{
-    net::{IpAddr, SocketAddr},
-    time::SystemTime,
-};
+use std::{borrow::Cow, convert::{TryFrom, TryInto}, ffi::CStr, fmt, net::{IpAddr, SocketAddr}, time::SystemTime};
 
 /// Represents an IP address a peer is allowed to have, in CIDR notation.
 ///
@@ -86,7 +85,7 @@ pub struct PeerInfo {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DeviceInfo {
     /// The interface name of this device
-    pub name: String,
+    pub name: InterfaceName,
     /// The public encryption key of this interface (if present)
     pub public_key: Option<Key>,
     /// The private encryption key of this interface (if present)
@@ -102,6 +101,124 @@ pub struct DeviceInfo {
 
     pub(crate) __cant_construct_me: (),
 }
+
+type RawInterfaceName = [c_char; libc::IFNAMSIZ];
+
+/// The name of a Wireguard interface device.
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub struct InterfaceName(RawInterfaceName);
+
+impl TryFrom<&str> for InterfaceName {
+    type Error = InvalidInterfaceName;
+
+    fn try_from(name: &str) -> Result<Self, InvalidInterfaceName> {
+        let len = name.len();
+        // Ensure its short enough to include a trailing NUL
+        if len > (libc::IFNAMSIZ - 1) {
+            return Err(InvalidInterfaceName::TooLong(len));
+        }
+
+        if len == 0 || name.trim_start_matches('\0').is_empty() {
+            return Err(InvalidInterfaceName::Empty);
+        }
+
+        let mut buf = [c_char::default(); libc::IFNAMSIZ];
+        // Check for interior NULs and other invalid characters.
+        for (out, b) in buf.iter_mut().zip(name.as_bytes()[..(len - 1)].iter()) {
+            if *b == 0 {
+                return Err(InvalidInterfaceName::InteriorNul);
+            }
+
+            if *b == b'/' || *b == b' ' {
+                return Err(InvalidInterfaceName::InvalidChars);
+            }
+
+            *out = *b as i8;
+        }
+
+        Ok(Self(buf))
+    }
+}
+
+impl InterfaceName {
+    /// Creates a new [InterfaceName](Self).
+    ///
+    /// ## Safety
+    ///
+    /// The caller must ensure that `name` is a valid C string terminated by a NUL.
+    pub(crate) unsafe fn from_wg(name: RawInterfaceName) -> Self {
+        Self(name)
+    }
+
+    /// Returns a human-readable form of the device name.
+    fn as_str_lossy(&self) -> Cow<'_, str> {
+        // SAFETY: These are C strings coming from wgctrl, so they are correctly NUL terminated.
+        unsafe { CStr::from_ptr(self.0.as_ptr()) }.to_string_lossy()
+    }
+
+    /// Returns a pointer to the inner byte buffer for FFI calls.
+    pub(crate) fn as_ptr(&self) -> *const c_char {
+        self.0.as_ptr()
+    }
+
+    /// Consumes this interface name, returning its raw byte buffer.
+    pub(crate) fn into_inner(self) -> RawInterfaceName {
+        self.0
+    }
+}
+
+impl fmt::Debug for InterfaceName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.as_str_lossy())
+    }
+}
+
+impl fmt::Display for InterfaceName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.as_str_lossy())
+    }
+}
+
+/// An interface name was bad.
+#[derive(Debug, PartialEq)]
+pub enum InvalidInterfaceName {
+    /// Provided name had an interior NUL byte.
+    InteriorNul,
+    /// Provided name was longer then the interface name length limit
+    /// of the system.
+    TooLong(usize),
+
+    // These checks are done in the kernel as well, but no reason to let bad names
+    // get that far: https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/tree/lib/utils.c?id=1f420318bda3cc62156e89e1b56d60cc744b48ad#n827.
+    /// Interface name was an empty string.
+    Empty,
+    /// Interface name contained a `/` or space character.
+    InvalidChars,
+}
+
+impl fmt::Display for InvalidInterfaceName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InteriorNul => f.write_str("interface name contained an interior NUL byte"),
+            Self::TooLong(size) => write!(
+                f,
+                "interface name was {} bytes long but the system's max is {}",
+                size,
+                libc::IFNAMSIZ
+            ),
+            Self::Empty => f.write_str("an empty interface name was provided"),
+            Self::InvalidChars => f.write_str("interface name contained slash or space characters"),
+        }
+    }
+}
+
+impl From<InvalidInterfaceName> for std::io::Error {
+    fn from(e: InvalidInterfaceName) -> Self {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+    }
+}
+
+impl std::error::Error for InvalidInterfaceName {}
 
 impl DeviceInfo {
     /// Enumerates all WireGuard interfaces currently present in the system
@@ -126,7 +243,8 @@ impl DeviceInfo {
     #[cfg(target_os = "linux")]
     pub fn get_by_name(name: &str) -> Result<Self, std::io::Error> {
         if backends::kernel::exists() {
-            backends::kernel::get_by_name(name)
+            let name = name.try_into()?;
+            backends::kernel::get_by_name(&name)
         } else {
             backends::userspace::get_by_name(name)
         }
@@ -150,7 +268,10 @@ impl DeviceInfo {
 
 #[cfg(test)]
 mod tests {
-    use crate::{DeviceConfigBuilder, KeyPair, PeerConfigBuilder};
+    use crate::{
+        DeviceConfigBuilder, InterfaceName, InvalidInterfaceName, KeyPair, PeerConfigBuilder,
+    };
+    use std::convert::TryFrom;
 
     const TEST_INTERFACE: &str = "wgctrl-test";
     use super::*;
@@ -178,5 +299,25 @@ mod tests {
         }
 
         device.delete().unwrap();
+    }
+
+    #[test]
+    fn test_interface_names() {
+        assert!(InterfaceName::try_from("wg-01").is_ok());
+        assert!(InterfaceName::try_from("longer-nul\0").is_ok());
+
+        let invalid_names = &[
+            ("", InvalidInterfaceName::Empty),   // Empty Rust string
+            ("\0", InvalidInterfaceName::Empty), // Empty C string
+            ("ifname\0nul", InvalidInterfaceName::InteriorNul), // Contains interior NUL
+            ("if name", InvalidInterfaceName::InvalidChars), // Contains a space
+            ("ifna/me", InvalidInterfaceName::InvalidChars), // Contains a slash
+            ("if na/me", InvalidInterfaceName::InvalidChars), // Contains a space and slash
+            ("interfacelongname", InvalidInterfaceName::TooLong(17)), // Too long
+        ];
+
+        for (name, expected) in invalid_names {
+            assert!(InterfaceName::try_from(*name).as_ref() == Err(expected))
+        }
     }
 }

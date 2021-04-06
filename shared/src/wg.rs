@@ -1,10 +1,7 @@
 use crate::{Error, IoErrorContext};
 use ipnetwork::IpNetwork;
-use std::{
-    net::{IpAddr, SocketAddr},
-    process::{self, Command},
-};
-use wgctrl::{DeviceConfigBuilder, PeerConfigBuilder};
+use std::{convert::TryFrom, net::{IpAddr, SocketAddr}, process::{self, Command}};
+use wgctrl::{DeviceConfigBuilder, InterfaceName, PeerConfigBuilder};
 
 fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     let output = Command::new(bin).args(args).output()?;
@@ -99,7 +96,8 @@ pub fn set_listen_port(interface: &str, listen_port: Option<u16>) -> Result<(), 
 
 #[cfg(target_os = "linux")]
 pub fn down(interface: &str) -> Result<(), Error> {
-    Ok(wgctrl::delete_interface(interface).with_str(interface)?)
+    let interface = InterfaceName::try_from(interface)?;
+    Ok(wgctrl::delete_interface(&interface).with_str(interface.to_string())?)
 }
 
 #[cfg(not(target_os = "linux"))]

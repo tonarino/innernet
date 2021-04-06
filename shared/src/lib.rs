@@ -365,7 +365,7 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
                 let metadata = target_file.metadata().with_path(dir)?;
                 let mut permissions = metadata.permissions();
                 permissions.set_mode(0o700);
-            },
+            }
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
                 return Err(e.into());
             },

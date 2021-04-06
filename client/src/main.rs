@@ -678,7 +678,7 @@ fn print_interface(device_info: &DeviceInfo, me: &Peer, short: bool) -> Result<(
         .to_base64();
 
     if short {
-        println!("{}", device_info.name.green().bold());
+        println!("{}", device_info.name.to_string().green().bold());
         println!(
             "  {} {}: {} ({}...)",
             "(you)".bold(),
@@ -690,7 +690,7 @@ fn print_interface(device_info: &DeviceInfo, me: &Peer, short: bool) -> Result<(
         println!(
             "{}: {} ({}...)",
             "interface".green().bold(),
-            device_info.name.green(),
+            device_info.name.to_string().green(),
             public_key[..10].yellow()
         );
         if !short {
