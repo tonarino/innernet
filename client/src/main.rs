@@ -31,10 +31,32 @@ struct Opt {
 }
 
 #[derive(Debug, StructOpt)]
+struct HostsOpt {
+    /// The path to write hosts to.
+    #[structopt(long, default_value = "/etc/hosts")]
+    hosts_path: PathBuf,
+
+    /// Don't write to any hosts files. This takes precedence over --hosts-path.
+    #[structopt(long)]
+    no_write_hosts: bool,
+}
+
+impl From<HostsOpt> for Option<PathBuf> {
+    fn from(opt: HostsOpt) -> Self {
+        (!opt.no_write_hosts).then(|| opt.hosts_path)
+    }
+}
+
+#[derive(Debug, StructOpt)]
 enum Command {
     /// Install a new innernet config.
     #[structopt(alias = "redeem")]
-    Install { config: PathBuf },
+    Install {
+        config: PathBuf,
+
+        #[structopt(flatten)]
+        hosts: HostsOpt,
+    },
 
     /// Enumerate all innernet connections.
     #[structopt(alias = "list")]
@@ -60,11 +82,19 @@ enum Command {
         #[structopt(long, default_value = "60")]
         interval: u64,
 
+        #[structopt(flatten)]
+        hosts: HostsOpt,
+
         interface: Interface,
     },
 
     /// Fetch and update your local interface with the latest peer list.
-    Fetch { interface: Interface },
+    Fetch {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        hosts: HostsOpt,
+    },
 
     /// Bring down the interface (equivalent to "wg-quick down [interface]")
     Down { interface: Interface },
@@ -125,7 +155,7 @@ impl std::error::Error for ClientError {
     }
 }
 
-fn update_hosts_file(interface: &str, peers: &Vec<Peer>) -> Result<(), Error> {
+fn update_hosts_file(interface: &str, hosts_path: PathBuf, peers: &Vec<Peer>) -> Result<(), Error> {
     println!(
         "{} updating {} with the latest peers.",
         "[*]".dimmed(),
@@ -139,12 +169,12 @@ fn update_hosts_file(interface: &str, peers: &Vec<Peer>) -> Result<(), Error> {
             &format!("{}.{}.wg", peer.contents.name, interface),
         );
     }
-    hosts_builder.write()?;
+    hosts_builder.write_to(hosts_path)?;
 
     Ok(())
 }
 
-fn install(invite: &Path) -> Result<(), Error> {
+fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
     let theme = ColorfulTheme::default();
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
     let mut config = InterfaceConfig::from_file(invite)?;
@@ -205,7 +235,7 @@ fn install(invite: &Path) -> Result<(), Error> {
         .set_private_key(keypair.private)
         .apply(&iface)?;
 
-    fetch(&iface, false)?;
+    fetch(&iface, false, hosts_file)?;
 
     if Confirm::with_theme(&theme)
         .with_prompt(&format!(
@@ -228,8 +258,12 @@ fn install(invite: &Path) -> Result<(), Error> {
 
                 {systemctl_enable}{interface}
 
-            See the documentation for more detailed instruction on managing your interface
-            and your network.
+            By default, innernet will write to your /etc/hosts file for peer name
+            resolution. To disable this behavior, use the --no-write-hosts or --write-hosts [PATH]
+            options.
+
+            See the manpage or innernet GitHub repo for more detailed instruction on managing your
+            interface and network. Have fun!
 
     ",
         star = "[*]".dimmed(),
@@ -241,9 +275,13 @@ fn install(invite: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn up(interface: &str, loop_interval: Option<Duration>) -> Result<(), Error> {
+fn up(
+    interface: &str,
+    loop_interval: Option<Duration>,
+    hosts_path: Option<PathBuf>,
+) -> Result<(), Error> {
     loop {
-        fetch(interface, true)?;
+        fetch(interface, true, hosts_path.clone())?;
         match loop_interval {
             Some(interval) => thread::sleep(interval),
             None => break,
@@ -253,7 +291,11 @@ fn up(interface: &str, loop_interval: Option<Duration>) -> Result<(), Error> {
     Ok(())
 }
 
-fn fetch(interface: &str, bring_up_interface: bool) -> Result<(), Error> {
+fn fetch(
+    interface: &str,
+    bring_up_interface: bool,
+    hosts_path: Option<PathBuf>,
+) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     let interface_up = if let Ok(interfaces) = DeviceInfo::enumerate() {
         interfaces.iter().any(|name| name == interface)
@@ -349,7 +391,9 @@ fn fetch(interface: &str, bring_up_interface: bool) -> Result<(), Error> {
     if device_config_changed {
         device_config_builder.apply(&interface)?;
 
-        update_hosts_file(interface, &peers)?;
+        if let Some(path) = hosts_path {
+            update_hosts_file(interface, path, &peers)?;
+        }
 
         println!(
             "\n{} updated interface {}\n",
@@ -724,18 +768,23 @@ fn run(opt: Opt) -> Result<(), Error> {
     });
 
     match command {
-        Command::Install { config } => install(&config)?,
+        Command::Install { config, hosts } => install(&config, hosts.into())?,
         Command::Show {
             short,
             tree,
             interface,
         } => show(short, tree, interface)?,
-        Command::Fetch { interface } => fetch(&interface, false)?,
+        Command::Fetch { interface, hosts } => fetch(&interface, false, hosts.into())?,
         Command::Up {
             interface,
             daemon,
+            hosts,
             interval,
-        } => up(&interface, daemon.then(|| Duration::from_secs(interval)))?,
+        } => up(
+            &interface,
+            daemon.then(|| Duration::from_secs(interval)),
+            hosts.into(),
+        )?,
         Command::Down { interface } => wg::down(&interface)?,
         Command::AddPeer { interface } => add_peer(&interface)?,
         Command::AddCidr { interface } => add_cidr(&interface)?,
