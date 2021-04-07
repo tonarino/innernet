@@ -10,9 +10,13 @@ use std::{
     net::{IpAddr, SocketAddr},
     os::raw::c_char,
     path::Path,
+    process::Command,
     ptr, str,
+    sync::Once,
     time::{Duration, SystemTime},
 };
+
+static MODPROBE: Once = Once::new();
 
 impl<'a> From<&'a wgctrl_sys::wg_allowedip> for AllowedIp {
     fn from(raw: &wgctrl_sys::wg_allowedip) -> AllowedIp {
@@ -303,6 +307,15 @@ fn encode_name(name: &str) -> [c_char; 16] {
 }
 
 pub fn exists() -> bool {
+    // Try to load the wireguard module is loaded if it was not before.
+    MODPROBE.call_once(|| {
+        Command::new("/sbin/modprobe")
+            .arg("wireguard")
+            .output()
+            .ok();
+    });
+
+    // Check that the wireguard module is loaded.
     Path::new("/sys/module/wireguard").is_dir()
 }
 
