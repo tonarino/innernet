@@ -132,7 +132,7 @@ impl HostsBuilder {
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
 
-        let hosts_file = OpenOptions::new().read(true).create(true).open(hosts_path)?;
+        let hosts_file = OpenOptions::new().create(true).read(true).write(true).open(hosts_path)?;
         let mut lines = BufReader::new(hosts_file)
             .lines()
             .map(|line| line.unwrap())

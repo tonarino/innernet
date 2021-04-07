@@ -36,14 +36,14 @@ struct HostsOpt {
     #[structopt(long, default_value = "/etc/hosts")]
     hosts_path: PathBuf,
 
-    /// Don't modify /etc/hosts.
+    /// Don't write to any hosts files. This takes precedence over --hosts-path.
     #[structopt(long)]
     no_write_hosts: bool,
 }
 
 impl From<HostsOpt> for Option<PathBuf> {
     fn from(opt: HostsOpt) -> Self {
-        opt.no_write_hosts.then(|| opt.hosts_path)
+        (!opt.no_write_hosts).then(|| opt.hosts_path)
     }
 }
 
