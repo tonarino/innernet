@@ -7,7 +7,7 @@ license = "LGPL-2.1-or-later"
 name = "wgctrl"
 publish = false
 readme = "../README.md"
-version = "1.0.0"
+version = "1.0.1"
 
 [dependencies]
 base64 = "0.13"
