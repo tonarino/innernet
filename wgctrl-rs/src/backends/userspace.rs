@@ -248,12 +248,25 @@ pub fn get_by_name(name: &str) -> Result<DeviceInfo, io::Error> {
     Ok(parser.into())
 }
 
+/// Following the rough logic of wg-quick(8), use the wireguard-go userspace
+/// implementation by default, but allow for an environment variable to choose
+/// a different implementation.
+///
+/// wgctrl-rs will look for WG_USERSPACE_IMPLEMENTATION first, but will also
+/// respect the WG_QUICK_USERSPACE_IMPLEMENTATION choice if the former isn't
+/// available.
+fn get_userspace_implementation() -> String {
+    std::env::var("WG_USERSPACE_IMPLEMENTATION")
+        .or(std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
+        .unwrap_or_else(|_| "wireguard-go".to_string())
+}
+
 pub fn apply(builder: DeviceConfigBuilder, iface: &str) -> io::Result<()> {
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
         Err(_) => {
             // TODO(jake): allow other userspace wireguard implementations
-            let output = Command::new("wireguard-go")
+            let output = Command::new(&get_userspace_implementation())
                 .env(
                     "WG_TUN_NAME_FILE",
                     &format!("{}/{}.name", VAR_RUN_PATH, iface),
@@ -322,12 +335,14 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &str) -> io::Result<()> {
 
     request.push('\n');
 
+    println!("writing: {}", request);
     sock.write_all(request.as_bytes())?;
 
     let mut reader = BufReader::new(sock);
     let mut line = String::new();
 
     reader.read_line(&mut line)?;
+    println!("got line: {}", line);
     let split: Vec<&str> = line.trim_end().splitn(2, '=').collect();
     match &split[..] {
         ["errno", "0"] => Ok(()),
