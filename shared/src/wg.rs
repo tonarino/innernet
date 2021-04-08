@@ -1,6 +1,9 @@
 use crate::{Error, IoErrorContext};
 use ipnetwork::IpNetwork;
-use std::{convert::TryFrom, net::{IpAddr, SocketAddr}, process::{self, Command}};
+use std::{
+    net::{IpAddr, SocketAddr},
+    process::{self, Command},
+};
 use wgctrl::{DeviceConfigBuilder, InterfaceName, PeerConfigBuilder};
 
 fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
@@ -19,8 +22,9 @@ fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn set_addr(interface: &str, addr: IpNetwork) -> Result<(), Error> {
-    let real_interface = wgctrl::backends::userspace::resolve_tun(interface).with_str(interface)?;
+pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error> {
+    let real_interface =
+        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
 
     if addr.is_ipv4() {
         cmd(
@@ -44,20 +48,21 @@ pub fn set_addr(interface: &str, addr: IpNetwork) -> Result<(), Error> {
 }
 
 #[cfg(target_os = "linux")]
-pub fn set_addr(interface: &str, addr: IpNetwork) -> Result<(), Error> {
+pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error> {
+    let interface = interface.to_string();
     cmd(
         "ip",
-        &["address", "replace", &addr.to_string(), "dev", interface],
+        &["address", "replace", &addr.to_string(), "dev", &interface],
     )?;
     let _ = cmd(
         "ip",
-        &["link", "set", "mtu", "1420", "up", "dev", interface],
+        &["link", "set", "mtu", "1420", "up", "dev", &interface],
     );
     Ok(())
 }
 
 pub fn up(
-    interface: &str,
+    interface: &InterfaceName,
     private_key: &str,
     address: IpNetwork,
     listen_port: Option<u16>,
@@ -82,7 +87,7 @@ pub fn up(
     Ok(())
 }
 
-pub fn set_listen_port(interface: &str, listen_port: Option<u16>) -> Result<(), Error> {
+pub fn set_listen_port(interface: &InterfaceName, listen_port: Option<u16>) -> Result<(), Error> {
     let mut device = DeviceConfigBuilder::new();
     if let Some(listen_port) = listen_port {
         device = device.set_listen_port(listen_port);
@@ -95,25 +100,24 @@ pub fn set_listen_port(interface: &str, listen_port: Option<u16>) -> Result<(), 
 }
 
 #[cfg(target_os = "linux")]
-pub fn down(interface: &str) -> Result<(), Error> {
-    let interface = InterfaceName::try_from(interface)?;
+pub fn down(interface: &InterfaceName) -> Result<(), Error> {
     Ok(wgctrl::delete_interface(&interface).with_str(interface.to_string())?)
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn down(interface: &str) -> Result<(), Error> {
+pub fn down(interface: &InterfaceName) -> Result<(), Error> {
     wgctrl::backends::userspace::delete_interface(interface)
-        .with_str(interface)
+        .with_str(interface.to_string())
         .map_err(Error::from)
 }
 
 /// Add a route in the OS's routing table to get traffic flowing through this interface.
 /// Returns an error if the process doesn't exit successfully, otherwise returns
 /// true if the route was changed, false if the route already exists.
-pub fn add_route(interface: &str, cidr: IpNetwork) -> Result<bool, Error> {
+pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Error> {
     if cfg!(target_os = "macos") {
         let real_interface =
-            wgctrl::backends::userspace::resolve_tun(interface).with_str(interface)?;
+            wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
         let output = cmd(
             "route",
             &[
@@ -139,7 +143,13 @@ pub fn add_route(interface: &str, cidr: IpNetwork) -> Result<bool, Error> {
         // TODO(mcginty): use the netlink interface on linux to modify routing table.
         let _ = cmd(
             "ip",
-            &["route", "add", &cidr.to_string(), "dev", &interface],
+            &[
+                "route",
+                "add",
+                &cidr.to_string(),
+                "dev",
+                &interface.to_string(),
+            ],
         );
         Ok(false)
     }

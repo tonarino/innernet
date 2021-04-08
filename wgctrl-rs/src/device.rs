@@ -2,7 +2,14 @@ use libc::c_char;
 
 use crate::{backends, key::Key};
 
-use std::{borrow::Cow, convert::{TryFrom, TryInto}, ffi::CStr, fmt, net::{IpAddr, SocketAddr}, time::SystemTime};
+use std::{
+    borrow::Cow,
+    convert::TryFrom,
+    ffi::CStr,
+    fmt,
+    net::{IpAddr, SocketAddr},
+    time::SystemTime,
+};
 
 /// Represents an IP address a peer is allowed to have, in CIDR notation.
 ///
@@ -141,6 +148,7 @@ impl TryFrom<&str> for InterfaceName {
 }
 
 impl InterfaceName {
+    #[cfg(target_os = "linux")]
     /// Creates a new [InterfaceName](Self).
     ///
     /// ## Safety
@@ -151,16 +159,20 @@ impl InterfaceName {
     }
 
     /// Returns a human-readable form of the device name.
-    fn as_str_lossy(&self) -> Cow<'_, str> {
+    ///
+    /// Only use this when the interface name was constructed from a Rust string.
+    pub fn as_str_lossy(&self) -> Cow<'_, str> {
         // SAFETY: These are C strings coming from wgctrl, so they are correctly NUL terminated.
         unsafe { CStr::from_ptr(self.0.as_ptr()) }.to_string_lossy()
     }
 
+    #[cfg(target_os = "linux")]
     /// Returns a pointer to the inner byte buffer for FFI calls.
     pub(crate) fn as_ptr(&self) -> *const c_char {
         self.0.as_ptr()
     }
 
+    #[cfg(target_os = "linux")]
     /// Consumes this interface name, returning its raw byte buffer.
     pub(crate) fn into_inner(self) -> RawInterfaceName {
         self.0
@@ -227,7 +239,7 @@ impl DeviceInfo {
     /// You can use [`get_by_name`](DeviceInfo::get_by_name) to retrieve more
     /// detailed information on each interface.
     #[cfg(target_os = "linux")]
-    pub fn enumerate() -> Result<Vec<String>, std::io::Error> {
+    pub fn enumerate() -> Result<Vec<InterfaceName>, std::io::Error> {
         if backends::kernel::exists() {
             backends::kernel::enumerate()
         } else {
@@ -236,22 +248,21 @@ impl DeviceInfo {
     }
 
     #[cfg(not(target_os = "linux"))]
-    pub fn enumerate() -> Result<Vec<String>, std::io::Error> {
+    pub fn enumerate() -> Result<Vec<InterfaceName>, std::io::Error> {
         crate::backends::userspace::enumerate()
     }
 
     #[cfg(target_os = "linux")]
-    pub fn get_by_name(name: &str) -> Result<Self, std::io::Error> {
+    pub fn get_by_name(name: &InterfaceName) -> Result<Self, std::io::Error> {
         if backends::kernel::exists() {
-            let name = name.try_into()?;
-            backends::kernel::get_by_name(&name)
+            backends::kernel::get_by_name(name)
         } else {
             backends::userspace::get_by_name(name)
         }
     }
 
     #[cfg(not(target_os = "linux"))]
-    pub fn get_by_name(name: &str) -> Result<Self, std::io::Error> {
+    pub fn get_by_name(name: &InterfaceName) -> Result<Self, std::io::Error> {
         backends::userspace::get_by_name(name)
     }
 
@@ -287,9 +298,10 @@ mod tests {
         for keypair in &keypairs {
             builder = builder.add_peer(PeerConfigBuilder::new(&keypair.public))
         }
-        builder.apply(TEST_INTERFACE).unwrap();
+        let interface = InterfaceName::try_from(TEST_INTERFACE).unwrap();
+        builder.apply(&interface).unwrap();
 
-        let device = DeviceInfo::get_by_name(TEST_INTERFACE).unwrap();
+        let device = DeviceInfo::get_by_name(&interface).unwrap();
 
         for keypair in &keypairs {
             assert!(device

@@ -4,7 +4,10 @@ use crate::{
     key::{Key, KeyPair},
 };
 
-use std::{convert::TryInto, io, net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr}};
+use std::{
+    io,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+};
 
 /// Builds and represents a configuration that can be applied to a WireGuard interface.
 ///
@@ -168,9 +171,8 @@ impl DeviceConfigBuilder {
     ///
     /// An interface with the provided name will be created if one does not exist already.
     #[cfg(target_os = "linux")]
-    pub fn apply(self, iface: &str) -> io::Result<()> {
+    pub fn apply(self, iface: &InterfaceName) -> io::Result<()> {
         if backends::kernel::exists() {
-            let iface = iface.try_into()?;
             backends::kernel::apply(self, &iface)
         } else {
             backends::userspace::apply(self, iface)
@@ -178,7 +180,7 @@ impl DeviceConfigBuilder {
     }
 
     #[cfg(not(target_os = "linux"))]
-    pub fn apply(self, iface: &str) -> io::Result<()> {
+    pub fn apply(self, iface: &InterfaceName) -> io::Result<()> {
         backends::userspace::apply(self, iface)
     }
 }

@@ -1,7 +1,4 @@
-use crate::{
-    DeviceConfigBuilder, DeviceInfo, InvalidInterfaceName, PeerConfig, PeerInfo,
-    PeerStats,
-};
+use crate::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfig, PeerInfo, PeerStats};
 
 #[cfg(target_os = "linux")]
 use crate::Key;
@@ -32,31 +29,31 @@ fn get_base_folder() -> io::Result<PathBuf> {
     }
 }
 
-fn get_namefile(name: &str) -> io::Result<PathBuf> {
-    Ok(get_base_folder()?.join(&format!("{}.name", name)))
+fn get_namefile(name: &InterfaceName) -> io::Result<PathBuf> {
+    Ok(get_base_folder()?.join(&format!("{}.name", name.as_str_lossy())))
 }
 
-fn get_socketfile(name: &str) -> io::Result<PathBuf> {
+fn get_socketfile(name: &InterfaceName) -> io::Result<PathBuf> {
     Ok(get_base_folder()?.join(&format!("{}.sock", resolve_tun(name)?)))
 }
 
-fn open_socket(name: &str) -> io::Result<UnixStream> {
+fn open_socket(name: &InterfaceName) -> io::Result<UnixStream> {
     UnixStream::connect(get_socketfile(name)?)
 }
 
-pub fn resolve_tun(name: &str) -> io::Result<String> {
+pub fn resolve_tun(name: &InterfaceName) -> io::Result<String> {
     let namefile = get_namefile(name)?;
     Ok(fs::read_to_string(namefile)?.trim().to_string())
 }
 
-pub fn delete_interface(name: &str) -> io::Result<()> {
+pub fn delete_interface(name: &InterfaceName) -> io::Result<()> {
     fs::remove_file(get_socketfile(name)?).ok();
     fs::remove_file(get_namefile(name)?).ok();
 
     Ok(())
 }
 
-pub fn enumerate() -> Result<Vec<String>, io::Error> {
+pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     use std::ffi::OsStr;
 
     let mut interfaces = vec![];
@@ -65,7 +62,7 @@ pub fn enumerate() -> Result<Vec<String>, io::Error> {
         if path.extension() == Some(OsStr::new("name")) {
             let stem = path.file_stem().map(|stem| stem.to_str()).flatten();
             if let Some(name) = stem {
-                interfaces.push(name.to_string());
+                interfaces.push(name.try_into()?);
             }
         }
     }
@@ -105,9 +102,9 @@ impl From<ConfigParser> for DeviceInfo {
 
 impl ConfigParser {
     /// Returns `None` if an invalid device name was provided.
-    fn new(name: &str) -> Result<Self, InvalidInterfaceName> {
+    fn new(name: &InterfaceName) -> Self {
         let device_info = DeviceInfo {
-            name: name.try_into()?,
+            name: *name,
             public_key: None,
             private_key: None,
             fwmark: None,
@@ -117,10 +114,10 @@ impl ConfigParser {
             __cant_construct_me: (),
         };
 
-        Ok(Self {
+        Self {
             device_info,
             current_peer: None,
-        })
+        }
     }
 
     fn add_line(&mut self, line: &str) -> Result<(), std::io::Error> {
@@ -233,13 +230,13 @@ impl ConfigParser {
     }
 }
 
-pub fn get_by_name(name: &str) -> Result<DeviceInfo, io::Error> {
+pub fn get_by_name(name: &InterfaceName) -> Result<DeviceInfo, io::Error> {
     let mut sock = open_socket(name)?;
     sock.write_all(b"get=1\n\n")?;
     let mut reader = BufReader::new(sock);
     let mut buf = String::new();
 
-    let mut parser = ConfigParser::new(name)?;
+    let mut parser = ConfigParser::new(name);
 
     loop {
         match reader.read_line(&mut buf)? {
@@ -267,7 +264,7 @@ fn get_userspace_implementation() -> String {
         .unwrap_or_else(|_| "wireguard-go".to_string())
 }
 
-pub fn apply(builder: DeviceConfigBuilder, iface: &str) -> io::Result<()> {
+pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<()> {
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
         Err(_) => {

@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use prompts::hostname_validator;
 use serde::{Deserialize, Serialize};
 use std::{
+    convert::TryInto,
     fmt::{Display, Formatter},
     fs::{self, File},
     io,
@@ -13,7 +14,7 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-use wgctrl::{Key, PeerConfig, PeerConfigBuilder};
+use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 pub mod interface_config;
 pub mod prompts;
@@ -65,23 +66,25 @@ impl std::error::Error for WrappedIoError {}
 
 #[derive(Debug, Clone)]
 pub struct Interface {
-    name: String,
+    name: InterfaceName,
 }
 
 impl FromStr for Interface {
-    type Err = &'static str;
+    type Err = String;
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        let s = name.to_string();
-        hostname_validator(&s)?;
-        Ok(Self {
-            name: name.to_string(),
-        })
+        let name = name.to_string();
+        hostname_validator(&name)?;
+        let name = name
+            .as_str()
+            .try_into()
+            .map_err(|e: InvalidInterfaceName| e.to_string())?;
+        Ok(Self { name })
     }
 }
 
 impl Deref for Interface {
-    type Target = str;
+    type Target = InterfaceName;
 
     fn deref(&self) -> &Self::Target {
         &self.name
@@ -365,7 +368,7 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
                 let metadata = target_file.metadata().with_path(dir)?;
                 let mut permissions = metadata.permissions();
                 permissions.set_mode(0o700);
-            }
+            },
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
                 return Err(e.into());
             },

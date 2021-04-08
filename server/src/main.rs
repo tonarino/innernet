@@ -19,7 +19,7 @@ use std::{
 };
 use structopt::StructOpt;
 use warp::Filter;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, PeerConfigBuilder};
+use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfigBuilder};
 
 pub mod api;
 pub mod db;
@@ -67,7 +67,7 @@ pub type Db = Arc<Mutex<Connection>>;
 pub struct Context {
     pub db: Db,
     pub endpoints: Arc<Endpoints>,
-    pub interface: String,
+    pub interface: InterfaceName,
 }
 
 pub struct Session {
@@ -140,10 +140,10 @@ impl ServerConfig {
             .unwrap_or(*SERVER_DATABASE_DIR)
     }
 
-    fn database_path(&self, interface: &str) -> PathBuf {
+    fn database_path(&self, interface: &InterfaceName) -> PathBuf {
         PathBuf::new()
             .join(self.database_dir())
-            .join(interface)
+            .join(interface.to_string())
             .with_extension("db")
     }
 
@@ -153,10 +153,10 @@ impl ServerConfig {
             .unwrap_or(*SERVER_CONFIG_DIR)
     }
 
-    fn config_path(&self, interface: &str) -> PathBuf {
+    fn config_path(&self, interface: &InterfaceName) -> PathBuf {
         PathBuf::new()
             .join(self.config_dir())
-            .join(interface)
+            .join(interface.to_string())
             .with_extension("conf")
     }
 }
@@ -192,7 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn open_database_connection(
-    interface: &str,
+    interface: &InterfaceName,
     conf: &ServerConfig,
 ) -> Result<rusqlite::Connection, Box<dyn std::error::Error>> {
     let database_path = conf.database_path(&interface);
@@ -207,8 +207,8 @@ fn open_database_connection(
     Ok(Connection::open(&database_path)?)
 }
 
-fn add_peer(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
-    let config = ConfigFile::from_file(conf.config_path(&interface))?;
+fn add_peer(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+    let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
     let peers = DatabasePeer::list(&conn)?
         .into_iter()
@@ -245,7 +245,7 @@ fn add_peer(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn add_cidr(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
+fn add_cidr(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
     if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs)? {
@@ -268,9 +268,9 @@ fn add_cidr(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
     Ok(())
 }
 
-async fn serve(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
-    let config = ConfigFile::from_file(conf.config_path(&interface))?;
-    let conn = open_database_connection(&interface, conf)?;
+async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+    let config = ConfigFile::from_file(conf.config_path(interface))?;
+    let conn = open_database_connection(interface, conf)?;
     // Foreign key constraints aren't on in SQLite by default. Enable.
     conn.pragma_update(None, "foreign_keys", &1)?;
 
@@ -282,7 +282,7 @@ async fn serve(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
 
     log::info!("bringing up interface.");
     wg::up(
-        &interface,
+        interface,
         &config.private_key,
         IpNetwork::new(config.address, config.network_cidr_prefix)?,
         Some(config.listen_port),
@@ -300,7 +300,7 @@ async fn serve(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
     let db = Arc::new(Mutex::new(conn));
     let context = Context {
         db,
-        interface: interface.to_string(),
+        interface: *interface,
         endpoints,
     };
 
@@ -334,11 +334,11 @@ async fn serve(interface: &str, conf: &ServerConfig) -> Result<(), Error> {
 ///
 /// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(target_os = "linux")]
-fn get_listener(addr: SocketAddr, interface: &str) -> Result<TcpListener, Error> {
+fn get_listener(addr: SocketAddr, interface: &InterfaceName) -> Result<TcpListener, Error> {
     let listener = TcpListener::bind(&addr)?;
     listener.set_nonblocking(true)?;
     let sock = socket2::Socket::from(listener);
-    sock.bind_device(Some(interface.as_bytes()))?;
+    sock.bind_device(Some(interface.as_str_lossy().as_bytes()))?;
     Ok(sock.into())
 }
 
@@ -349,7 +349,7 @@ fn get_listener(addr: SocketAddr, interface: &str) -> Result<TcpListener, Error>
 ///
 /// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(not(target_os = "linux"))]
-fn get_listener(addr: SocketAddr, _interface: &str) -> Result<TcpListener, Error> {
+fn get_listener(addr: SocketAddr, _interface: &InterfaceName) -> Result<TcpListener, Error> {
     let listener = TcpListener::bind(&addr)?;
     listener.set_nonblocking(true)?;
     Ok(listener)

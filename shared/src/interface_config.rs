@@ -9,6 +9,7 @@ use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
+use wgctrl::InterfaceName;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
@@ -92,7 +93,7 @@ impl InterfaceConfig {
     }
 
     /// Overwrites the config file if it already exists.
-    pub fn write_to_interface(&self, interface: &str) -> Result<PathBuf, Error> {
+    pub fn write_to_interface(&self, interface: &InterfaceName) -> Result<PathBuf, Error> {
         let path = Self::build_config_file_path(interface)?;
         File::create(&path)
             .with_path(&path)?
@@ -104,13 +105,15 @@ impl InterfaceConfig {
         Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
     }
 
-    pub fn from_interface(interface: &str) -> Result<Self, Error> {
+    pub fn from_interface(interface: &InterfaceName) -> Result<Self, Error> {
         Self::from_file(Self::build_config_file_path(interface)?)
     }
 
-    fn build_config_file_path(interface: &str) -> Result<PathBuf, Error> {
+    fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, Error> {
         ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
-        Ok(CLIENT_CONFIG_PATH.join(interface).with_extension("conf"))
+        Ok(CLIENT_CONFIG_PATH
+            .join(interface.to_string())
+            .with_extension("conf"))
     }
 }
 

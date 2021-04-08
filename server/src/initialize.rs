@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::*;
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
@@ -100,6 +102,9 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
         (name, root_cidr)
     });
 
+    // This probably won't error because of the `hostname_validator` regex.
+    let name = name.as_str().try_into()?;
+
     let endpoint: SocketAddr = conf.endpoint.unwrap_or_else(|| {
         prompts::ask_endpoint()
             .map_err(|_| println!("failed to get endpoint."))
@@ -131,7 +136,7 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
     config.write_to_path(&config_path)?;
 
     let db_init_data = DbInitData {
-        root_cidr_name: name.clone(),
+        root_cidr_name: name.to_string(),
         root_cidr,
         server_cidr,
         our_ip,
@@ -176,7 +181,7 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
 
     ",
         star = "[*]".dimmed(),
-        interface = name.yellow(),
+        interface = name.to_string().yellow(),
         created = "created".green(),
         wg_manage_server = "innernet-server".yellow(),
         add_cidr = "add-cidr".yellow(),

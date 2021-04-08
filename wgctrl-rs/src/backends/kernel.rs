@@ -1,7 +1,11 @@
-use crate::{DeviceConfigBuilder, DeviceInfo, InterfaceName, InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats, device::AllowedIp};
+use crate::{
+    device::AllowedIp, DeviceConfigBuilder, DeviceInfo, InterfaceName, InvalidInterfaceName,
+    InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
+};
 use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
 
 use std::{
+    convert::TryInto,
     ffi::{CStr, CString},
     io,
     net::{IpAddr, SocketAddr},
@@ -301,7 +305,7 @@ pub fn exists() -> bool {
     Path::new("/sys/module/wireguard").is_dir()
 }
 
-pub fn enumerate() -> Result<Vec<String>, io::Error> {
+pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     let base = unsafe { wgctrl_sys::wg_list_device_names() };
 
     if base.is_null() {
@@ -321,7 +325,12 @@ pub fn enumerate() -> Result<Vec<String>, io::Error> {
         }
 
         current = unsafe { current.add(len + 1) };
-        result.push(unsafe { str::from_utf8_unchecked(next_dev) }.to_owned());
+
+        let interface: InterfaceName = str::from_utf8(next_dev)
+            .map_err(|_| InvalidInterfaceName::InvalidChars)?
+            .try_into()?;
+
+        result.push(interface);
     }
 
     unsafe { libc::free(base as *mut libc::c_void) };
