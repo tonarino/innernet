@@ -307,7 +307,8 @@ fn encode_name(name: &str) -> [c_char; 16] {
 }
 
 pub fn exists() -> bool {
-    // Try to load the wireguard module is loaded if it was not before.
+    // Try to load the wireguard module if it isn't already.
+    // This is only called once per lifetime of the process.
     MODPROBE.call_once(|| {
         Command::new("/sbin/modprobe")
             .arg("wireguard")
