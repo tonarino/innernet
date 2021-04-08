@@ -3,7 +3,6 @@ use lazy_static::lazy_static;
 use prompts::hostname_validator;
 use serde::{Deserialize, Serialize};
 use std::{
-    convert::TryInto,
     fmt::{Display, Formatter},
     fs::{self, File},
     io,
@@ -76,8 +75,7 @@ impl FromStr for Interface {
         let name = name.to_string();
         hostname_validator(&name)?;
         let name = name
-            .as_str()
-            .try_into()
+            .parse()
             .map_err(|e: InvalidInterfaceName| e.to_string())?;
         Ok(Self { name })
     }

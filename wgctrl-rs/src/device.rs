@@ -4,10 +4,10 @@ use crate::{backends, key::Key};
 
 use std::{
     borrow::Cow,
-    convert::TryFrom,
     ffi::CStr,
     fmt,
     net::{IpAddr, SocketAddr},
+    str::FromStr,
     time::SystemTime,
 };
 
@@ -115,10 +115,13 @@ type RawInterfaceName = [c_char; libc::IFNAMSIZ];
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct InterfaceName(RawInterfaceName);
 
-impl TryFrom<&str> for InterfaceName {
-    type Error = InvalidInterfaceName;
+impl FromStr for InterfaceName {
+    type Err = InvalidInterfaceName;
 
-    fn try_from(name: &str) -> Result<Self, InvalidInterfaceName> {
+    /// Attempts to parse a Rust string as a valid Linux interface name.
+    ///
+    /// Extra validation logic ported from [iproute2](https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/tree/lib/utils.c#n827)
+    fn from_str(name: &str) -> Result<Self, InvalidInterfaceName> {
         let len = name.len();
         // Ensure its short enough to include a trailing NUL
         if len > (libc::IFNAMSIZ - 1) {
@@ -136,7 +139,7 @@ impl TryFrom<&str> for InterfaceName {
                 return Err(InvalidInterfaceName::InteriorNul);
             }
 
-            if *b == b'/' || *b == b' ' {
+            if *b == b'/' || b.is_ascii_whitespace() {
                 return Err(InvalidInterfaceName::InvalidChars);
             }
 
@@ -282,7 +285,6 @@ mod tests {
     use crate::{
         DeviceConfigBuilder, InterfaceName, InvalidInterfaceName, KeyPair, PeerConfigBuilder,
     };
-    use std::convert::TryFrom;
 
     const TEST_INTERFACE: &str = "wgctrl-test";
     use super::*;
@@ -298,7 +300,7 @@ mod tests {
         for keypair in &keypairs {
             builder = builder.add_peer(PeerConfigBuilder::new(&keypair.public))
         }
-        let interface = InterfaceName::try_from(TEST_INTERFACE).unwrap();
+        let interface = TEST_INTERFACE.parse().unwrap();
         builder.apply(&interface).unwrap();
 
         let device = DeviceInfo::get_by_name(&interface).unwrap();
@@ -315,8 +317,8 @@ mod tests {
 
     #[test]
     fn test_interface_names() {
-        assert!(InterfaceName::try_from("wg-01").is_ok());
-        assert!(InterfaceName::try_from("longer-nul\0").is_ok());
+        assert!("wg-01".parse::<InterfaceName>().is_ok());
+        assert!("longer-nul\0".parse::<InterfaceName>().is_ok());
 
         let invalid_names = &[
             ("", InvalidInterfaceName::Empty),   // Empty Rust string
@@ -329,7 +331,7 @@ mod tests {
         ];
 
         for (name, expected) in invalid_names {
-            assert!(InterfaceName::try_from(*name).as_ref() == Err(expected))
+            assert!(name.parse::<InterfaceName>().as_ref() == Err(expected))
         }
     }
 }

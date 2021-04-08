@@ -4,7 +4,6 @@ use crate::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfig, PeerInfo
 use crate::Key;
 
 use std::{
-    convert::TryInto,
     fs,
     io::{self, prelude::*, BufReader},
     os::unix::net::UnixStream,
@@ -62,7 +61,7 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
         if path.extension() == Some(OsStr::new("name")) {
             let stem = path.file_stem().map(|stem| stem.to_str()).flatten();
             if let Some(name) = stem {
-                interfaces.push(name.try_into()?);
+                interfaces.push(name.parse()?);
             }
         }
     }

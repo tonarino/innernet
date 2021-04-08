@@ -35,7 +35,7 @@ use std::{
 ///         peer.set_endpoint(server_addr)
 ///             .replace_allowed_ips()
 ///             .allow_all_ips()
-///     }).apply("wg-example");
+///     }).apply(&"wg-example".parse().unwrap());
 ///
 /// println!("Send these keys to your peer: {:#?}", peer_keypair);
 ///
@@ -215,7 +215,7 @@ impl Default for DeviceConfigBuilder {
 ///     .add_allowed_ip("192.168.1.2".parse()?, 32);
 ///
 /// // update our existing configuration with the new peer
-/// DeviceConfigBuilder::new().add_peer(peer).apply("wg-example");
+/// DeviceConfigBuilder::new().add_peer(peer).apply(&"wg-example".parse().unwrap());
 ///
 /// println!("Send these keys to your peer: {:#?}", peer_keypair);
 ///

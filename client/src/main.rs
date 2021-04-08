@@ -8,7 +8,6 @@ use shared::{
     REDEEM_TRANSITION_WAIT,
 };
 use std::{
-    convert::TryInto,
     fmt,
     path::{Path, PathBuf},
     thread,
@@ -194,7 +193,7 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
         return Err("An interface with this name already exists in innernet.".into());
     }
 
-    let iface = iface.as_str().try_into()?;
+    let iface = iface.parse()?;
 
     println!("{} bringing up the interface.", "[*]".dimmed());
     wg::up(

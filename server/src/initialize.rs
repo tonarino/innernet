@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::*;
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
@@ -103,7 +101,7 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
     });
 
     // This probably won't error because of the `hostname_validator` regex.
-    let name = name.as_str().try_into()?;
+    let name = name.parse()?;
 
     let endpoint: SocketAddr = conf.endpoint.unwrap_or_else(|| {
         prompts::ask_endpoint()

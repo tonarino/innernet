@@ -5,7 +5,6 @@ use crate::{
 use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
 
 use std::{
-    convert::TryInto,
     ffi::{CStr, CString},
     io,
     net::{IpAddr, SocketAddr},
@@ -328,7 +327,7 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
 
         let interface: InterfaceName = str::from_utf8(next_dev)
             .map_err(|_| InvalidInterfaceName::InvalidChars)?
-            .try_into()?;
+            .parse()?;
 
         result.push(interface);
     }
