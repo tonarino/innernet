@@ -154,18 +154,6 @@ It's assumed that WireGuard is installed on your system, either via the kernel m
 
 [WireGuard Installation Instructions](https://www.wireguard.com/install/)
 
-If you're not already a WireGuard user, you may need to load the kernel module:
-
-```sh
-modprobe wireguard
-```
-
-You can make the kernel module loading persistent with:
-
-```sh
-echo wireguard > /etc/modules-load.d/wireguard.conf
-```
-
 ### Arch
 
 ```sh
