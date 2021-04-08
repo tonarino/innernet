@@ -6,7 +6,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use shared::IoErrorContext;
+use shared::{IoErrorContext, INNERNET_PUBKEY_HEADER};
 use std::{
     convert::Infallible,
     env,
@@ -18,8 +18,9 @@ use std::{
     sync::Arc,
 };
 use structopt::StructOpt;
-use warp::Filter;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfigBuilder};
+use subtle::ConstantTimeEq;
+use warp::{filters, Filter};
+use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, Key, PeerConfigBuilder};
 
 pub mod api;
 pub mod db;
@@ -68,6 +69,7 @@ pub struct Context {
     pub db: Db,
     pub endpoints: Arc<Endpoints>,
     pub interface: InterfaceName,
+    pub public_key: Key,
 }
 
 pub struct Session {
@@ -297,11 +299,13 @@ async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Err
 
     log::info!("{} peers added to wireguard interface.", peers.len());
 
+    let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));
     let context = Context {
         db,
         interface: *interface,
         endpoints,
+        public_key,
     };
 
     log::info!("innernet-server {} starting.", VERSION);
@@ -363,34 +367,6 @@ pub fn routes(
         .recover(handle_rejection)
 }
 
-pub fn with_unredeemed_session(
-    context: Context,
-) -> impl Filter<Extract = (UnredeemedSession,), Error = warp::Rejection> + Clone {
-    warp::filters::addr::remote()
-        .and_then(move |addr: Option<SocketAddr>| {
-            get_session(context.clone(), addr.map(|addr| addr.ip()), false, false)
-        })
-        .map(|session| UnredeemedSession(session))
-}
-
-pub fn with_session(
-    context: Context,
-) -> impl Filter<Extract = (Session,), Error = warp::Rejection> + Clone {
-    warp::filters::addr::remote().and_then(move |addr: Option<SocketAddr>| {
-        get_session(context.clone(), addr.map(|addr| addr.ip()), false, true)
-    })
-}
-
-pub fn with_admin_session(
-    context: Context,
-) -> impl Filter<Extract = (AdminSession,), Error = warp::Rejection> + Clone {
-    warp::filters::addr::remote()
-        .and_then(move |addr: Option<SocketAddr>| {
-            get_session(context.clone(), addr.map(|addr| addr.ip()), true, true)
-        })
-        .map(|session| AdminSession(session))
-}
-
 pub fn form_body<T>() -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
 where
     T: DeserializeOwned + Send,
@@ -398,24 +374,88 @@ where
     warp::body::content_length_limit(1024 * 16).and(warp::body::json())
 }
 
+pub fn with_unredeemed_session(
+    context: Context,
+) -> impl Filter<Extract = (UnredeemedSession,), Error = warp::Rejection> + Clone {
+    filters::addr::remote()
+        .and(filters::header::header(INNERNET_PUBKEY_HEADER))
+        .and_then(move |addr: Option<SocketAddr>, pubkey: String| {
+            get_session(
+                context.clone(),
+                addr.map(|addr| addr.ip()),
+                pubkey,
+                false,
+                false,
+            )
+        })
+        .map(|session| UnredeemedSession(session))
+}
+
+pub fn with_session(
+    context: Context,
+) -> impl Filter<Extract = (Session,), Error = warp::Rejection> + Clone {
+    filters::addr::remote()
+        .and(filters::header::header(INNERNET_PUBKEY_HEADER))
+        .and_then(move |addr: Option<SocketAddr>, pubkey: String| {
+            get_session(
+                context.clone(),
+                addr.map(|addr| addr.ip()),
+                pubkey,
+                false,
+                true,
+            )
+        })
+}
+
+pub fn with_admin_session(
+    context: Context,
+) -> impl Filter<Extract = (AdminSession,), Error = warp::Rejection> + Clone {
+    filters::addr::remote()
+        .and(filters::header::header(INNERNET_PUBKEY_HEADER))
+        .and_then(move |addr: Option<SocketAddr>, pubkey: String| {
+            get_session(
+                context.clone(),
+                addr.map(|addr| addr.ip()),
+                pubkey,
+                true,
+                true,
+            )
+        })
+        .map(|session| AdminSession(session))
+}
+
 async fn get_session(
     context: Context,
     addr: Option<IpAddr>,
+    pubkey: String,
     admin_only: bool,
     redeemed_only: bool,
 ) -> Result<Session, warp::Rejection> {
-    addr.map(|addr| -> Result<Session, ServerError> {
+    _get_session(context, addr, pubkey, admin_only, redeemed_only)
+        .map_err(|_| warp::reject::custom(ServerError::Unauthorized))
+}
+
+fn _get_session(
+    context: Context,
+    addr: Option<IpAddr>,
+    pubkey: String,
+    admin_only: bool,
+    redeemed_only: bool,
+) -> Result<Session, Error> {
+    let pubkey = Key::from_base64(&pubkey)?;
+    if pubkey.0.ct_eq(&context.public_key.0).into() {
+        let addr = addr.ok_or(ServerError::NotFound)?;
         let peer = DatabasePeer::get_from_ip(&context.db.lock(), addr)?;
 
-        if !peer.is_disabled && (!admin_only || peer.is_admin) && (!redeemed_only || peer.is_redeemed) {
-            Ok(Session { context, peer })
-        } else {
-            Err(ServerError::Unauthorized)
+        if !peer.is_disabled
+            && (!admin_only || peer.is_admin)
+            && (!redeemed_only || peer.is_redeemed)
+        {
+            return Ok(Session { context, peer });
         }
-    })
-    .map(|session| session.ok())
-    .flatten() // If no IP address is found, reject.
-    .ok_or_else(|| { warp::reject::custom(ServerError::Unauthorized)})
+    }
+
+    Err(ServerError::Unauthorized.into())
 }
 
 #[cfg(test)]
@@ -442,11 +482,56 @@ mod tests {
         let filter = routes(server.context());
 
         // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
-        let res = test::request_from_ip("10.80.80.80")
+        let res = server
+            .request_from_ip("10.80.80.80")
             .path("/v1/admin/peers")
             .header("Forwarded", format!("for={}", test::ADMIN_PEER_IP))
             .header("X-Forwarded-For", test::ADMIN_PEER_IP)
             .header("X-Real-IP", test::ADMIN_PEER_IP)
+            .reply(&filter)
+            .await;
+
+        // addr::remote() filter only look at remote_addr from TCP socket.
+        // HTTP headers are not considered. This also means that innernet
+        // server would not function behind an HTTP proxy.
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_incorrect_public_key() -> Result<()> {
+        let server = test::Server::new()?;
+        let filter = routes(server.context());
+
+        let key = Key::generate_private().generate_public();
+
+        // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
+        let res = server
+            .request_from_ip("10.80.80.80")
+            .path("/v1/admin/peers")
+            .header(shared::INNERNET_PUBKEY_HEADER, key.to_base64())
+            .reply(&filter)
+            .await;
+
+        // addr::remote() filter only look at remote_addr from TCP socket.
+        // HTTP headers are not considered. This also means that innernet
+        // server would not function behind an HTTP proxy.
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_unparseable_public_key() -> Result<()> {
+        let server = test::Server::new()?;
+        let filter = routes(server.context());
+
+        // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
+        let res = server
+            .request_from_ip("10.80.80.80")
+            .path("/v1/admin/peers")
+            .header(shared::INNERNET_PUBKEY_HEADER, "")
             .reply(&filter)
             .await;
 

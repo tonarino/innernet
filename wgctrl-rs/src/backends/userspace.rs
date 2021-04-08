@@ -366,7 +366,7 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<
 /// `Key`s, especially ones created from external data.
 #[cfg(not(target_os = "linux"))]
 #[derive(PartialEq, Eq, Clone)]
-pub struct Key([u8; 32]);
+pub struct Key(pub [u8; 32]);
 
 #[cfg(not(target_os = "linux"))]
 impl Key {

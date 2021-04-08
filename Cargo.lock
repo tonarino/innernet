@@ -1132,6 +1132,7 @@ dependencies = [
  "shared",
  "socket2",
  "structopt",
+ "subtle",
  "tempfile",
  "thiserror",
  "tokio",

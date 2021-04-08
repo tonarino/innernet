@@ -147,7 +147,7 @@ mod tests {
         let peer = test::developer_peer_contents("developer3", "10.80.64.4")?;
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -172,7 +172,7 @@ mod tests {
         let peer = test::developer_peer_contents("devel oper", "10.80.64.4")?;
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -192,7 +192,7 @@ mod tests {
         let peer = test::developer_peer_contents("developer2", "10.80.64.4")?;
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -217,7 +217,7 @@ mod tests {
         let peer = test::developer_peer_contents("developer3", "10.80.64.3")?;
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -241,7 +241,7 @@ mod tests {
 
         // Try to add IP outside of the CIDR network.
         let peer = test::developer_peer_contents("developer3", "10.80.65.4")?;
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -250,7 +250,7 @@ mod tests {
 
         // Try to use the network address as peer IP.
         let peer = test::developer_peer_contents("developer3", "10.80.64.0")?;
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -259,7 +259,7 @@ mod tests {
 
         // Try to use the broadcast address as peer IP.
         let peer = test::developer_peer_contents("developer3", "10.80.64.255")?;
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -281,7 +281,7 @@ mod tests {
 
         // Try to create a new developer peer from a user peer.
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::USER1_PEER_IP)
+        let res = server.post_request_from_ip(test::USER1_PEER_IP)
             .path("/v1/admin/peers")
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -304,7 +304,7 @@ mod tests {
 
         // Try to create a new developer peer from a user peer.
         let filter = crate::routes(server.context());
-        let res = test::put_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.put_request_from_ip(test::ADMIN_PEER_IP)
             .path(&format!("/v1/admin/peers/{}", test::DEVELOPER1_PEER_ID))
             .body(serde_json::to_string(&change)?)
             .reply(&filter)
@@ -325,7 +325,7 @@ mod tests {
 
         // Try to create a new developer peer from a user peer.
         let filter = crate::routes(server.context());
-        let res = test::put_request_from_ip(test::USER1_PEER_IP)
+        let res = server.put_request_from_ip(test::USER1_PEER_IP)
             .path(&format!("/v1/admin/peers/{}", test::ADMIN_PEER_ID))
             .body(serde_json::to_string(&peer)?)
             .reply(&filter)
@@ -340,7 +340,7 @@ mod tests {
     async fn test_list_all_peers_from_admin() -> Result<()> {
         let server = test::Server::new()?;
         let filter = crate::routes(server.context());
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/peers")
             .reply(&filter)
             .await;
@@ -369,7 +369,7 @@ mod tests {
     async fn test_list_all_peers_from_non_admin() -> Result<()> {
         let server = test::Server::new()?;
         let filter = crate::routes(server.context());
-        let res = test::request_from_ip(test::DEVELOPER1_PEER_IP)
+        let res = server.request_from_ip(test::DEVELOPER1_PEER_IP)
             .path("/v1/admin/peers")
             .reply(&filter)
             .await;
@@ -386,7 +386,7 @@ mod tests {
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
 
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.request_from_ip(test::ADMIN_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/peers/{}", test::USER1_PEER_ID))
             .reply(&filter)
@@ -409,7 +409,7 @@ mod tests {
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
 
-        let res = test::request_from_ip(test::DEVELOPER1_PEER_IP)
+        let res = server.request_from_ip(test::DEVELOPER1_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/peers/{}", test::USER1_PEER_ID))
             .reply(&filter)
@@ -429,7 +429,7 @@ mod tests {
         let server = test::Server::new()?;
         let filter = crate::routes(server.context());
 
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server.request_from_ip(test::ADMIN_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/peers/{}", test::USER1_PEER_ID + 100))
             .reply(&filter)
