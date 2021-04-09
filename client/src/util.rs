@@ -75,12 +75,17 @@ impl<'a> Api<'a> {
         endpoint: &str,
         form: Option<S>,
     ) -> Result<T, Error> {
-        let response = ureq::request(
+        let request = ureq::request(
             verb,
             &format!("http://{}/v1{}", self.server.internal_endpoint, endpoint),
         )
-        .set(INNERNET_PUBKEY_HEADER, &self.server.public_key)
-        .send_json(serde_json::to_value(form)?)?;
+        .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
+
+        let response = if let Some(form) = form {
+            request.send_json(serde_json::to_value(form)?)?
+        } else {
+            request.call()?
+        };
 
         let mut response = response.into_string()?;
         // A little trick for serde to parse an empty response as `()`.
