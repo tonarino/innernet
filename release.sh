@@ -21,7 +21,7 @@ cargo build
 
 for binary in "innernet" "innernet-server"; do
     help2man --no-discard-stderr -s8 "target/debug/$binary" -N > "doc/$binary.8"
-    gzip -f "doc/$binary.8"
+    gzip -fk "doc/$binary.8"
 done
 
 git add doc
