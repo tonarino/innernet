@@ -17,6 +17,11 @@ done
 [ "$#" -eq 1 ] || die "usage: ./release.sh [patch|major|minor|rc]"
 git diff --quiet || die 'ERROR: git repo is dirty.'
 
+cargo release "$1" --no-confirm --exclude "hostsfile"
+
+# re-stage the manpage commit and the cargo-release commit
+git reset --soft @~1
+
 cargo build
 
 for binary in "innernet" "innernet-server"; do
@@ -25,11 +30,6 @@ for binary in "innernet" "innernet-server"; do
 done
 
 git add doc
-git commit -m "meta: update manpages"
-cargo release "$1" --no-confirm --exclude "hostsfile"
-
-# re-stage the manpage commit and the cargo-release commit
-git reset --soft @~2
 
 VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
