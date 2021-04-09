@@ -1,4 +1,5 @@
 use colored::*;
+use dialoguer::Confirm;
 use error::handle_rejection;
 use hyper::{server::conn::AddrStream, Body, Request};
 use indoc::printdoc;
@@ -51,6 +52,9 @@ enum Command {
     /// Create a new network.
     #[structopt(alias = "init")]
     New,
+
+    /// Permanently uninstall a created network, rendering it unusable. Use with care.
+    Uninstall { interface: Interface },
 
     /// Serve the coordinating server for an existing network.
     Serve { interface: Interface },
@@ -125,7 +129,11 @@ impl ConfigFile {
         let path = path.as_ref();
         let file = File::open(path).with_path(path)?;
         if shared::chmod(&file, 0o600)? {
-            println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+            println!(
+                "{} updated permissions for {} to 0600.",
+                "[!]".yellow(),
+                path.display()
+            );
         }
         Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
     }
@@ -191,6 +199,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("{}: {}.", "creation failed".red(), e);
             }
         },
+        Command::Uninstall { interface } => uninstall(&interface, &conf)?,
         Command::Serve { interface } => serve(&interface, &conf).await?,
         Command::AddPeer { interface } => add_peer(&interface, &conf)?,
         Command::AddCidr { interface } => add_cidr(&interface, &conf)?,
@@ -334,6 +343,36 @@ async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Err
 
     hyper::Server::from_tcp(listener)?.serve(make_svc).await?;
 
+    Ok(())
+}
+
+fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+    if Confirm::with_theme(&*prompts::THEME)
+        .with_prompt(&format!(
+            "Permanently delete network \"{}\"?",
+            interface.as_str_lossy().yellow()
+        ))
+        .default(false)
+        .interact()?
+    {
+        println!("{} bringing down interface (if up).", "[*]".dimmed());
+        wg::down(interface).ok();
+        let config = conf.config_path(interface);
+        let data = conf.database_path(interface);
+        std::fs::remove_file(&config)
+            .with_path(&config)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        std::fs::remove_file(&data)
+            .with_path(&data)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        println!(
+            "{} network {} is uninstalled.",
+            "[*]".dimmed(),
+            interface.as_str_lossy().yellow()
+        );
+    }
     Ok(())
 }
 

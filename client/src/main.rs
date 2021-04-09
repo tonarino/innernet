@@ -420,8 +420,7 @@ fn fetch(
 }
 
 fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
-    let theme = ColorfulTheme::default();
-    if Confirm::with_theme(&theme)
+    if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
             interface.as_str_lossy().yellow()

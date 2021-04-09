@@ -12,7 +12,7 @@ use std::net::{IpAddr, SocketAddr};
 use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
-    static ref THEME: ColorfulTheme = ColorfulTheme::default();
+    pub static ref THEME: ColorfulTheme = ColorfulTheme::default();
 
     /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
     /// Note that the full length also must be maximum 63 characters, which this regex does not check.
