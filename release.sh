@@ -34,4 +34,4 @@ git reset --soft @~2
 VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
 git commit -m "meta: release v$VERSION"
-git tag "v$VERSION"
+git tag -a "v$VERSION" -m "release v$VERSION"
