@@ -5,7 +5,7 @@ use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, CLIENT_DATA_PATH};
 use std::{
     fs::{File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 use wgctrl::InterfaceName;
 
@@ -33,7 +33,11 @@ impl DataStore {
             .with_path(path)?;
 
         if shared::chmod(&file, 0o600)? {
-            println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+            println!(
+                "{} updated permissions for {} to 0600.",
+                "[!]".yellow(),
+                path.display()
+            );
         }
 
         let mut json = String::new();
@@ -46,14 +50,15 @@ impl DataStore {
         Ok(Self { file, contents })
     }
 
+    pub fn get_path(interface: &InterfaceName) -> PathBuf {
+        CLIENT_DATA_PATH
+            .join(interface.to_string())
+            .with_extension("json")
+    }
+
     fn _open(interface: &InterfaceName, create: bool) -> Result<Self, Error> {
         ensure_dirs_exist(&[*CLIENT_DATA_PATH])?;
-        Self::open_with_path(
-            CLIENT_DATA_PATH
-                .join(interface.to_string())
-                .with_extension("json"),
-            create,
-        )
+        Self::open_with_path(Self::get_path(interface), create)
     }
 
     pub fn open(interface: &InterfaceName) -> Result<Self, Error> {

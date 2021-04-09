@@ -96,6 +96,9 @@ enum Command {
         hosts: HostsOpt,
     },
 
+    /// Uninstall an innernet network.
+    Uninstall { interface: Interface },
+
     /// Bring down the interface (equivalent to "wg-quick down [interface]")
     Down { interface: Interface },
 
@@ -413,6 +416,37 @@ fn fetch(
     store.add_peers(peers)?;
     store.write()?;
 
+    Ok(())
+}
+
+fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
+    let theme = ColorfulTheme::default();
+    if Confirm::with_theme(&theme)
+        .with_prompt(&format!(
+            "Permanently delete network \"{}\"?",
+            interface.as_str_lossy().yellow()
+        ))
+        .default(false)
+        .interact()?
+    {
+        println!("{} bringing down interface (if up).", "[*]".dimmed());
+        wg::down(interface).ok();
+        let config = InterfaceConfig::get_path(interface);
+        let data = DataStore::get_path(interface);
+        std::fs::remove_file(&config)
+            .with_path(&config)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        std::fs::remove_file(&data)
+            .with_path(&data)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        println!(
+            "{} network {} is uninstalled.",
+            "[*]".dimmed(),
+            interface.as_str_lossy().yellow()
+        );
+    }
     Ok(())
 }
 
@@ -790,6 +824,7 @@ fn run(opt: Opt) -> Result<(), Error> {
             hosts.into(),
         )?,
         Command::Down { interface } => wg::down(&interface)?,
+        Command::Uninstall { interface } => uninstall(&interface)?,
         Command::AddPeer { interface } => add_peer(&interface)?,
         Command::AddCidr { interface } => add_cidr(&interface)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,

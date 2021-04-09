@@ -67,7 +67,11 @@ impl InterfaceConfig {
             .with_path(path)?;
         if let Some(val) = mode {
             if crate::chmod(&target_file, 0o600)? {
-                println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+                println!(
+                    "{} updated permissions for {} to 0600.",
+                    "[!]".yellow(),
+                    path.display()
+                );
             }
             let metadata = target_file.metadata()?;
             let mut permissions = metadata.permissions();
@@ -114,16 +118,24 @@ impl InterfaceConfig {
         let path = Self::build_config_file_path(interface)?;
         let file = File::open(&path).with_path(&path)?;
         if crate::chmod(&file, 0o600)? {
-            println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+            println!(
+                "{} updated permissions for {} to 0600.",
+                "[!]".yellow(),
+                path.display()
+            );
         }
         Self::from_file(path)
     }
 
+    pub fn get_path(interface: &InterfaceName) -> PathBuf {
+        CLIENT_CONFIG_PATH
+            .join(interface.to_string())
+            .with_extension("conf")
+    }
+
     fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, Error> {
         ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
-        Ok(CLIENT_CONFIG_PATH
-            .join(interface.to_string())
-            .with_extension("conf"))
+        Ok(Self::get_path(interface))
     }
 }
 
