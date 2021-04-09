@@ -172,7 +172,15 @@ sudo apt install ./innernet*.deb
 ### macOS
 
 ```sh
-./macos/install.sh
+brew install tonarino/innernet/innernet
+```
+
+### Cargo
+
+```sh
+git checkout https://github.com/tonarino/innernet
+cd innernet
+cargo install --path client
 ```
 
 ## Development
