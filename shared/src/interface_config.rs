@@ -1,4 +1,5 @@
 use crate::{ensure_dirs_exist, Error, IoErrorContext, CLIENT_CONFIG_PATH};
+use colored::*;
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
@@ -58,12 +59,16 @@ impl InterfaceConfig {
         comments: bool,
         mode: Option<u32>,
     ) -> Result<(), Error> {
+        let path = path.as_ref();
         let mut target_file = OpenOptions::new()
             .create_new(true)
             .write(true)
-            .open(&path)
-            .with_path(&path)?;
+            .open(path)
+            .with_path(path)?;
         if let Some(val) = mode {
+            if crate::chmod(&target_file, 0o600)? {
+                println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+            }
             let metadata = target_file.metadata()?;
             let mut permissions = metadata.permissions();
             permissions.set_mode(val);
@@ -106,7 +111,12 @@ impl InterfaceConfig {
     }
 
     pub fn from_interface(interface: &InterfaceName) -> Result<Self, Error> {
-        Self::from_file(Self::build_config_file_path(interface)?)
+        let path = Self::build_config_file_path(interface)?;
+        let file = File::open(&path).with_path(&path)?;
+        if crate::chmod(&file, 0o600)? {
+            println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+        }
+        Self::from_file(path)
     }
 
     fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, Error> {

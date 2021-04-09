@@ -1,3 +1,4 @@
+use colored::*;
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use prompts::hostname_validator;
@@ -362,19 +363,35 @@ pub static WG_DIR: &str = "/etc/wireguard";
 pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
     for dir in dirs {
         match fs::create_dir(dir) {
-            Ok(()) => {
-                let target_file = File::open(dir).with_path(dir)?;
-                let metadata = target_file.metadata().with_path(dir)?;
-                let mut permissions = metadata.permissions();
-                permissions.set_mode(0o700);
-            },
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
                 return Err(e.into());
             },
-            _ => {},
+            _ => {
+                let target_file = File::open(dir).with_path(dir)?;
+                if chmod(&target_file, 0o700)? {
+                    println!("{} updated permissions for {} to 0700.", "[!]".yellow(), dir.display());
+                }
+            },
         }
     }
     Ok(())
+}
+
+/// Updates the permissions of a file or directory. Returns `Ok(true)` if
+/// permissions had to be changed, `Ok(false)` if permissions were already
+/// correct.
+pub fn chmod(file: &File, mode: u32) -> Result<bool, Error> {
+        let metadata = file.metadata()?;
+        let mut permissions = metadata.permissions();
+        let updated = if permissions.mode() != mode {
+            permissions.set_mode(mode);
+            file.set_permissions(permissions)?;
+            true
+        } else {
+            false
+        };
+
+        Ok(updated)
 }
 
 #[cfg(test)]

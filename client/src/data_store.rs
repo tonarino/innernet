@@ -1,4 +1,5 @@
 use crate::Error;
+use colored::*;
 use serde::{Deserialize, Serialize};
 use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, CLIENT_DATA_PATH};
 use std::{
@@ -23,12 +24,18 @@ pub enum Contents {
 
 impl DataStore {
     pub(self) fn open_with_path<P: AsRef<Path>>(path: P, create: bool) -> Result<Self, Error> {
+        let path = path.as_ref();
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(create)
-            .open(&path)
-            .with_path(&path)?;
+            .open(path)
+            .with_path(path)?;
+
+        if shared::chmod(&file, 0o600)? {
+            println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+        }
+
         let mut json = String::new();
         file.read_to_string(&mut json).with_path(path)?;
         let contents = serde_json::from_str(&json).unwrap_or_else(|_| Contents::V1 {

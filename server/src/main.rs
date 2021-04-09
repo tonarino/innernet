@@ -114,6 +114,7 @@ pub struct ConfigFile {
 impl ConfigFile {
     pub fn write_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let mut invitation_file = File::create(&path).with_path(&path)?;
+        shared::chmod(&invitation_file, 0o600)?;
         invitation_file
             .write_all(toml::to_string(self).unwrap().as_bytes())
             .with_path(path)?;
@@ -121,6 +122,11 @@ impl ConfigFile {
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let path = path.as_ref();
+        let file = File::open(path).with_path(path)?;
+        if shared::chmod(&file, 0o600)? {
+            println!("{} updated permissions for {} to 0600.", "[!]".yellow(), path.display());
+        }
         Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
     }
 }
