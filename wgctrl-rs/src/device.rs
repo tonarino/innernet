@@ -123,23 +123,19 @@ impl FromStr for InterfaceName {
     /// Extra validation logic ported from [iproute2](https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/tree/lib/utils.c#n827)
     fn from_str(name: &str) -> Result<Self, InvalidInterfaceName> {
         let len = name.len();
-        // Ensure its short enough to include a trailing NUL
-        if len > (libc::IFNAMSIZ - 1) {
-            return Err(InvalidInterfaceName::TooLong(len));
+        if len == 0 {
+            return Err(InvalidInterfaceName::Empty);
         }
 
-        if len == 0 || name.trim_start_matches('\0').is_empty() {
-            return Err(InvalidInterfaceName::Empty);
+        // Ensure its short enough to include a trailing NUL
+        if len > (libc::IFNAMSIZ - 1) {
+            return Err(InvalidInterfaceName::TooLong);
         }
 
         let mut buf = [c_char::default(); libc::IFNAMSIZ];
         // Check for interior NULs and other invalid characters.
-        for (out, b) in buf.iter_mut().zip(name.as_bytes()[..(len - 1)].iter()) {
-            if *b == 0 {
-                return Err(InvalidInterfaceName::InteriorNul);
-            }
-
-            if *b == b'/' || b.is_ascii_whitespace() {
+        for (out, b) in buf.iter_mut().zip(name.as_bytes().iter()) {
+            if *b == 0 || *b == b'/' || b.is_ascii_whitespace() {
                 return Err(InvalidInterfaceName::InvalidChars);
             }
 
@@ -197,28 +193,24 @@ impl fmt::Display for InterfaceName {
 /// An interface name was bad.
 #[derive(Debug, PartialEq)]
 pub enum InvalidInterfaceName {
-    /// Provided name had an interior NUL byte.
-    InteriorNul,
     /// Provided name was longer then the interface name length limit
     /// of the system.
-    TooLong(usize),
+    TooLong,
 
     // These checks are done in the kernel as well, but no reason to let bad names
     // get that far: https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/tree/lib/utils.c?id=1f420318bda3cc62156e89e1b56d60cc744b48ad#n827.
     /// Interface name was an empty string.
     Empty,
-    /// Interface name contained a `/` or space character.
+    /// Interface name contained a nul, `/` or whitespace character.
     InvalidChars,
 }
 
 impl fmt::Display for InvalidInterfaceName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InteriorNul => f.write_str("interface name contained an interior NUL byte"),
-            Self::TooLong(size) => write!(
+            Self::TooLong => write!(
                 f,
-                "interface name was {} bytes long but the system's max is {}",
-                size,
+                "interface name longer than system max of {} chars",
                 libc::IFNAMSIZ
             ),
             Self::Empty => f.write_str("an empty interface name was provided"),
@@ -317,17 +309,17 @@ mod tests {
 
     #[test]
     fn test_interface_names() {
-        assert!("wg-01".parse::<InterfaceName>().is_ok());
-        assert!("longer-nul\0".parse::<InterfaceName>().is_ok());
+        assert_eq!("wg-01".parse::<InterfaceName>().unwrap().as_str_lossy(), "wg-01");
+        assert!("longer-nul\0".parse::<InterfaceName>().is_err());
 
         let invalid_names = &[
             ("", InvalidInterfaceName::Empty),   // Empty Rust string
-            ("\0", InvalidInterfaceName::Empty), // Empty C string
-            ("ifname\0nul", InvalidInterfaceName::InteriorNul), // Contains interior NUL
+            ("\0", InvalidInterfaceName::InvalidChars), // Empty C string
+            ("ifname\0nul", InvalidInterfaceName::InvalidChars), // Contains interior NUL
             ("if name", InvalidInterfaceName::InvalidChars), // Contains a space
             ("ifna/me", InvalidInterfaceName::InvalidChars), // Contains a slash
             ("if na/me", InvalidInterfaceName::InvalidChars), // Contains a space and slash
-            ("interfacelongname", InvalidInterfaceName::TooLong(17)), // Too long
+            ("interfacelongname", InvalidInterfaceName::TooLong), // Too long
         ];
 
         for (name, expected) in invalid_names {
