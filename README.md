@@ -154,10 +154,10 @@ It's assumed that WireGuard is installed on your system, either via the kernel m
 
 [WireGuard Installation Instructions](https://www.wireguard.com/install/)
 
-### Arch
+### Arch Linux
 
 ```sh
-yay -S innernet
+pacman -S innernet
 ```
 
 ### Ubuntu
