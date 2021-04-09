@@ -1,7 +1,8 @@
 use crate::{ClientError, Error};
 use colored::*;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{net::SocketAddr, time::Duration};
+use shared::{interface_config::ServerInfo, INNERNET_PUBKEY_HEADER};
+use std::time::Duration;
 
 pub fn human_duration(duration: Duration) -> String {
     match duration.as_secs() {
@@ -46,41 +47,56 @@ pub fn human_size(bytes: u64) -> String {
     }
 }
 
-pub fn http_get<T: DeserializeOwned>(server: &SocketAddr, endpoint: &str) -> Result<T, Error> {
-    let response = ureq::get(&format!("http://{}/v1{}", server, endpoint)).call()?;
-    process_response(response)
+pub struct Api<'a> {
+    server: &'a ServerInfo,
 }
 
-pub fn http_delete(server: &SocketAddr, endpoint: &str) -> Result<(), Error> {
-    ureq::get(&format!("http://{}/v1{}", server, endpoint)).call()?;
-    Ok(())
-}
-
-pub fn http_post<S: Serialize, D: DeserializeOwned>(
-    server: &SocketAddr,
-    endpoint: &str,
-    form: S,
-) -> Result<D, Error> {
-    let response = ureq::post(&format!("http://{}/v1{}", server, endpoint))
-        .send_json(serde_json::to_value(form)?)?;
-    process_response(response)
-}
-
-pub fn http_put<S: Serialize>(server: &SocketAddr, endpoint: &str, form: S) -> Result<(), Error> {
-    ureq::put(&format!("http://{}/v1{}", server, endpoint))
-        .send_json(serde_json::to_value(form)?)?;
-    Ok(())
-}
-
-fn process_response<T: DeserializeOwned>(response: ureq::Response) -> Result<T, Error> {
-    let mut response = response.into_string()?;
-    if response.is_empty() {
-        response = "null".into();
+impl<'a> Api<'a> {
+    pub fn new(server: &'a ServerInfo) -> Self {
+        Self { server }
     }
-    Ok(serde_json::from_str(&response).map_err(|e| {
-        ClientError(format!(
-            "failed to deserialize JSON response from the server: {}, response={}",
-            e, &response
-        ))
-    })?)
+
+    pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, Error> {
+        self.request::<(), _>(verb, endpoint, None)
+    }
+
+    pub fn http_form<S: Serialize, T: DeserializeOwned>(
+        &self,
+        verb: &str,
+        endpoint: &str,
+        form: S,
+    ) -> Result<T, Error> {
+        self.request(verb, endpoint, Some(form))
+    }
+
+    fn request<S: Serialize, T: DeserializeOwned>(
+        &self,
+        verb: &str,
+        endpoint: &str,
+        form: Option<S>,
+    ) -> Result<T, Error> {
+        let request = ureq::request(
+            verb,
+            &format!("http://{}/v1{}", self.server.internal_endpoint, endpoint),
+        )
+        .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
+
+        let response = if let Some(form) = form {
+            request.send_json(serde_json::to_value(form)?)?
+        } else {
+            request.call()?
+        };
+
+        let mut response = response.into_string()?;
+        // A little trick for serde to parse an empty response as `()`.
+        if response.is_empty() {
+            response = "null".into();
+        }
+        Ok(serde_json::from_str(&response).map_err(|e| {
+            ClientError(format!(
+                "failed to deserialize JSON response from the server: {}, response={}",
+                e, &response
+            ))
+        })?)
+    }
 }

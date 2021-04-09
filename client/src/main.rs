@@ -21,7 +21,7 @@ mod util;
 
 use data_store::DataStore;
 use shared::{wg, Error};
-use util::{http_delete, http_get, http_post, http_put, human_duration, human_size};
+use util::{human_duration, human_size, Api};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "innernet", about)]
@@ -216,8 +216,8 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
         "[*]".dimmed(),
         &config.server.internal_endpoint
     );
-    http_post(
-        &config.server.internal_endpoint,
+    Api::new(&config.server).http_form(
+        "POST",
         "/user/redeem",
         RedeemContents {
             public_key: keypair.public.to_base64(),
@@ -334,7 +334,7 @@ fn fetch(
 
     println!("{} fetching state from server.", "[*]".dimmed());
     let mut store = DataStore::open_or_create(&interface)?;
-    let State { peers, cidrs } = http_get(&config.server.internal_endpoint, "/user/state")?;
+    let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
     let device_info = DeviceInfo::get_by_name(&interface)?;
     let interface_public_key = device_info
@@ -419,12 +419,13 @@ fn fetch(
 fn add_cidr(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
+    let api = Api::new(&server);
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
     let cidr_request = prompts::add_cidr(&cidrs)?;
 
     println!("Creating CIDR...");
-    let cidr: Cidr = http_post(&server.internal_endpoint, "/admin/cidrs", cidr_request)?;
+    let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
 
     printdoc!(
         "
@@ -443,15 +444,17 @@ fn add_cidr(interface: &InterfaceName) -> Result<(), Error> {
 
 fn add_peer(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    let api = Api::new(&server);
+
     println!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
     println!("Fetching peers");
-    let peers: Vec<Peer> = http_get(&server.internal_endpoint, "/admin/peers")?;
+    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
     if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree)? {
         println!("Creating peer...");
-        let peer: Peer = http_post(&server.internal_endpoint, "/admin/peers", peer_request)?;
+        let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
         prompts::save_peer_invitation(
             interface,
@@ -470,17 +473,15 @@ fn add_peer(interface: &InterfaceName) -> Result<(), Error> {
 
 fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    let api = Api::new(&server);
+
     println!("Fetching peers.");
-    let peers: Vec<Peer> = http_get(&server.internal_endpoint, "/admin/peers")?;
+    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
 
     if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
         let Peer { id, mut contents } = peer;
         contents.is_disabled = !enable;
-        http_put(
-            &server.internal_endpoint,
-            &format!("/admin/peers/{}", id),
-            contents,
-        )?;
+        api.http_form("PUT", &format!("/admin/peers/{}", id), contents)?;
     } else {
         println!("exited without disabling peer.");
     }
@@ -490,13 +491,14 @@ fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(),
 
 fn add_association(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    let api = Api::new(&server);
 
     println!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
     if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
-        http_post(
-            &server.internal_endpoint,
+        api.http_form(
+            "POST",
             "/admin/associations",
             AssociationContents {
                 cidr_id_1: cidr1.id,
@@ -512,18 +514,15 @@ fn add_association(interface: &InterfaceName) -> Result<(), Error> {
 
 fn delete_association(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    let api = Api::new(&server);
 
     println!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
     println!("Fetching associations");
-    let associations: Vec<Association> =
-        http_get(&server.internal_endpoint, "/admin/associations")?;
+    let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
 
     if let Some(association) = prompts::delete_association(&associations[..], &cidrs[..])? {
-        http_delete(
-            &server.internal_endpoint,
-            &format!("/admin/associations/{}", association.id),
-        )?;
+        api.http("DELETE", &format!("/admin/associations/{}", association.id))?;
     } else {
         println!("exited without adding association.");
     }
@@ -533,11 +532,12 @@ fn delete_association(interface: &InterfaceName) -> Result<(), Error> {
 
 fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    let api = Api::new(&server);
+
     println!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
     println!("Fetching associations");
-    let associations: Vec<Association> =
-        http_get(&server.internal_endpoint, "/admin/associations")?;
+    let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
 
     for association in associations {
         println!(
@@ -590,8 +590,8 @@ fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error
 
     if let Some(endpoint) = prompts::override_endpoint(unset)? {
         println!("Updating endpoint.");
-        http_put(
-            &config.server.internal_endpoint,
+        Api::new(&config.server).http_form(
+            "PUT",
             "/user/endpoint",
             EndpointContents::from(endpoint),
         )?;

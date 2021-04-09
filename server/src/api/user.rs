@@ -171,7 +171,8 @@ mod tests {
     async fn test_get_state_from_developer1() -> Result<()> {
         let server = test::Server::new()?;
         let filter = crate::routes(server.context());
-        let res = test::request_from_ip(test::DEVELOPER1_PEER_IP)
+        let res = server
+            .request_from_ip(test::DEVELOPER1_PEER_IP)
             .path("/v1/user/state")
             .reply(&filter)
             .await;
@@ -195,7 +196,8 @@ mod tests {
         let server = test::Server::new()?;
         let filter = crate::routes(server.context());
         assert_eq!(
-            test::put_request_from_ip(test::DEVELOPER1_PEER_IP)
+            server
+                .put_request_from_ip(test::DEVELOPER1_PEER_IP)
                 .path("/v1/user/endpoint")
                 .body(serde_json::to_string(&EndpointContents::Set(
                     "1.1.1.1:51820".parse()?
@@ -208,7 +210,8 @@ mod tests {
 
         println!("{}", serde_json::to_string(&EndpointContents::Unset)?);
         assert_eq!(
-            test::put_request_from_ip(test::DEVELOPER1_PEER_IP)
+            server
+                .put_request_from_ip(test::DEVELOPER1_PEER_IP)
                 .path("/v1/user/endpoint")
                 .body(serde_json::to_string(&EndpointContents::Unset)?)
                 .reply(&filter)
@@ -218,7 +221,8 @@ mod tests {
         );
 
         assert_eq!(
-            test::put_request_from_ip(test::DEVELOPER1_PEER_IP)
+            server
+                .put_request_from_ip(test::DEVELOPER1_PEER_IP)
                 .path("/v1/user/endpoint")
                 .body("endpoint=blah")
                 .reply(&filter)
@@ -236,7 +240,8 @@ mod tests {
         let filter = crate::routes(server.context());
 
         // Request comes from an unknown IP.
-        let res = test::request_from_ip("10.80.80.80")
+        let res = server
+            .request_from_ip("10.80.80.80")
             .path("/v1/user/state")
             .reply(&filter)
             .await;
@@ -296,7 +301,8 @@ mod tests {
         }
 
         for ip in &[test::DEVELOPER1_PEER_IP, test::EXPERIMENT_SUBCIDR_PEER_IP] {
-            let res = test::request_from_ip(ip)
+            let res = server
+                .request_from_ip(ip)
                 .path("/v1/user/state")
                 .reply(&filter)
                 .await;
@@ -344,7 +350,8 @@ mod tests {
         let filter = crate::routes(server.context());
 
         // Step 1: Ensure that before redeeming, other endpoints aren't yet accessible.
-        let res = test::request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
+        let res = server
+            .request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
             .path("/v1/user/state")
             .reply(&filter)
             .await;
@@ -354,7 +361,8 @@ mod tests {
         let body = RedeemContents {
             public_key: "YBVIgpfLbi/knrMCTEb0L6eVy0daiZnJJQkxBK9s+2I=".into(),
         };
-        let res = test::post_request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
             .path("/v1/user/redeem")
             .body(serde_json::to_string(&body)?)
             .reply(&filter)
@@ -362,7 +370,8 @@ mod tests {
         assert!(res.status().is_success());
 
         // Step 3: Ensure that a second attempt at redemption DOESN'T work.
-        let res = test::post_request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
             .path("/v1/user/redeem")
             .body(serde_json::to_string(&body)?)
             .reply(&filter)
@@ -370,7 +379,8 @@ mod tests {
         assert!(res.status().is_client_error());
 
         // Step 3: Ensure that after redemption, fetching state works.
-        let res = test::request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
+        let res = server
+            .request_from_ip(test::EXPERIMENT_SUBCIDR_PEER_IP)
             .path("/v1/user/state")
             .reply(&filter)
             .await;

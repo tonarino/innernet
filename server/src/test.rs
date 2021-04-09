@@ -12,7 +12,7 @@ use shared::{Cidr, CidrContents, PeerContents};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use warp::test::RequestBuilder;
-use wgctrl::{InterfaceName, KeyPair};
+use wgctrl::{InterfaceName, Key, KeyPair};
 
 pub const ROOT_CIDR: &str = "10.80.0.0/15";
 pub const SERVER_CIDR: &str = "10.80.0.1/32";
@@ -47,6 +47,7 @@ pub struct Server {
     endpoints: Arc<Endpoints>,
     interface: InterfaceName,
     conf: ServerConfig,
+    public_key: Key,
     // The directory will be removed during destruction.
     _test_dir: TempDir,
 }
@@ -56,6 +57,7 @@ impl Server {
         let test_dir = tempfile::tempdir()?;
         let test_dir_path = test_dir.path();
 
+        let public_key = Key::generate_private().generate_public();
         // Run the init wizard to initialize the database and create basic
         // cidrs and peers.
         let interface = "test".to_string();
@@ -116,6 +118,7 @@ impl Server {
             db,
             endpoints,
             interface,
+            public_key,
             _test_dir: test_dir,
         })
     }
@@ -129,11 +132,31 @@ impl Server {
             db: self.db.clone(),
             interface: self.interface.clone(),
             endpoints: self.endpoints.clone(),
+            public_key: self.public_key.clone(),
         }
     }
 
     pub fn wg_conf_path(&self) -> PathBuf {
         self.conf.config_path(&self.interface)
+    }
+
+    pub fn request_from_ip(&self, ip_str: &str) -> RequestBuilder {
+        let port = 54321u16;
+        warp::test::request()
+            .remote_addr(SocketAddr::new(ip_str.parse().unwrap(), port))
+            .header(shared::INNERNET_PUBKEY_HEADER, self.public_key.to_base64())
+    }
+
+    pub fn post_request_from_ip(&self, ip_str: &str) -> RequestBuilder {
+        self.request_from_ip(ip_str)
+            .method("POST")
+            .header("Content-Type", "application/json")
+    }
+
+    pub fn put_request_from_ip(&self, ip_str: &str) -> RequestBuilder {
+        self.request_from_ip(ip_str)
+            .method("PUT")
+            .header("Content-Type", "application/json")
     }
 }
 
@@ -153,23 +176,6 @@ pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr> 
 //
 // Below are helper functions for writing tests.
 //
-
-pub fn request_from_ip(ip_str: &str) -> RequestBuilder {
-    let port = 54321u16;
-    warp::test::request().remote_addr(SocketAddr::new(ip_str.parse().unwrap(), port))
-}
-
-pub fn post_request_from_ip(ip_str: &str) -> RequestBuilder {
-    request_from_ip(ip_str)
-        .method("POST")
-        .header("Content-Type", "application/json")
-}
-
-pub fn put_request_from_ip(ip_str: &str) -> RequestBuilder {
-    request_from_ip(ip_str)
-        .method("PUT")
-        .header("Content-Type", "application/json")
-}
 
 pub fn peer_contents(
     name: &str,

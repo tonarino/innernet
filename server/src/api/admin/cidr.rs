@@ -104,7 +104,8 @@ mod tests {
         };
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -132,7 +133,8 @@ mod tests {
         };
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -145,7 +147,8 @@ mod tests {
             cidr: test::EXPERIMENTAL_SUBCIDR.parse()?,
             parent: Some(cidr_res.id),
         };
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -166,7 +169,8 @@ mod tests {
         };
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::USER1_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::USER1_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -186,7 +190,8 @@ mod tests {
             parent: Some(test::ROOT_CIDR_ID),
         };
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -200,7 +205,8 @@ mod tests {
         };
 
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -220,7 +226,8 @@ mod tests {
             parent: Some(test::ROOT_CIDR_ID),
         };
         let filter = crate::routes(server.context());
-        let res = test::post_request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .post_request_from_ip(test::ADMIN_PEER_IP)
             .path("/v1/admin/cidrs")
             .body(serde_json::to_string(&contents)?)
             .reply(&filter)
@@ -253,7 +260,8 @@ mod tests {
 
         let filter = crate::routes(server.context());
 
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .request_from_ip(test::ADMIN_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/cidrs/{}", experimental_cidr.id))
             .reply(&filter)
@@ -261,7 +269,8 @@ mod tests {
         // Should fail because child CIDR exists.
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .request_from_ip(test::ADMIN_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/cidrs/{}", experimental_subcidr.id))
             .reply(&filter)
@@ -269,7 +278,8 @@ mod tests {
         // Deleting child "leaf" CIDR should fail because peer exists inside it.
         assert_eq!(res.status(), StatusCode::NO_CONTENT);
 
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .request_from_ip(test::ADMIN_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/cidrs/{}", experimental_cidr.id))
             .reply(&filter)
@@ -304,7 +314,8 @@ mod tests {
 
         let filter = crate::routes(server.context());
 
-        let res = test::request_from_ip(test::ADMIN_PEER_IP)
+        let res = server
+            .request_from_ip(test::ADMIN_PEER_IP)
             .method("DELETE")
             .path(&format!("/v1/admin/cidrs/{}", experimental_cidr.id))
             .reply(&filter)
