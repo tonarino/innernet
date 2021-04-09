@@ -13,7 +13,7 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-use wgctrl::{Key, PeerConfig, PeerConfigBuilder};
+use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 pub mod interface_config;
 pub mod prompts;
@@ -65,23 +65,24 @@ impl std::error::Error for WrappedIoError {}
 
 #[derive(Debug, Clone)]
 pub struct Interface {
-    name: String,
+    name: InterfaceName,
 }
 
 impl FromStr for Interface {
-    type Err = &'static str;
+    type Err = String;
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        let s = name.to_string();
-        hostname_validator(&s)?;
-        Ok(Self {
-            name: name.to_string(),
-        })
+        let name = name.to_string();
+        hostname_validator(&name)?;
+        let name = name
+            .parse()
+            .map_err(|e: InvalidInterfaceName| e.to_string())?;
+        Ok(Self { name })
     }
 }
 
 impl Deref for Interface {
-    type Target = str;
+    type Target = InterfaceName;
 
     fn deref(&self) -> &Self::Target {
         &self.name

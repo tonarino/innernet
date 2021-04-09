@@ -1,6 +1,6 @@
 use crate::{
     backends,
-    device::{AllowedIp, PeerConfig},
+    device::{AllowedIp, InterfaceName, PeerConfig},
     key::{Key, KeyPair},
 };
 
@@ -35,7 +35,7 @@ use std::{
 ///         peer.set_endpoint(server_addr)
 ///             .replace_allowed_ips()
 ///             .allow_all_ips()
-///     }).apply("wg-example");
+///     }).apply(&"wg-example".parse().unwrap());
 ///
 /// println!("Send these keys to your peer: {:#?}", peer_keypair);
 ///
@@ -171,16 +171,16 @@ impl DeviceConfigBuilder {
     ///
     /// An interface with the provided name will be created if one does not exist already.
     #[cfg(target_os = "linux")]
-    pub fn apply(self, iface: &str) -> io::Result<()> {
+    pub fn apply(self, iface: &InterfaceName) -> io::Result<()> {
         if backends::kernel::exists() {
-            backends::kernel::apply(self, iface)
+            backends::kernel::apply(self, &iface)
         } else {
             backends::userspace::apply(self, iface)
         }
     }
 
     #[cfg(not(target_os = "linux"))]
-    pub fn apply(self, iface: &str) -> io::Result<()> {
+    pub fn apply(self, iface: &InterfaceName) -> io::Result<()> {
         backends::userspace::apply(self, iface)
     }
 }
@@ -215,7 +215,7 @@ impl Default for DeviceConfigBuilder {
 ///     .add_allowed_ip("192.168.1.2".parse()?, 32);
 ///
 /// // update our existing configuration with the new peer
-/// DeviceConfigBuilder::new().add_peer(peer).apply("wg-example");
+/// DeviceConfigBuilder::new().add_peer(peer).apply(&"wg-example".parse().unwrap());
 ///
 /// println!("Send these keys to your peer: {:#?}", peer_keypair);
 ///
@@ -353,6 +353,6 @@ impl PeerConfigBuilder {
 
 /// Deletes an existing WireGuard interface by name.
 #[cfg(target_os = "linux")]
-pub fn delete_interface(iface: &str) -> io::Result<()> {
+pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
     backends::kernel::delete_interface(iface)
 }

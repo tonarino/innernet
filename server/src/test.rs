@@ -12,7 +12,7 @@ use shared::{Cidr, CidrContents, PeerContents};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use warp::test::RequestBuilder;
-use wgctrl::KeyPair;
+use wgctrl::{InterfaceName, KeyPair};
 
 pub const ROOT_CIDR: &str = "10.80.0.0/15";
 pub const SERVER_CIDR: &str = "10.80.0.1/32";
@@ -45,7 +45,7 @@ pub const USER2_PEER_ID: i64 = 6;
 pub struct Server {
     pub db: Arc<Mutex<Connection>>,
     endpoints: Arc<Endpoints>,
-    interface: String,
+    interface: InterfaceName,
     conf: ServerConfig,
     // The directory will be removed during destruction.
     _test_dir: TempDir,
@@ -69,6 +69,7 @@ impl Server {
         };
         init_wizard(&conf).map_err(|_| anyhow!("init_wizard failed"))?;
 
+        let interface = interface.parse().unwrap();
         // Add developer CIDR and user CIDR and some peers for testing.
         let db = Connection::open(&conf.database_path(&interface))?;
         db.pragma_update(None, "foreign_keys", &1)?;

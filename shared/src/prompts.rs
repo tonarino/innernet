@@ -9,7 +9,7 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::net::{IpAddr, SocketAddr};
-use wgctrl::KeyPair;
+use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
     static ref THEME: ColorfulTheme = ColorfulTheme::default();
@@ -239,7 +239,7 @@ pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Pee
 
 /// Confirm and write a innernet invitation file after a peer has been created.
 pub fn save_peer_invitation(
-    network_name: &str,
+    network_name: &InterfaceName,
     peer: &Peer,
     server_peer: &Peer,
     root_cidr: &Cidr,

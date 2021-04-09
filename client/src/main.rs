@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 use structopt::StructOpt;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, PeerConfigBuilder, PeerInfo};
+use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
 mod util;
@@ -155,7 +155,11 @@ impl std::error::Error for ClientError {
     }
 }
 
-fn update_hosts_file(interface: &str, hosts_path: PathBuf, peers: &Vec<Peer>) -> Result<(), Error> {
+fn update_hosts_file(
+    interface: &InterfaceName,
+    hosts_path: PathBuf,
+    peers: &Vec<Peer>,
+) -> Result<(), Error> {
     println!(
         "{} updating {} with the latest peers.",
         "[*]".dimmed(),
@@ -188,6 +192,8 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
     if target_conf.exists() {
         return Err("An interface with this name already exists in innernet.".into());
     }
+
+    let iface = iface.parse()?;
 
     println!("{} bringing up the interface.", "[*]".dimmed());
     wg::up(
@@ -267,7 +273,7 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
 
     ",
         star = "[*]".dimmed(),
-        interface = iface.yellow(),
+        interface = iface.to_string().yellow(),
         installed = "installed".green(),
         systemctl_enable = "systemctl enable --now innernet@".yellow(),
     );
@@ -276,7 +282,7 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
 }
 
 fn up(
-    interface: &str,
+    interface: &InterfaceName,
     loop_interval: Option<Duration>,
     hosts_path: Option<PathBuf>,
 ) -> Result<(), Error> {
@@ -292,7 +298,7 @@ fn up(
 }
 
 fn fetch(
-    interface: &str,
+    interface: &InterfaceName,
     bring_up_interface: bool,
     hosts_path: Option<PathBuf>,
 ) -> Result<(), Error> {
@@ -398,7 +404,7 @@ fn fetch(
         println!(
             "\n{} updated interface {}\n",
             "[*]".dimmed(),
-            interface.yellow()
+            interface.as_str_lossy().yellow()
         );
     } else {
         println!("{}", "    peers are already up to date.".green());
@@ -410,7 +416,7 @@ fn fetch(
     Ok(())
 }
 
-fn add_cidr(interface: &str) -> Result<(), Error> {
+fn add_cidr(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
@@ -435,7 +441,7 @@ fn add_cidr(interface: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn add_peer(interface: &str) -> Result<(), Error> {
+fn add_peer(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
@@ -462,7 +468,7 @@ fn add_peer(interface: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn enable_or_disable_peer(interface: &str, enable: bool) -> Result<(), Error> {
+fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching peers.");
     let peers: Vec<Peer> = http_get(&server.internal_endpoint, "/admin/peers")?;
@@ -482,7 +488,7 @@ fn enable_or_disable_peer(interface: &str, enable: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn add_association(interface: &str) -> Result<(), Error> {
+fn add_association(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
 
     println!("Fetching CIDRs");
@@ -504,7 +510,7 @@ fn add_association(interface: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn delete_association(interface: &str) -> Result<(), Error> {
+fn delete_association(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
 
     println!("Fetching CIDRs");
@@ -525,7 +531,7 @@ fn delete_association(interface: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn list_associations(interface: &str) -> Result<(), Error> {
+fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = http_get(&server.internal_endpoint, "/admin/cidrs")?;
@@ -555,7 +561,7 @@ fn list_associations(interface: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn set_listen_port(interface: &str, unset: bool) -> Result<(), Error> {
+fn set_listen_port(interface: &InterfaceName, unset: bool) -> Result<(), Error> {
     let mut config = InterfaceConfig::from_interface(interface)?;
 
     if let Some(listen_port) = prompts::set_listen_port(&config.interface, unset)? {
@@ -572,7 +578,7 @@ fn set_listen_port(interface: &str, unset: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn override_endpoint(interface: &str, unset: bool) -> Result<(), Error> {
+fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     if !unset && config.interface.listen_port.is_none() {
         println!(
@@ -597,10 +603,8 @@ fn override_endpoint(interface: &str, unset: bool) -> Result<(), Error> {
 }
 
 fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
-    let interfaces = interface.map_or_else(
-        || DeviceInfo::enumerate(),
-        |interface| Ok(vec![interface.to_string()]),
-    )?;
+    let interfaces =
+        interface.map_or_else(|| DeviceInfo::enumerate(), |interface| Ok(vec![*interface]))?;
 
     let devices = interfaces.into_iter().filter_map(|name| {
         DataStore::open(&name)
@@ -678,7 +682,7 @@ fn print_interface(device_info: &DeviceInfo, me: &Peer, short: bool) -> Result<(
         .to_base64();
 
     if short {
-        println!("{}", device_info.name.green().bold());
+        println!("{}", device_info.name.to_string().green().bold());
         println!(
             "  {} {}: {} ({}...)",
             "(you)".bold(),
@@ -690,7 +694,7 @@ fn print_interface(device_info: &DeviceInfo, me: &Peer, short: bool) -> Result<(
         println!(
             "{}: {} ({}...)",
             "interface".green().bold(),
-            device_info.name.green(),
+            device_info.name.to_string().green(),
             public_key[..10].yellow()
         );
         if !short {

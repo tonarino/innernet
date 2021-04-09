@@ -6,6 +6,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
     path::Path,
 };
+use wgctrl::InterfaceName;
 
 #[derive(Debug)]
 pub struct DataStore {
@@ -38,19 +39,21 @@ impl DataStore {
         Ok(Self { file, contents })
     }
 
-    fn _open(interface: &str, create: bool) -> Result<Self, Error> {
+    fn _open(interface: &InterfaceName, create: bool) -> Result<Self, Error> {
         ensure_dirs_exist(&[*CLIENT_DATA_PATH])?;
         Self::open_with_path(
-            CLIENT_DATA_PATH.join(interface).with_extension("json"),
+            CLIENT_DATA_PATH
+                .join(interface.to_string())
+                .with_extension("json"),
             create,
         )
     }
 
-    pub fn open(interface: &str) -> Result<Self, Error> {
+    pub fn open(interface: &InterfaceName) -> Result<Self, Error> {
         Self::_open(interface, false)
     }
 
-    pub fn open_or_create(interface: &str) -> Result<Self, Error> {
+    pub fn open_or_create(interface: &InterfaceName) -> Result<Self, Error> {
         Self::_open(interface, true)
     }
 

@@ -1,6 +1,6 @@
 use crate::{
-    device::AllowedIp, DeviceConfigBuilder, DeviceInfo, InvalidKey, PeerConfig, PeerConfigBuilder,
-    PeerInfo, PeerStats,
+    device::AllowedIp, DeviceConfigBuilder, DeviceInfo, InterfaceName, InvalidInterfaceName,
+    InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
 
@@ -71,8 +71,10 @@ impl<'a> From<&'a wgctrl_sys::wg_peer> for PeerInfo {
 
 impl<'a> From<&'a wgctrl_sys::wg_device> for DeviceInfo {
     fn from(raw: &wgctrl_sys::wg_device) -> DeviceInfo {
+        // SAFETY: The name string buffer came directly from wgctrl so its NUL terminated.
+        let name = unsafe { InterfaceName::from_wg(raw.name) };
         DeviceInfo {
-            name: parse_device_name(raw.name),
+            name,
             public_key: if (raw.flags & wgdf::WGDEVICE_HAS_PUBLIC_KEY).0 > 0 {
                 Some(Key::from_raw(raw.public_key))
             } else {
@@ -96,15 +98,6 @@ impl<'a> From<&'a wgctrl_sys::wg_device> for DeviceInfo {
             __cant_construct_me: (),
         }
     }
-}
-
-fn parse_device_name(name: [c_char; 16]) -> String {
-    let name: &[u8; 16] = unsafe { &*((&name) as *const _ as *const [u8; 16]) };
-    let idx: usize = name
-        .iter()
-        .position(|x| *x == 0)
-        .expect("Interface name too long?");
-    unsafe { str::from_utf8_unchecked(&name[..idx]) }.to_owned()
 }
 
 fn parse_peers(dev: &wgctrl_sys::wg_device) -> Vec<PeerInfo> {
@@ -297,15 +290,6 @@ fn encode_peers(
     (first_peer, last_peer)
 }
 
-fn encode_name(name: &str) -> [c_char; 16] {
-    let slice = unsafe { &*(name.as_bytes() as *const _ as *const [c_char]) };
-
-    let mut result = [c_char::default(); 16];
-    result[..slice.len()].copy_from_slice(slice);
-
-    result
-}
-
 pub fn exists() -> bool {
     // Try to load the wireguard module if it isn't already.
     // This is only called once per lifetime of the process.
@@ -320,7 +304,7 @@ pub fn exists() -> bool {
     Path::new("/sys/module/wireguard").is_dir()
 }
 
-pub fn enumerate() -> Result<Vec<String>, io::Error> {
+pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     let base = unsafe { wgctrl_sys::wg_list_device_names() };
 
     if base.is_null() {
@@ -340,7 +324,12 @@ pub fn enumerate() -> Result<Vec<String>, io::Error> {
         }
 
         current = unsafe { current.add(len + 1) };
-        result.push(unsafe { str::from_utf8_unchecked(next_dev) }.to_owned());
+
+        let interface: InterfaceName = str::from_utf8(next_dev)
+            .map_err(|_| InvalidInterfaceName::InvalidChars)?
+            .parse()?;
+
+        result.push(interface);
     }
 
     unsafe { libc::free(base as *mut libc::c_void) };
@@ -348,18 +337,17 @@ pub fn enumerate() -> Result<Vec<String>, io::Error> {
     Ok(result)
 }
 
-pub fn apply(builder: DeviceConfigBuilder, iface: &str) -> io::Result<()> {
+pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<()> {
     let (first_peer, last_peer) = encode_peers(builder.peers);
 
-    let iface_str = CString::new(iface)?;
-    let result = unsafe { wgctrl_sys::wg_add_device(iface_str.as_ptr()) };
+    let result = unsafe { wgctrl_sys::wg_add_device(iface.as_ptr()) };
     match result {
         0 | -17 => {},
         _ => return Err(io::Error::last_os_error()),
     };
 
     let mut wg_device = Box::new(wgctrl_sys::wg_device {
-        name: encode_name(iface),
+        name: iface.into_inner(),
         ifindex: 0,
         public_key: wgctrl_sys::wg_key::default(),
         private_key: wgctrl_sys::wg_key::default(),
@@ -406,15 +394,13 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &str) -> io::Result<()> {
     }
 }
 
-pub fn get_by_name(name: &str) -> Result<DeviceInfo, io::Error> {
+pub fn get_by_name(name: &InterfaceName) -> Result<DeviceInfo, io::Error> {
     let mut device: *mut wgctrl_sys::wg_device = ptr::null_mut();
-
-    let cs = CString::new(name)?;
 
     let result = unsafe {
         wgctrl_sys::wg_get_device(
             (&mut device) as *mut _ as *mut *mut wgctrl_sys::wg_device,
-            cs.as_ptr(),
+            name.as_ptr(),
         )
     };
 
@@ -429,9 +415,8 @@ pub fn get_by_name(name: &str) -> Result<DeviceInfo, io::Error> {
     result
 }
 
-pub fn delete_interface(iface: &str) -> io::Result<()> {
-    let iface_str = CString::new(iface)?;
-    let result = unsafe { wgctrl_sys::wg_del_device(iface_str.as_ptr()) };
+pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
+    let result = unsafe { wgctrl_sys::wg_del_device(iface.as_ptr()) };
 
     if result == 0 {
         Ok(())

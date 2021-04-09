@@ -1,6 +1,6 @@
 use crossbeam::channel::{self, select};
 use dashmap::DashMap;
-use wgctrl::DeviceInfo;
+use wgctrl::{DeviceInfo, InterfaceName};
 
 use std::{io, net::SocketAddr, sync::Arc, thread, time::Duration};
 
@@ -18,7 +18,7 @@ impl std::ops::Deref for Endpoints {
 }
 
 impl Endpoints {
-    pub fn new(iface: &str) -> Result<Self, io::Error> {
+    pub fn new(iface: &InterfaceName) -> Result<Self, io::Error> {
         let endpoints = Arc::new(DashMap::new());
         let (stop_tx, stop_rx) = channel::bounded(1);
 
