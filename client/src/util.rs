@@ -2,6 +2,7 @@ use crate::{ClientError, Error};
 use colored::*;
 use serde::{de::DeserializeOwned, Serialize};
 use shared::{interface_config::ServerInfo, INNERNET_PUBKEY_HEADER};
+use ureq::{Agent, AgentBuilder};
 use std::time::Duration;
 
 pub fn human_duration(duration: Duration) -> String {
@@ -48,12 +49,17 @@ pub fn human_size(bytes: u64) -> String {
 }
 
 pub struct Api<'a> {
+    agent: Agent,
     server: &'a ServerInfo,
 }
 
 impl<'a> Api<'a> {
     pub fn new(server: &'a ServerInfo) -> Self {
-        Self { server }
+        let agent = AgentBuilder::new()
+            .timeout(Duration::from_secs(5))
+            .redirects(0)
+            .build();
+        Self { agent, server }
     }
 
     pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, Error> {
@@ -75,7 +81,7 @@ impl<'a> Api<'a> {
         endpoint: &str,
         form: Option<S>,
     ) -> Result<T, Error> {
-        let request = ureq::request(
+        let request = self.agent.request(
             verb,
             &format!("http://{}/v1{}", self.server.internal_endpoint, endpoint),
         )

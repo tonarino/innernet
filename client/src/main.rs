@@ -183,7 +183,7 @@ fn update_hosts_file(
 
 fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
-    let mut config = InterfaceConfig::from_file(invite)?;
+    let config = InterfaceConfig::from_file(invite)?;
 
     let iface = Input::with_theme(&*prompts::THEME)
         .with_prompt("Interface name")
@@ -196,7 +196,59 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
     }
 
     let iface = iface.parse()?;
+    redeem_invite(&iface, config, target_conf).map_err(|e| {
+        println!("{} bringing down the interface.", "[*]".dimmed());
+        if let Err(e) = wg::down(&iface) {
+            println!("{} failed to bring down interface: {}.", "[*]".yellow(), e.to_string());
+        };
+        println!("{} Failed to redeem invite. Now's a good time to make sure the server is started and accessible!", "[!]".red());
+        e
+    })?;
 
+    fetch(&iface, false, hosts_file)?;
+
+    if Confirm::with_theme(&*prompts::THEME)
+        .with_prompt(&format!(
+            "Delete invitation file \"{}\" now? (It's no longer needed)",
+            invite.to_string_lossy().yellow()
+        ))
+        .default(true)
+        .interact()?
+    {
+        std::fs::remove_file(invite).with_path(invite)?;
+    }
+
+    printdoc!(
+        "
+        {star} Done!
+
+            {interface} has been {installed}.
+
+            It's recommended to now keep the interface automatically refreshing via systemd:
+
+                {systemctl_enable}{interface}
+
+            By default, innernet will write to your /etc/hosts file for peer name
+            resolution. To disable this behavior, use the --no-write-hosts or --write-hosts [PATH]
+            options.
+
+            See the manpage or innernet GitHub repo for more detailed instruction on managing your
+            interface and network. Have fun!
+
+    ",
+        star = "[*]".dimmed(),
+        interface = iface.to_string().yellow(),
+        installed = "installed".green(),
+        systemctl_enable = "systemctl enable --now innernet@".yellow(),
+    );
+    Ok(())
+}
+
+fn redeem_invite(
+    iface: &InterfaceName,
+    mut config: InterfaceConfig,
+    target_conf: PathBuf,
+) -> Result<(), Error> {
     println!("{} bringing up the interface.", "[*]".dimmed());
     wg::up(
         &iface,
@@ -242,43 +294,6 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
     DeviceConfigBuilder::new()
         .set_private_key(keypair.private)
         .apply(&iface)?;
-
-    fetch(&iface, false, hosts_file)?;
-
-    if Confirm::with_theme(&*prompts::THEME)
-        .with_prompt(&format!(
-            "Delete invitation file \"{}\" now? (It's no longer needed)",
-            invite.to_string_lossy().yellow()
-        ))
-        .default(true)
-        .interact()?
-    {
-        std::fs::remove_file(invite).with_path(invite)?;
-    }
-
-    printdoc!(
-        "
-        {star} Done!
-
-            {interface} has been {installed}.
-
-            It's recommended to now keep the interface automatically refreshing via systemd:
-
-                {systemctl_enable}{interface}
-
-            By default, innernet will write to your /etc/hosts file for peer name
-            resolution. To disable this behavior, use the --no-write-hosts or --write-hosts [PATH]
-            options.
-
-            See the manpage or innernet GitHub repo for more detailed instruction on managing your
-            interface and network. Have fun!
-
-    ",
-        star = "[*]".dimmed(),
-        interface = iface.to_string().yellow(),
-        installed = "installed".green(),
-        systemctl_enable = "systemctl enable --now innernet@".yellow(),
-    );
 
     Ok(())
 }
