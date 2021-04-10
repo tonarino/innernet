@@ -380,11 +380,12 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
 /// Updates the permissions of a file or directory. Returns `Ok(true)` if
 /// permissions had to be changed, `Ok(false)` if permissions were already
 /// correct.
-pub fn chmod(file: &File, mode: u32) -> Result<bool, Error> {
+pub fn chmod(file: &File, new_mode: u32) -> Result<bool, Error> {
         let metadata = file.metadata()?;
         let mut permissions = metadata.permissions();
-        let updated = if permissions.mode() != mode {
-            permissions.set_mode(mode);
+        let mode  = permissions.mode() & 0o777;
+        let updated = if mode != new_mode {
+            permissions.set_mode(new_mode);
             file.set_permissions(permissions)?;
             true
         } else {
