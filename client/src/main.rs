@@ -1,5 +1,5 @@
 use colored::*;
-use dialoguer::{theme::ColorfulTheme, Confirm, Input};
+use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::printdoc;
 use shared::{
@@ -182,11 +182,10 @@ fn update_hosts_file(
 }
 
 fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
-    let theme = ColorfulTheme::default();
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
     let mut config = InterfaceConfig::from_file(invite)?;
 
-    let iface = Input::with_theme(&theme)
+    let iface = Input::with_theme(&*prompts::THEME)
         .with_prompt("Interface name")
         .default(config.interface.network_name.clone())
         .interact()?;
@@ -246,7 +245,7 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
 
     fetch(&iface, false, hosts_file)?;
 
-    if Confirm::with_theme(&theme)
+    if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Delete invitation file \"{}\" now? (It's no longer needed)",
             invite.to_string_lossy().yellow()
