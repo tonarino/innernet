@@ -7,7 +7,7 @@ name = "wgctrl-sys"
 publish = false
 readme = "../README.md"
 repository = "https://gitlab.com/K900/wgctrl-rs"
-version = "1.1.0-rc.1"
+version = "1.1.0-rc.2"
 
 [dependencies]
 libc = "0.2"
