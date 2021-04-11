@@ -338,14 +338,12 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<
 
     request.push('\n');
 
-    println!("writing: {}", request);
     sock.write_all(request.as_bytes())?;
 
     let mut reader = BufReader::new(sock);
     let mut line = String::new();
 
     reader.read_line(&mut line)?;
-    println!("got line: {}", line);
     let split: Vec<&str> = line.trim_end().splitn(2, '=').collect();
     match &split[..] {
         ["errno", "0"] => Ok(()),
