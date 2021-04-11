@@ -267,7 +267,7 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
         Err(_) => {
-            // TODO(jake): allow other userspace wireguard implementations
+            fs::create_dir_all(VAR_RUN_PATH)?;
             let output = Command::new(&get_userspace_implementation())
                 .env(
                     "WG_TUN_NAME_FILE",
@@ -278,6 +278,7 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<
             if !output.status.success() {
                 return Err(io::ErrorKind::AddrNotAvailable.into());
             }
+            std::thread::sleep(Duration::from_millis(100));
             open_socket(iface)?
         },
         Ok(sock) => sock,
