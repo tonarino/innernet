@@ -7,7 +7,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use shared::{IoErrorContext, INNERNET_PUBKEY_HEADER};
+use shared::{AddCidrContents, AddPeerContents, IoErrorContext, INNERNET_PUBKEY_HEADER};
 use std::{
     convert::Infallible,
     env,
@@ -60,10 +60,20 @@ enum Command {
     Serve { interface: Interface },
 
     /// Add a peer to an existing network.
-    AddPeer { interface: Interface },
+    AddPeer {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        args: AddPeerContents,
+    },
 
     /// Add a new CIDR to an existing network.
-    AddCidr { interface: Interface },
+    AddCidr {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        args: AddCidrContents,
+    },
 }
 
 pub type Db = Arc<Mutex<Connection>>;
@@ -201,8 +211,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
         Command::Serve { interface } => serve(&interface, &conf).await?,
-        Command::AddPeer { interface } => add_peer(&interface, &conf)?,
-        Command::AddCidr { interface } => add_cidr(&interface, &conf)?,
+        Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,
+        Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
     }
 
     Ok(())
@@ -224,7 +234,11 @@ fn open_database_connection(
     Ok(Connection::open(&database_path)?)
 }
 
-fn add_peer(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+fn add_peer(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    args: AddPeerContents,
+) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
     let peers = DatabasePeer::list(&conn)?
@@ -234,7 +248,7 @@ fn add_peer(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error>
     let cidrs = DatabaseCidr::list(&conn)?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree)? {
+    if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree, &args)? {
         let peer = DatabasePeer::create(&conn, peer_request)?;
         if cfg!(not(test)) && DeviceInfo::get_by_name(interface).is_ok() {
             // Update the current WireGuard interface with the new peers.
@@ -254,6 +268,7 @@ fn add_peer(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error>
             &cidr_tree,
             keypair,
             &SocketAddr::new(config.address, config.listen_port),
+            &args.save_config,
         )?;
     } else {
         println!("exited without creating peer.");
@@ -262,10 +277,14 @@ fn add_peer(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error>
     Ok(())
 }
 
-fn add_cidr(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+fn add_cidr(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    args: AddCidrContents,
+) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
-    if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs)? {
+    if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs, &args)? {
         let cidr = DatabaseCidr::create(&conn, cidr_request)?;
         printdoc!(
             "

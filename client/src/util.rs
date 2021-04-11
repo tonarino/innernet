@@ -2,8 +2,8 @@ use crate::{ClientError, Error};
 use colored::*;
 use serde::{de::DeserializeOwned, Serialize};
 use shared::{interface_config::ServerInfo, INNERNET_PUBKEY_HEADER};
-use ureq::{Agent, AgentBuilder};
 use std::time::Duration;
+use ureq::{Agent, AgentBuilder};
 
 pub fn human_duration(duration: Duration) -> String {
     match duration.as_secs() {
@@ -81,11 +81,13 @@ impl<'a> Api<'a> {
         endpoint: &str,
         form: Option<S>,
     ) -> Result<T, Error> {
-        let request = self.agent.request(
-            verb,
-            &format!("http://{}/v1{}", self.server.internal_endpoint, endpoint),
-        )
-        .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
+        let request = self
+            .agent
+            .request(
+                verb,
+                &format!("http://{}/v1{}", self.server.internal_endpoint, endpoint),
+            )
+            .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
 
         let response = if let Some(form) = form {
             request.send_json(serde_json::to_value(form)?)?

@@ -1,7 +1,7 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    Association, Cidr, CidrContents, CidrTree, Error, Peer, PeerContents,
-    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    AddCidrContents, AddPeerContents, Association, Cidr, CidrContents, CidrTree, Error, Peer,
+    PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -32,10 +32,27 @@ pub fn hostname_validator(name: &String) -> Result<(), &'static str> {
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
-pub fn add_cidr(cidrs: &[Cidr]) -> Result<Option<CidrContents>, Error> {
-    let parent_cidr = choose_cidr(cidrs, "Parent CIDR")?;
-    let name: String = Input::with_theme(&*THEME).with_prompt("Name").interact()?;
-    let cidr: IpNetwork = Input::with_theme(&*THEME).with_prompt("CIDR").interact()?;
+pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrContents) -> Result<Option<CidrContents>, Error> {
+    let parent_cidr = if let Some(ref parent_name) = request.parent {
+        cidrs
+            .iter()
+            .find(|cidr| &cidr.name == parent_name)
+            .ok_or("No parent CIDR with that name exists.")?
+    } else {
+        choose_cidr(cidrs, "Parent CIDR")?
+    };
+
+    let name = if let Some(ref name) = request.name {
+        name.clone()
+    } else {
+        Input::with_theme(&*THEME).with_prompt("Name").interact()?
+    };
+
+    let cidr = if let Some(cidr) = request.cidr {
+        cidr
+    } else {
+        Input::with_theme(&*THEME).with_prompt("CIDR").interact()?
+    };
 
     let cidr_request = CidrContents {
         name,
@@ -44,10 +61,11 @@ pub fn add_cidr(cidrs: &[Cidr]) -> Result<Option<CidrContents>, Error> {
     };
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
-            .default(false)
-            .interact()?
+        if request.force
+            || Confirm::with_theme(&*THEME)
+                .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
+                .default(false)
+                .interact()?
         {
             Some(cidr_request)
         } else {
@@ -143,10 +161,18 @@ pub fn delete_association<'a>(
 pub fn add_peer(
     peers: &[Peer],
     cidr_tree: &CidrTree,
+    args: &AddPeerContents,
 ) -> Result<Option<(PeerContents, KeyPair)>, Error> {
     let leaves = cidr_tree.leaves();
 
-    let cidr = choose_cidr(&leaves[..], "Eligible CIDRs for peer")?;
+    let cidr = if let Some(ref parent_name) = args.cidr {
+        leaves
+            .iter()
+            .find(|cidr| &cidr.name == parent_name)
+            .ok_or("No eligible CIDR with that name exists.")?
+    } else {
+        choose_cidr(&leaves[..], "Eligible CIDRs for peer")?
+    };
 
     let mut available_ip = None;
     let candidate_ips = cidr.iter().filter(|ip| cidr.is_assignable(*ip));
@@ -159,20 +185,35 @@ pub fn add_peer(
 
     let available_ip = available_ip.expect("No IPs in this CIDR are avavilable");
 
-    let ip = Input::with_theme(&*THEME)
-        .with_prompt("IP")
-        .default(available_ip)
-        .interact()?;
+    let ip = if let Some(ip) = args.ip {
+        ip
+    } else if args.auto_ip {
+        available_ip
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("IP")
+            .default(available_ip)
+            .interact()?
+    };
 
-    let name: String = Input::with_theme(&*THEME)
-        .with_prompt("Name")
-        .validate_with(hostname_validator)
-        .interact()?;
+    let name = if let Some(ref name) = args.name {
+        name.clone()
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("Name")
+            .validate_with(hostname_validator)
+            .interact()?
+    };
 
-    let is_admin = Confirm::with_theme(&*THEME)
-        .with_prompt(&format!("Make {} an admin?", name))
-        .default(false)
-        .interact()?;
+    let is_admin = if let Some(is_admin) = args.admin {
+        is_admin
+    } else {
+        Confirm::with_theme(&*THEME)
+            .with_prompt(&format!("Make {} an admin?", name))
+            .default(false)
+            .interact()?
+    };
+
     let default_keypair = KeyPair::generate();
     let peer_request = PeerContents {
         name,
@@ -187,10 +228,11 @@ pub fn add_peer(
     };
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
-            .default(false)
-            .interact()?
+        if args.force
+            || Confirm::with_theme(&*THEME)
+                .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
+                .default(false)
+                .interact()?
         {
             Some((peer_request, default_keypair))
         } else {
@@ -245,6 +287,7 @@ pub fn save_peer_invitation(
     root_cidr: &Cidr,
     keypair: KeyPair,
     server_api_addr: &SocketAddr,
+    config_location: &Option<String>,
 ) -> Result<(), Error> {
     let peer_invitation = InterfaceConfig {
         interface: InterfaceInfo {
@@ -262,10 +305,14 @@ pub fn save_peer_invitation(
         },
     };
 
-    let invitation_save_path = Input::with_theme(&*THEME)
-        .with_prompt("Save peer invitation file as")
-        .default(format!("{}.toml", peer.name))
-        .interact()?;
+    let invitation_save_path = if let Some(location) = config_location {
+        location.clone()
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("Save peer invitation file as")
+            .default(format!("{}.toml", peer.name))
+            .interact()?
+    };
 
     peer_invitation.write_to_path(&invitation_save_path, true, None)?;
 

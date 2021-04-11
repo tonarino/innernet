@@ -40,7 +40,11 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
             _ => {
                 let target_file = File::open(dir).with_path(dir)?;
                 if chmod(&target_file, 0o700)? {
-                    println!("{} updated permissions for {} to 0700.", "[!]".yellow(), dir.display());
+                    println!(
+                        "{} updated permissions for {} to 0700.",
+                        "[!]".yellow(),
+                        dir.display()
+                    );
                 }
             },
         }
@@ -52,16 +56,16 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
 /// permissions had to be changed, `Ok(false)` if permissions were already
 /// correct.
 pub fn chmod(file: &File, new_mode: u32) -> Result<bool, Error> {
-        let metadata = file.metadata()?;
-        let mut permissions = metadata.permissions();
-        let mode  = permissions.mode() & 0o777;
-        let updated = if mode != new_mode {
-            permissions.set_mode(new_mode);
-            file.set_permissions(permissions)?;
-            true
-        } else {
-            false
-        };
+    let metadata = file.metadata()?;
+    let mut permissions = metadata.permissions();
+    let mode = permissions.mode() & 0o777;
+    let updated = if mode != new_mode {
+        permissions.set_mode(new_mode);
+        file.set_permissions(permissions)?;
+        true
+    } else {
+        false
+    };
 
-        Ok(updated)
+    Ok(updated)
 }

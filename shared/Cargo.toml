@@ -14,6 +14,7 @@ ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://g
 lazy_static = "1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
+structopt = "0.3"
 toml = "0.5"
 ureq = { version = "2", default-features = false }
 wgctrl = { path = "../wgctrl-rs" }
