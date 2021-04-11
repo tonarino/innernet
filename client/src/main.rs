@@ -33,11 +33,11 @@ struct Opt {
 #[derive(Debug, StructOpt)]
 struct HostsOpt {
     /// The path to write hosts to.
-    #[structopt(long, default_value = "/etc/hosts")]
+    #[structopt(long = "hosts-path", default_value = "/etc/hosts")]
     hosts_path: PathBuf,
 
-    /// Don't write to any hosts files. This takes precedence over --hosts-path.
-    #[structopt(long)]
+    /// Don't write to any hosts files.
+    #[structopt(long = "no-write-hosts", conflicts_with = "hosts-path")]
     no_write_hosts: bool,
 }
 
