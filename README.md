@@ -187,7 +187,7 @@ cargo install --path client
 
 ### `innernet-server` Build dependencies
 
-* `rustc` / `cargo` (version 1.46.0 or higher)
+* `rustc` / `cargo` (version 1.50.0 or higher)
 * `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
 * `libsqlite3`
 
@@ -201,7 +201,7 @@ The resulting binary will be located at `./target/release/innernet-server`
 
 ### `innernet` Client CLI Build dependencies
 
-* `rustc` / `cargo` (version 1.46.0 or higher)
+* `rustc` / `cargo` (version 1.50.0 or higher)
 * `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
 
 Build:
