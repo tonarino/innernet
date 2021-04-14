@@ -3,9 +3,9 @@ use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::printdoc;
 use shared::{
-    interface_config::InterfaceConfig, prompts, Association, AssociationContents, Cidr, CidrTree,
-    EndpointContents, Interface, IoErrorContext, Peer, RedeemContents, State, CLIENT_CONFIG_PATH,
-    REDEEM_TRANSITION_WAIT,
+    interface_config::InterfaceConfig, prompts, AddCidrContents, AddPeerContents, Association,
+    AssociationContents, Cidr, CidrTree, EndpointContents, Interface, IoErrorContext, Peer,
+    RedeemContents, State, CLIENT_CONFIG_PATH, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt,
@@ -103,10 +103,20 @@ enum Command {
     Down { interface: Interface },
 
     /// Add a new peer.
-    AddPeer { interface: Interface },
+    AddPeer {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        args: AddPeerContents,
+    },
 
     /// Add a new CIDR.
-    AddCidr { interface: Interface },
+    AddCidr {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        args: AddCidrContents,
+    },
 
     /// Disable an enabled peer.
     DisablePeer { interface: Interface },
@@ -463,13 +473,13 @@ fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
     Ok(())
 }
 
-fn add_cidr(interface: &InterfaceName) -> Result<(), Error> {
+fn add_cidr(interface: &InterfaceName, args: AddCidrContents) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching CIDRs");
     let api = Api::new(&server);
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
-    let cidr_request = prompts::add_cidr(&cidrs)?;
+    let cidr_request = prompts::add_cidr(&cidrs, &args)?;
 
     println!("Creating CIDR...");
     let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
@@ -489,7 +499,7 @@ fn add_cidr(interface: &InterfaceName) -> Result<(), Error> {
     Ok(())
 }
 
-fn add_peer(interface: &InterfaceName) -> Result<(), Error> {
+fn add_peer(interface: &InterfaceName, args: AddPeerContents) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
@@ -499,7 +509,7 @@ fn add_peer(interface: &InterfaceName) -> Result<(), Error> {
     let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree)? {
+    if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree, &args)? {
         println!("Creating peer...");
         let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
@@ -510,6 +520,7 @@ fn add_peer(interface: &InterfaceName) -> Result<(), Error> {
             &cidr_tree,
             keypair,
             &server.internal_endpoint,
+            &args.save_config,
         )?;
     } else {
         println!("exited without creating peer.");
@@ -838,8 +849,8 @@ fn run(opt: Opt) -> Result<(), Error> {
         )?,
         Command::Down { interface } => wg::down(&interface)?,
         Command::Uninstall { interface } => uninstall(&interface)?,
-        Command::AddPeer { interface } => add_peer(&interface)?,
-        Command::AddCidr { interface } => add_cidr(&interface)?,
+        Command::AddPeer { interface, args } => add_peer(&interface, args)?,
+        Command::AddCidr { interface, args } => add_cidr(&interface, args)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
         Command::EnablePeer { interface } => enable_or_disable_peer(&interface, true)?,
         Command::AddAssociation { interface } => add_association(&interface)?,

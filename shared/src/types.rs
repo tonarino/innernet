@@ -1,5 +1,5 @@
-use ipnetwork::IpNetwork;
 use crate::prompts::hostname_validator;
+use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter},
@@ -8,6 +8,7 @@ use std::{
     path::Path,
     str::FromStr,
 };
+use structopt::StructOpt;
 use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 #[derive(Debug, Clone)]
@@ -163,6 +164,51 @@ impl<'a> CidrTree<'a> {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct RedeemContents {
     pub public_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct AddPeerContents {
+    /// Name of new peer
+    #[structopt(long)]
+    pub name: Option<String>,
+
+    /// Specify desired IP of new peer (within parent CIDR)
+    #[structopt(long, conflicts_with = "auto-ip")]
+    pub ip: Option<IpAddr>,
+
+    /// Auto-assign the peer the first available IP within the CIDR
+    #[structopt(long = "auto-ip")]
+    pub auto_ip: bool,
+
+    /// Name of CIDR to add new peer under
+    #[structopt(long)]
+    pub cidr: Option<String>,
+
+    /// Make new peer an admin
+    #[structopt(long)]
+    pub admin: Option<bool>,
+
+    /// Force confirmation
+    #[structopt(short, long)]
+    pub force: bool,
+
+    #[structopt(long)]
+    pub save_config: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct AddCidrContents {
+    #[structopt(long)]
+    pub name: Option<String>,
+
+    #[structopt(long)]
+    pub cidr: Option<IpNetwork>,
+
+    #[structopt(long)]
+    pub parent: Option<String>,
+
+    #[structopt(short, long)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

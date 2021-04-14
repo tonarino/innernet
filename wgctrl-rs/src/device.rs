@@ -309,11 +309,14 @@ mod tests {
 
     #[test]
     fn test_interface_names() {
-        assert_eq!("wg-01".parse::<InterfaceName>().unwrap().as_str_lossy(), "wg-01");
+        assert_eq!(
+            "wg-01".parse::<InterfaceName>().unwrap().as_str_lossy(),
+            "wg-01"
+        );
         assert!("longer-nul\0".parse::<InterfaceName>().is_err());
 
         let invalid_names = &[
-            ("", InvalidInterfaceName::Empty),   // Empty Rust string
+            ("", InvalidInterfaceName::Empty),          // Empty Rust string
             ("\0", InvalidInterfaceName::InvalidChars), // Empty C string
             ("ifname\0nul", InvalidInterfaceName::InvalidChars), // Contains interior NUL
             ("if name", InvalidInterfaceName::InvalidChars), // Contains a space
