@@ -3,9 +3,9 @@ use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::printdoc;
 use shared::{
-    interface_config::InterfaceConfig, prompts, AddCidrContents, AddPeerContents, Association,
-    AssociationContents, Cidr, CidrTree, EndpointContents, Interface, IoErrorContext, Peer,
-    RedeemContents, State, CLIENT_CONFIG_PATH, REDEEM_TRANSITION_WAIT,
+    interface_config::InterfaceConfig, prompts, AddCidrOpts, AddPeerOpts, Association,
+    AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface, IoErrorContext,
+    Peer, RedeemContents, State, CLIENT_CONFIG_PATH, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt,
@@ -56,6 +56,9 @@ enum Command {
 
         #[structopt(flatten)]
         hosts: HostsOpt,
+
+        #[structopt(flatten)]
+        opts: InstallOpts,
     },
 
     /// Enumerate all innernet connections.
@@ -107,7 +110,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        args: AddPeerContents,
+        opts: AddPeerOpts,
     },
 
     /// Add a new CIDR.
@@ -115,7 +118,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        args: AddCidrContents,
+        opts: AddCidrOpts,
     },
 
     /// Disable an enabled peer.
@@ -191,14 +194,20 @@ fn update_hosts_file(
     Ok(())
 }
 
-fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
+fn install(invite: &Path, hosts_file: Option<PathBuf>, opts: InstallOpts) -> Result<(), Error> {
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
     let config = InterfaceConfig::from_file(invite)?;
 
-    let iface = Input::with_theme(&*prompts::THEME)
-        .with_prompt("Interface name")
-        .default(config.interface.network_name.clone())
-        .interact()?;
+    let iface = if opts.default_name {
+        config.interface.network_name.clone()
+    } else if let Some(ref iface) = opts.name {
+        iface.clone()
+    } else {
+        Input::with_theme(&*prompts::THEME)
+            .with_prompt("Interface name")
+            .default(config.interface.network_name.clone())
+            .interact()?
+    };
 
     let target_conf = CLIENT_CONFIG_PATH.join(&iface).with_extension("conf");
     if target_conf.exists() {
@@ -217,13 +226,14 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>) -> Result<(), Error> {
 
     fetch(&iface, false, hosts_file)?;
 
-    if Confirm::with_theme(&*prompts::THEME)
-        .with_prompt(&format!(
-            "Delete invitation file \"{}\" now? (It's no longer needed)",
-            invite.to_string_lossy().yellow()
-        ))
-        .default(true)
-        .interact()?
+    if opts.delete_invite
+        || Confirm::with_theme(&*prompts::THEME)
+            .with_prompt(&format!(
+                "Delete invitation file \"{}\" now? (It's no longer needed)",
+                invite.to_string_lossy().yellow()
+            ))
+            .default(true)
+            .interact()?
     {
         std::fs::remove_file(invite).with_path(invite)?;
     }
@@ -473,13 +483,13 @@ fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
     Ok(())
 }
 
-fn add_cidr(interface: &InterfaceName, args: AddCidrContents) -> Result<(), Error> {
+fn add_cidr(interface: &InterfaceName, opts: AddCidrOpts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     println!("Fetching CIDRs");
     let api = Api::new(&server);
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
-    let cidr_request = prompts::add_cidr(&cidrs, &args)?;
+    let cidr_request = prompts::add_cidr(&cidrs, &opts)?;
 
     println!("Creating CIDR...");
     let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
@@ -499,7 +509,7 @@ fn add_cidr(interface: &InterfaceName, args: AddCidrContents) -> Result<(), Erro
     Ok(())
 }
 
-fn add_peer(interface: &InterfaceName, args: AddPeerContents) -> Result<(), Error> {
+fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
@@ -509,7 +519,7 @@ fn add_peer(interface: &InterfaceName, args: AddPeerContents) -> Result<(), Erro
     let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree, &args)? {
+    if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree, &opts)? {
         println!("Creating peer...");
         let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
@@ -520,7 +530,7 @@ fn add_peer(interface: &InterfaceName, args: AddPeerContents) -> Result<(), Erro
             &cidr_tree,
             keypair,
             &server.internal_endpoint,
-            &args.save_config,
+            &opts.save_config,
         )?;
     } else {
         println!("exited without creating peer.");
@@ -830,7 +840,11 @@ fn run(opt: Opt) -> Result<(), Error> {
     });
 
     match command {
-        Command::Install { config, hosts } => install(&config, hosts.into())?,
+        Command::Install {
+            config,
+            hosts,
+            opts,
+        } => install(&config, hosts.into(), opts)?,
         Command::Show {
             short,
             tree,
@@ -849,8 +863,8 @@ fn run(opt: Opt) -> Result<(), Error> {
         )?,
         Command::Down { interface } => wg::down(&interface)?,
         Command::Uninstall { interface } => uninstall(&interface)?,
-        Command::AddPeer { interface, args } => add_peer(&interface, args)?,
-        Command::AddCidr { interface, args } => add_cidr(&interface, args)?,
+        Command::AddPeer { interface, opts } => add_peer(&interface, opts)?,
+        Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
         Command::EnablePeer { interface } => enable_or_disable_peer(&interface, true)?,
         Command::AddAssociation { interface } => add_association(&interface)?,

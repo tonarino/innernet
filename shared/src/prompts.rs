@@ -1,7 +1,7 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    AddCidrContents, AddPeerContents, Association, Cidr, CidrContents, CidrTree, Error, Peer,
-    PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Error, Peer, PeerContents,
+    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -32,7 +32,7 @@ pub fn hostname_validator(name: &String) -> Result<(), &'static str> {
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
-pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrContents) -> Result<Option<CidrContents>, Error> {
+pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrContents>, Error> {
     let parent_cidr = if let Some(ref parent_name) = request.parent {
         cidrs
             .iter()
@@ -161,7 +161,7 @@ pub fn delete_association<'a>(
 pub fn add_peer(
     peers: &[Peer],
     cidr_tree: &CidrTree,
-    args: &AddPeerContents,
+    args: &AddPeerOpts,
 ) -> Result<Option<(PeerContents, KeyPair)>, Error> {
     let leaves = cidr_tree.leaves();
 

@@ -7,7 +7,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use shared::{AddCidrContents, AddPeerContents, IoErrorContext, INNERNET_PUBKEY_HEADER};
+use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, INNERNET_PUBKEY_HEADER};
 use std::{
     convert::Infallible,
     env,
@@ -64,7 +64,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        args: AddPeerContents,
+        args: AddPeerOpts,
     },
 
     /// Add a new CIDR to an existing network.
@@ -72,7 +72,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        args: AddCidrContents,
+        args: AddCidrOpts,
     },
 }
 
@@ -237,7 +237,7 @@ fn open_database_connection(
 fn add_peer(
     interface: &InterfaceName,
     conf: &ServerConfig,
-    args: AddPeerContents,
+    args: AddPeerOpts,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
@@ -280,7 +280,7 @@ fn add_peer(
 fn add_cidr(
     interface: &InterfaceName,
     conf: &ServerConfig,
-    args: AddCidrContents,
+    args: AddCidrOpts,
 ) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;

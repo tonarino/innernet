@@ -167,7 +167,22 @@ pub struct RedeemContents {
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
-pub struct AddPeerContents {
+pub struct InstallOpts {
+    /// Set a specific interface name
+    #[structopt(long, conflicts_with = "default-name")]
+    pub name: Option<String>,
+
+    /// Use the network name inside the invitation as the interface name
+    #[structopt(long = "default-name")]
+    pub default_name: bool,
+
+    /// Delete the invitation after a successful install
+    #[structopt(short, long)]
+    pub delete_invite: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct AddPeerOpts {
     /// Name of new peer
     #[structopt(long)]
     pub name: Option<String>,
@@ -197,7 +212,7 @@ pub struct AddPeerContents {
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
-pub struct AddCidrContents {
+pub struct AddCidrOpts {
     #[structopt(long)]
     pub name: Option<String>,
 
