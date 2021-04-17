@@ -139,7 +139,7 @@ impl FromStr for InterfaceName {
                 return Err(InvalidInterfaceName::InvalidChars);
             }
 
-            *out = *b as i8;
+            *out = *b as c_char;
         }
 
         Ok(Self(buf))
