@@ -20,9 +20,32 @@ fn create_database<P: AsRef<Path>>(
     Ok(conn)
 }
 
+#[derive(Debug, Default, Clone, PartialEq, StructOpt)]
+pub struct InitializeOpts {
+    /// The network name (ex: evilcorp)
+    #[structopt(long)]
+    pub network_name: Option<String>,
+
+    /// The network CIDR (ex: 10.42.0.0/16)
+    #[structopt(long)]
+    pub network_cidr: Option<IpNetwork>,
+
+    /// This server's external endpoint (ex: 100.100.100.100:51820)
+    #[structopt(long, conflicts_with = "auto-external-endpoint")]
+    pub external_endpoint: Option<SocketAddr>,
+
+    /// Auto-resolve external endpoint
+    #[structopt(long = "auto-external-endpoint")]
+    pub auto_external_endpoint: bool,
+
+    /// Port to listen on (for the WireGuard interface)
+    #[structopt(long)]
+    pub listen_port: Option<u16>,
+}
+
 struct DbInitData {
-    root_cidr_name: String,
-    root_cidr: IpNetwork,
+    network_name: String,
+    network_cidr: IpNetwork,
     server_cidr: IpNetwork,
     our_ip: IpAddr,
     public_key_base64: String,
@@ -35,8 +58,8 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     let root_cidr = DatabaseCidr::create(
         &conn,
         CidrContents {
-            name: db_init_data.root_cidr_name.clone(),
-            cidr: db_init_data.root_cidr,
+            name: db_init_data.network_name.clone(),
+            cidr: db_init_data.network_cidr,
             parent: None,
         },
     )
@@ -71,7 +94,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     Ok(())
 }
 
-pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
+pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Error> {
     let theme = ColorfulTheme::default();
 
     shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(|_| {
@@ -81,42 +104,57 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
         )
     })?;
 
-    let (name, root_cidr) = conf.root_cidr.clone().unwrap_or_else(|| {
-        println!("Please specify a root CIDR, which will define the entire network.");
-        let name: String = Input::with_theme(&theme)
+    let name: String = if let Some(name) = opts.network_name {
+        name.clone()
+    } else {
+        println!("Here you'll specify the network CIDR, which will encompass the entire network.");
+        Input::with_theme(&theme)
             .with_prompt("Network name")
             .validate_with(hostname_validator)
-            .interact()
-            .map_err(|_| println!("failed to get name."))
-            .unwrap();
+            .interact()?
+    };
 
-        let root_cidr: IpNetwork = Input::with_theme(&theme)
+    let root_cidr: IpNetwork = if let Some(cidr) = opts.network_cidr {
+        cidr.clone()
+    } else {
+        Input::with_theme(&theme)
             .with_prompt("Network CIDR")
             .with_initial_text("10.42.0.0/16")
-            .interact()
-            .map_err(|_| println!("failed to get cidr."))
-            .unwrap();
-
-        (name, root_cidr)
-    });
+            .interact()?
+    };
 
     // This probably won't error because of the `hostname_validator` regex.
     let name = name.parse()?;
 
-    let endpoint: SocketAddr = conf.endpoint.unwrap_or_else(|| {
-        prompts::ask_endpoint()
-            .map_err(|_| println!("failed to get endpoint."))
-            .unwrap()
-    });
+    let endpoint: SocketAddr = if let Some(endpoint) = opts.external_endpoint {
+        endpoint.clone()
+    } else {
+        let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
+            .call()
+            .ok()
+            .map(|res| res.into_string().ok())
+            .flatten()
+            .map(|body| body.trim().to_string())
+            .and_then(|body| body.parse().ok());
 
-    let listen_port: u16 = conf.listen_port.unwrap_or_else(|| {
+        if opts.auto_external_endpoint {
+            let ip = external_ip.ok_or("couldn't get external IP")?;
+            (ip, 51820).into()
+        } else {
+            prompts::ask_endpoint(external_ip)?
+        }
+    };
+
+    let listen_port: u16 = if let Some(listen_port) = opts.listen_port {
+        listen_port
+    } else {
         Input::with_theme(&theme)
             .with_prompt("Listen port")
             .default(51820)
             .interact()
-            .map_err(|_| println!("failed to get listen port."))
-            .unwrap()
-    });
+            .map_err(|_| "failed to get listen port.")?
+    };
+
     let our_ip = root_cidr
         .iter()
         .find(|ip| root_cidr.is_assignable(*ip))
@@ -134,8 +172,8 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
     config.write_to_path(&config_path)?;
 
     let db_init_data = DbInitData {
-        root_cidr_name: name.to_string(),
-        root_cidr,
+        network_name: name.to_string(),
+        network_cidr: root_cidr,
         server_cidr,
         our_ip,
         public_key_base64: our_keypair.public.to_base64(),

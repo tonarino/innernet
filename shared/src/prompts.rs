@@ -362,16 +362,20 @@ pub fn set_listen_port(
     }
 }
 
-pub fn ask_endpoint() -> Result<SocketAddr, Error> {
+pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<SocketAddr, Error> {
     println!("getting external IP address.");
 
-    let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
-        .call()
-        .ok()
-        .map(|res| res.into_string().ok())
-        .flatten()
-        .map(|body| body.trim().to_string())
-        .and_then(|body| body.parse().ok());
+    let external_ip = if external_ip.is_some() {
+        external_ip
+    } else {
+        ureq::get("http://4.icanhazip.com")
+            .call()
+            .ok()
+            .map(|res| res.into_string().ok())
+            .flatten()
+            .map(|body| body.trim().to_string())
+            .and_then(|body| body.parse().ok())
+    };
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
@@ -386,7 +390,11 @@ pub fn ask_endpoint() -> Result<SocketAddr, Error> {
 }
 
 pub fn override_endpoint(unset: bool) -> Result<Option<Option<SocketAddr>>, Error> {
-    let endpoint = if !unset { Some(ask_endpoint()?) } else { None };
+    let endpoint = if !unset {
+        Some(ask_endpoint(None)?)
+    } else {
+        None
+    };
 
     Ok(
         if Confirm::with_theme(&*THEME)

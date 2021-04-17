@@ -37,6 +37,7 @@ pub use endpoints::Endpoints;
 pub use error::ServerError;
 use shared::{prompts, wg, CidrTree, Error, Interface, SERVER_CONFIG_DIR, SERVER_DATABASE_DIR};
 pub use shared::{Association, AssociationContents};
+use initialize::InitializeOpts;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -51,7 +52,10 @@ struct Opt {
 enum Command {
     /// Create a new network.
     #[structopt(alias = "init")]
-    New,
+    New {
+        #[structopt(flatten)]
+        opts: InitializeOpts
+    },
 
     /// Permanently uninstall a created network, rendering it unusable. Use with care.
     Uninstall { interface: Interface },
@@ -153,10 +157,6 @@ impl ConfigFile {
 pub struct ServerConfig {
     wg_manage_dir_override: Option<PathBuf>,
     wg_dir_override: Option<PathBuf>,
-    root_cidr: Option<(String, IpNetwork)>,
-    endpoint: Option<SocketAddr>,
-    listen_port: Option<u16>,
-    noninteractive: bool,
 }
 
 impl ServerConfig {
@@ -204,8 +204,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let conf = ServerConfig::default();
 
     match opt.command {
-        Command::New => {
-            if let Err(e) = initialize::init_wizard(&conf) {
+        Command::New { opts } => {
+            if let Err(e) = initialize::init_wizard(&conf, opts) {
                 println!("{}: {}.", "creation failed".red(), e);
             }
         },
@@ -237,7 +237,7 @@ fn open_database_connection(
 fn add_peer(
     interface: &InterfaceName,
     conf: &ServerConfig,
-    args: AddPeerOpts,
+    opts: AddPeerOpts,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
@@ -248,7 +248,7 @@ fn add_peer(
     let cidrs = DatabaseCidr::list(&conn)?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree, &args)? {
+    if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
         let peer = DatabasePeer::create(&conn, peer_request)?;
         if cfg!(not(test)) && DeviceInfo::get_by_name(interface).is_ok() {
             // Update the current WireGuard interface with the new peers.
@@ -268,7 +268,7 @@ fn add_peer(
             &cidr_tree,
             keypair,
             &SocketAddr::new(config.address, config.listen_port),
-            &args.save_config,
+            &opts.save_config,
         )?;
     } else {
         println!("exited without creating peer.");
@@ -280,11 +280,11 @@ fn add_peer(
 fn add_cidr(
     interface: &InterfaceName,
     conf: &ServerConfig,
-    args: AddCidrOpts,
+    opts: AddCidrOpts,
 ) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
-    if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs, &args)? {
+    if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs, &opts)? {
         let cidr = DatabaseCidr::create(&conn, cidr_request)?;
         printdoc!(
             "

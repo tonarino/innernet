@@ -2,7 +2,7 @@
 use crate::{
     db::{DatabaseCidr, DatabasePeer},
     endpoints::Endpoints,
-    initialize::init_wizard,
+    initialize::{init_wizard, InitializeOpts},
     Context, ServerConfig,
 };
 use anyhow::{anyhow, Result};
@@ -64,12 +64,16 @@ impl Server {
         let conf = ServerConfig {
             wg_manage_dir_override: Some(test_dir_path.to_path_buf()),
             wg_dir_override: Some(test_dir_path.to_path_buf()),
-            root_cidr: Some((interface.clone(), ROOT_CIDR.parse()?)),
-            endpoint: Some("155.155.155.155:54321".parse()?),
-            listen_port: Some(54321),
-            noninteractive: true,
         };
-        init_wizard(&conf).map_err(|_| anyhow!("init_wizard failed"))?;
+
+        let opts = InitializeOpts {
+            network_name: Some(interface.clone()),
+            network_cidr: Some(ROOT_CIDR.parse()?),
+            external_endpoint: Some("155.155.155.155:54321".parse()?),
+            listen_port: Some(54321),
+            auto_external_endpoint: false,
+        };
+        init_wizard(&conf, opts).map_err(|_| anyhow!("init_wizard failed"))?;
 
         let interface = interface.parse().unwrap();
         // Add developer CIDR and user CIDR and some peers for testing.

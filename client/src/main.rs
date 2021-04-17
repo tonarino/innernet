@@ -52,7 +52,8 @@ enum Command {
     /// Install a new innernet config.
     #[structopt(alias = "redeem")]
     Install {
-        config: PathBuf,
+        /// Path to the invitation file
+        invite: PathBuf,
 
         #[structopt(flatten)]
         hosts: HostsOpt,
@@ -64,9 +65,11 @@ enum Command {
     /// Enumerate all innernet connections.
     #[structopt(alias = "list")]
     Show {
+        /// One-line peer list
         #[structopt(short, long)]
         short: bool,
 
+        /// Display peers in a tree based on the CIDRs
         #[structopt(short, long)]
         tree: bool,
 
@@ -841,10 +844,10 @@ fn run(opt: Opt) -> Result<(), Error> {
 
     match command {
         Command::Install {
-            config,
+            invite,
             hosts,
             opts,
-        } => install(&config, hosts.into(), opts)?,
+        } => install(&invite, hosts.into(), opts)?,
         Command::Show {
             short,
             tree,
