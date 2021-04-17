@@ -28,7 +28,7 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
 
     if addr.is_ipv4() {
         cmd(
-            "ifconfig",
+            "/sbin/ifconfig",
             &[
                 &real_interface,
                 "inet",
@@ -39,11 +39,11 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
         )?;
     } else {
         cmd(
-            "ifconfig",
+            "/sbin/ifconfig",
             &[&real_interface, "inet6", &addr.to_string(), "alias"],
         )?;
     }
-    cmd("ifconfig", &[&real_interface, "mtu", "1420"])?;
+    cmd("/sbin/ifconfig", &[&real_interface, "mtu", "1420"])?;
     Ok(())
 }
 
@@ -119,7 +119,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
         let real_interface =
             wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
         let output = cmd(
-            "route",
+            "/sbin/route",
             &[
                 "-n",
                 "add",
