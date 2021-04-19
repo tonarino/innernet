@@ -61,7 +61,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
     };
 
     Ok(
-        if request.force
+        if request.yes
             || Confirm::with_theme(&*THEME)
                 .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
                 .default(false)
@@ -228,7 +228,7 @@ pub fn add_peer(
     };
 
     Ok(
-        if args.force
+        if args.yes
             || Confirm::with_theme(&*THEME)
                 .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
                 .default(false)

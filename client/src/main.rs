@@ -105,6 +105,11 @@ enum Command {
     Down { interface: Interface },
 
     /// Add a new peer.
+    ///
+    /// By default, you'll be prompted interactively to create a peer, but you can
+    /// also specify all the options in the command, eg:
+    ///
+    /// --name "person" --cidr "humans" --admin false --auto-ip --save-config "person.toml" --yes
     AddPeer {
         interface: Interface,
 
