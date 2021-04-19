@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # load WireGuard's kernel module is loaded in the macOS Docker VM.
+    # ensure the wireguard kernel module is loaded in the macOS docker VM.
     docker run --rm --pid=host --privileged justincormack/nsenter1 /sbin/modprobe wireguard
 fi
 
