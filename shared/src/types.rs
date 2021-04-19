@@ -9,6 +9,7 @@ use std::{
     str::FromStr,
 };
 use structopt::StructOpt;
+use url::Host;
 use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 #[derive(Debug, Clone)]
@@ -34,6 +35,27 @@ impl Deref for Interface {
 
     fn deref(&self) -> &Self::Target {
         &self.name
+    }
+}
+
+/// An external endpoint that supports both IP and domain name hosts.
+struct Endpoint {
+    host: Host,
+    port: u16,
+}
+
+impl FromStr for Endpoint {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.rsplitn(2, ':').collect::<Vec<&str>>().as_slice() {
+            [port, host] => {
+                let port = port.parse().map_err(|_| "couldn't parse port")?;
+                let host = Host::parse(host).map_err(|_| "couldn't parse host")?;
+                Ok(Endpoint { host, port })
+            },
+            _ => Err("couldn't parse in form of 'host:port'"),
+        }
     }
 }
 

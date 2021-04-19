@@ -34,6 +34,7 @@ subtle = "2"
 structopt = "0.3"
 thiserror = "1"
 ureq = { version = "2", default-features = false }
+url = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 toml = "0.5"
 warp = { git = "https://github.com/tonarino/warp", default-features = false } # pending https://github.com/seanmonstar/warp/issues/830
