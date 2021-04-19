@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
+INTERFACE="${INTERFACE:-innernet}"
 innernet install \
-    --name "evilcorp1" \
+    --name "$INTERFACE" \
     --delete-invite \
     --no-write-hosts \
-    /app/peer1.toml
+    /app/invite.toml
 
-innernet up evilcorp1
-
-ping -c 5 10.66.0.1
-sleep infinity &
-wait
+while true; do
+    innernet up --no-write-hosts "$INTERFACE"
+    sleep 1
+done
