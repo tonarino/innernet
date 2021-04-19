@@ -2,7 +2,11 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::printdoc;
-use shared::{AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, CLIENT_CONFIG_PATH, Cidr, CidrTree, EndpointContents, InstallOpts, Interface, IoErrorContext, Peer, REDEEM_TRANSITION_WAIT, RedeemContents, State, interface_config::InterfaceConfig, prompts};
+use shared::{
+    interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
+    Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
+    IoErrorContext, Peer, RedeemContents, State, CLIENT_CONFIG_PATH, REDEEM_TRANSITION_WAIT,
+};
 use std::{
     fmt,
     path::{Path, PathBuf},
@@ -574,14 +578,20 @@ fn add_association(interface: &InterfaceName, opts: AddAssociationOpts) -> Resul
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
     let association = if let (Some(ref cidr1), Some(ref cidr2)) = (opts.cidr1, opts.cidr2) {
-        let cidr1 = cidrs.iter().find(|c| &c.name == cidr1).ok_or(format!("can't find cidr '{}'", cidr1))?;
-        let cidr2 = cidrs.iter().find(|c| &c.name == cidr2).ok_or(format!("can't find cidr '{}'", cidr2))?;
+        let cidr1 = cidrs
+            .iter()
+            .find(|c| &c.name == cidr1)
+            .ok_or(format!("can't find cidr '{}'", cidr1))?;
+        let cidr2 = cidrs
+            .iter()
+            .find(|c| &c.name == cidr2)
+            .ok_or(format!("can't find cidr '{}'", cidr2))?;
         (cidr1, cidr2)
     } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
         (cidr1, cidr2)
     } else {
         println!("exited without adding association.");
-        return Ok(())
+        return Ok(());
     };
 
     api.http_form(

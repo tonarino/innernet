@@ -35,9 +35,9 @@ mod initialize;
 use db::{DatabaseCidr, DatabasePeer};
 pub use endpoints::Endpoints;
 pub use error::ServerError;
+use initialize::InitializeOpts;
 use shared::{prompts, wg, CidrTree, Error, Interface, SERVER_CONFIG_DIR, SERVER_DATABASE_DIR};
 pub use shared::{Association, AssociationContents};
-use initialize::InitializeOpts;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -54,7 +54,7 @@ enum Command {
     #[structopt(alias = "init")]
     New {
         #[structopt(flatten)]
-        opts: InitializeOpts
+        opts: InitializeOpts,
     },
 
     /// Permanently uninstall a created network, rendering it unusable. Use with care.
