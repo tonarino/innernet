@@ -1,4 +1,8 @@
-use crate::{AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Endpoint, Error, PERSISTENT_KEEPALIVE_INTERVAL_SECS, Peer, PeerContents, interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo}};
+use crate::{
+    interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
+    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Endpoint, Error, Peer,
+    PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+};
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
@@ -376,7 +380,7 @@ pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
-        endpoint_builder.default(format!("{}:{}", ip, 51820).parse().unwrap());
+        endpoint_builder.default(SocketAddr::new(ip, 51820).into());
     } else {
         println!("failed to get external IP.");
     }

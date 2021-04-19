@@ -5,7 +5,7 @@ use indoc::printdoc;
 use rusqlite::{params, Connection};
 use shared::{
     prompts::{self, hostname_validator},
-    Endpoint, CidrContents, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use wgctrl::KeyPair;
 

@@ -1,4 +1,4 @@
-use crate::{CLIENT_CONFIG_PATH, Endpoint, Error, IoErrorContext, ensure_dirs_exist};
+use crate::{ensure_dirs_exist, Endpoint, Error, IoErrorContext, CLIENT_CONFIG_PATH};
 use colored::*;
 use indoc::writedoc;
 use ipnetwork::IpNetwork;

@@ -393,11 +393,7 @@ impl<'a> From<&'a Peer> for PeerConfigBuilder {
             builder
         };
 
-        let resolved = peer
-            .endpoint
-            .as_ref()
-            .map(|e| e.resolve().ok())
-            .flatten();
+        let resolved = peer.endpoint.as_ref().map(|e| e.resolve().ok()).flatten();
 
         if let Some(endpoint) = resolved {
             builder.set_endpoint(endpoint)
