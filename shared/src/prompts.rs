@@ -1,8 +1,4 @@
-use crate::{
-    interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Error, Peer, PeerContents,
-    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
-};
+use crate::{AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Endpoint, Error, PERSISTENT_KEEPALIVE_INTERVAL_SECS, Peer, PeerContents, interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo}};
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
@@ -299,6 +295,7 @@ pub fn save_peer_invitation(
         server: ServerInfo {
             external_endpoint: server_peer
                 .endpoint
+                .clone()
                 .expect("The innernet server should have a WireGuard endpoint"),
             internal_endpoint: *server_api_addr,
             public_key: server_peer.public_key.clone(),
@@ -362,7 +359,7 @@ pub fn set_listen_port(
     }
 }
 
-pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<SocketAddr, Error> {
+pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
     let external_ip = if external_ip.is_some() {
@@ -379,7 +376,7 @@ pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<SocketAddr, Error> {
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
-        endpoint_builder.default(SocketAddr::new(ip, 51820));
+        endpoint_builder.default(format!("{}:{}", ip, 51820).parse().unwrap());
     } else {
         println!("failed to get external IP.");
     }
@@ -389,7 +386,7 @@ pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<SocketAddr, Error> {
         .map_err(|e| Error::from(e))
 }
 
-pub fn override_endpoint(unset: bool) -> Result<Option<Option<SocketAddr>>, Error> {
+pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {
     let endpoint = if !unset {
         Some(ask_endpoint(None)?)
     } else {

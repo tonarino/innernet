@@ -200,7 +200,7 @@ mod tests {
                 .put_request_from_ip(test::DEVELOPER1_PEER_IP)
                 .path("/v1/user/endpoint")
                 .body(serde_json::to_string(&EndpointContents::Set(
-                    "1.1.1.1:51820".parse()?
+                    "1.1.1.1:51820".parse().unwrap()
                 ))?)
                 .reply(&filter)
                 .await
