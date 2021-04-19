@@ -199,31 +199,45 @@ pub struct AddPeerOpts {
     #[structopt(long)]
     pub cidr: Option<String>,
 
-    /// Make new peer an admin
+    /// Make new peer an admin?
     #[structopt(long)]
     pub admin: Option<bool>,
 
-    /// Force confirmation
-    #[structopt(short, long)]
-    pub force: bool,
+    /// Bypass confirmation
+    #[structopt(long)]
+    pub yes: bool,
 
+    /// Save the config to the given location
     #[structopt(long)]
     pub save_config: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct AddCidrOpts {
+    /// The CIDR name (eg. "engineers")
     #[structopt(long)]
     pub name: Option<String>,
 
+    /// The CIDR network (eg. "10.42.5.0/24")
     #[structopt(long)]
     pub cidr: Option<IpNetwork>,
 
+    /// The CIDR parent name
     #[structopt(long)]
     pub parent: Option<String>,
 
-    #[structopt(short, long)]
-    pub force: bool,
+    /// Bypass confirmation
+    #[structopt(long)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct AddAssociationOpts {
+    /// The first cidr to associate
+    pub cidr1: Option<String>,
+
+    /// The second cidr to associate
+    pub cidr2: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

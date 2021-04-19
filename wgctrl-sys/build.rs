@@ -8,7 +8,7 @@ mod linux {
             .derive_default(true)
             .header("c/wireguard.h")
             .impl_debug(true)
-            .whitelist_function("wg_.*")
+            .allowlist_function("wg_.*")
             .bitfield_enum("wg_peer_flags")
             .bitfield_enum("wg_device_flags");
 
