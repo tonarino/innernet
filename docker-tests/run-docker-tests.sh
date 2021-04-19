@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+SELF_DIR="$(dirname "$0")"
+cd "$SELF_DIR/.."
+
 cmd() {
 	echo "[#] $*" >&2
 	"$@"
