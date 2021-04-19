@@ -347,8 +347,8 @@ impl Peer {
         assert_eq!(self.public_key, peer.public_key.to_base64());
 
         let endpoint_diff = if let Some(ref endpoint) = self.endpoint {
-            match (endpoint.resolve(), peer.endpoint) {
-                (Ok(resolved), Some(peer_endpoint)) if resolved != peer_endpoint => Some(resolved),
+            match endpoint.resolve() {
+                Ok(resolved) if Some(resolved) != peer.endpoint => Some(resolved),
                 _ => None,
             }
         } else {
