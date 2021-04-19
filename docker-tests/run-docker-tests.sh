@@ -17,7 +17,7 @@ tmp_dir=$(mktemp -d -t innernet-tests-XXXXXXXXXX)
 cleanup() {
     info "Cleaning up."
     rm -rf "$tmp_dir"
-    cmd docker stop $(docker ps -q)
+    cmd docker stop $(docker ps -q) || true
     cmd docker network remove innernet
 }
 trap cleanup EXIT
@@ -59,7 +59,7 @@ cmd docker exec "$PEER1_CONTAINER" innernet \
     --name "robots" \
     --cidr "10.66.2.0/24" \
     --parent "evilcorp" \
-    --force
+    --yes
 
 info "Creating association between CIDRs."
 cmd docker exec "$PEER1_CONTAINER" innernet \
@@ -75,7 +75,7 @@ cmd docker exec "$PEER1_CONTAINER" innernet \
     --admin false \
     --auto-ip \
     --save-config "/app/peer2.toml" \
-    --force
+    --yes
 cmd docker cp "$PEER1_CONTAINER:/app/peer2.toml" "$tmp_dir"
 
 info "Starting second peer."

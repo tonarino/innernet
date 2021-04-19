@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y libsqlite3-dev iproute2 iputils-ping &&
 WORKDIR /app
 
 
-COPY ./dockerfiles/start-client.sh ./
+COPY ./docker-tests/start-client.sh ./
 COPY --from=builder /app/target/release/innernet /usr/bin/
 
 CMD ["/app/start-client.sh"]

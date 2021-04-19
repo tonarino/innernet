@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y libsqlite3-dev iproute2 iputils-ping &&
 
 WORKDIR /app
 
-COPY ./dockerfiles/start-server.sh ./
+COPY ./docker-tests/start-server.sh ./
 COPY --from=builder /app/target/release/innernet-server /usr/bin/
 EXPOSE 51820/udp
 
