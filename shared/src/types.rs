@@ -226,6 +226,19 @@ pub struct AddCidrOpts {
     pub force: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct AddAssociationOpts {
+
+    /// The first cidr to associate
+    pub cidr1: Option<String>,
+
+    /// The second cidr to associate
+    pub cidr2: Option<String>,
+
+    #[structopt(short, long)]
+    pub force: bool,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct PeerContents {
     pub name: String,

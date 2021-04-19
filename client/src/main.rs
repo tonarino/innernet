@@ -2,11 +2,7 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::printdoc;
-use shared::{
-    interface_config::InterfaceConfig, prompts, AddCidrOpts, AddPeerOpts, Association,
-    AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface, IoErrorContext,
-    Peer, RedeemContents, State, CLIENT_CONFIG_PATH, REDEEM_TRANSITION_WAIT,
-};
+use shared::{AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, CLIENT_CONFIG_PATH, Cidr, CidrTree, EndpointContents, InstallOpts, Interface, IoErrorContext, Peer, REDEEM_TRANSITION_WAIT, RedeemContents, State, interface_config::InterfaceConfig, prompts};
 use std::{
     fmt,
     path::{Path, PathBuf},
@@ -131,7 +127,12 @@ enum Command {
     EnablePeer { interface: Interface },
 
     /// Add an association between CIDRs.
-    AddAssociation { interface: Interface },
+    AddAssociation {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        opts: AddAssociationOpts,
+    },
 
     /// Delete an association between CIDRs.
     DeleteAssociation { interface: Interface },
@@ -560,25 +561,32 @@ fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(),
     Ok(())
 }
 
-fn add_association(interface: &InterfaceName) -> Result<(), Error> {
+fn add_association(interface: &InterfaceName, opts: AddAssociationOpts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
     println!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
-    if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
-        api.http_form(
-            "POST",
-            "/admin/associations",
-            AssociationContents {
-                cidr_id_1: cidr1.id,
-                cidr_id_2: cidr2.id,
-            },
-        )?;
+    let association = if let (Some(ref cidr1), Some(ref cidr2)) = (opts.cidr1, opts.cidr2) {
+        let cidr1 = cidrs.iter().find(|c| &c.name == cidr1).ok_or(format!("can't find cidr '{}'", cidr1))?;
+        let cidr2 = cidrs.iter().find(|c| &c.name == cidr2).ok_or(format!("can't find cidr '{}'", cidr2))?;
+        (cidr1, cidr2)
+    } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
+        (cidr1, cidr2)
     } else {
         println!("exited without adding association.");
-    }
+        return Ok(())
+    };
+
+    api.http_form(
+        "POST",
+        "/admin/associations",
+        AssociationContents {
+            cidr_id_1: association.0.id,
+            cidr_id_2: association.1.id,
+        },
+    )?;
 
     Ok(())
 }
@@ -870,7 +878,7 @@ fn run(opt: Opt) -> Result<(), Error> {
         Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
         Command::EnablePeer { interface } => enable_or_disable_peer(&interface, true)?,
-        Command::AddAssociation { interface } => add_association(&interface)?,
+        Command::AddAssociation { interface, opts } => add_association(&interface, opts)?,
         Command::DeleteAssociation { interface } => delete_association(&interface)?,
         Command::ListAssociations { interface } => list_associations(&interface)?,
         Command::SetListenPort { interface, unset } => set_listen_port(&interface, unset)?,

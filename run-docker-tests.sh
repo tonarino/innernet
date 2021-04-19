@@ -50,11 +50,25 @@ cmd docker cp "$tmp_dir/peer1.toml" "$PEER1_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER1_CONTAINER"
 sleep 5
 
+info "Creating a new CIDR from first peer."
+cmd docker exec "$PEER1_CONTAINER" innernet \
+    add-cidr evilcorp \
+    --name "robots" \
+    --cidr "10.66.2.0/24" \
+    --parent "evilcorp" \
+    --force
+
+info "Creating association between CIDRs."
+cmd docker exec "$PEER1_CONTAINER" innernet \
+    add-association evilcorp \
+        humans \
+        robots
+
 info "Creating invitation for second peer from first peer."
 cmd docker exec "$PEER1_CONTAINER" innernet \
     add-peer evilcorp \
     --name "peer2" \
-    --cidr "humans" \
+    --cidr "robots" \
     --admin false \
     --auto-ip \
     --save-config "/app/peer2.toml" \
