@@ -283,6 +283,7 @@ fn redeem_invite(
     target_conf: PathBuf,
 ) -> Result<(), Error> {
     println!("{} bringing up the interface.", "[*]".dimmed());
+    let resolved_endpoint = config.server.external_endpoint.resolve()?;
     wg::up(
         &iface,
         &config.interface.private_key,
@@ -291,7 +292,7 @@ fn redeem_invite(
         Some((
             &config.server.public_key,
             config.server.internal_endpoint.ip(),
-            config.server.external_endpoint,
+            resolved_endpoint,
         )),
     )?;
 
@@ -369,6 +370,7 @@ fn fetch(
         }
 
         println!("{} bringing up the interface.", "[*]".dimmed());
+        let resolved_endpoint = config.server.external_endpoint.resolve()?;
         wg::up(
             interface,
             &config.interface.private_key,
@@ -377,7 +379,7 @@ fn fetch(
             Some((
                 &config.server.public_key,
                 config.server.internal_endpoint.ip(),
-                config.server.external_endpoint,
+                resolved_endpoint,
             )),
         )?
     }
@@ -821,7 +823,7 @@ fn print_peer(our_peer: &Peer, peer: &PeerInfo, short: bool) -> Result<(), Error
             &our_peer.public_key[..10].yellow()
         );
         println!("  {}: {}", "ip".bold(), our_peer.ip);
-        if let Some(endpoint) = our_peer.endpoint {
+        if let Some(ref endpoint) = our_peer.endpoint {
             println!("  {}: {}", "endpoint".bold(), endpoint);
         }
         if let Some(last_handshake) = peer.stats.last_handshake_time {

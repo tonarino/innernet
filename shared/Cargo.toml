@@ -17,4 +17,5 @@ serde = { version = "1", features = ["derive"] }
 structopt = "0.3"
 toml = "0.5"
 ureq = { version = "2", default-features = false }
+url = "2"
 wgctrl = { path = "../wgctrl-rs" }

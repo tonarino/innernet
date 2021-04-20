@@ -95,7 +95,7 @@ impl DatabasePeer {
                 ip.to_string(),
                 cidr_id,
                 &public_key,
-                endpoint.map(|endpoint| endpoint.to_string()),
+                endpoint.as_ref().map(|endpoint| endpoint.to_string()),
                 is_admin,
                 is_disabled,
                 is_redeemed,
@@ -138,7 +138,10 @@ impl DatabasePeer {
             WHERE id = ?5",
             params![
                 new_contents.name,
-                new_contents.endpoint.map(|endpoint| endpoint.to_string()),
+                new_contents
+                    .endpoint
+                    .as_ref()
+                    .map(|endpoint| endpoint.to_string()),
                 new_contents.is_admin,
                 new_contents.is_disabled,
                 self.id,

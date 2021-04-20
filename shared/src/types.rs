@@ -2,13 +2,15 @@ use crate::prompts::hostname_validator;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt::{Display, Formatter},
-    net::{IpAddr, SocketAddr},
+    fmt::{self, Display, Formatter},
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
     ops::Deref,
     path::Path,
     str::FromStr,
+    vec,
 };
 use structopt::StructOpt;
+use url::Host;
 use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 #[derive(Debug, Clone)]
@@ -37,15 +39,105 @@ impl Deref for Interface {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+/// An external endpoint that supports both IP and domain name hosts.
+pub struct Endpoint {
+    host: Host,
+    port: u16,
+}
+
+impl From<SocketAddr> for Endpoint {
+    fn from(addr: SocketAddr) -> Self {
+        match addr {
+            SocketAddr::V4(v4addr) => Self {
+                host: Host::Ipv4(*v4addr.ip()),
+                port: v4addr.port(),
+            },
+            SocketAddr::V6(v6addr) => Self {
+                host: Host::Ipv6(*v6addr.ip()),
+                port: v6addr.port(),
+            },
+        }
+    }
+}
+
+impl FromStr for Endpoint {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.rsplitn(2, ':').collect::<Vec<&str>>().as_slice() {
+            [port, host] => {
+                let port = port.parse().map_err(|_| "couldn't parse port")?;
+                let host = Host::parse(host).map_err(|_| "couldn't parse host")?;
+                Ok(Endpoint { host, port })
+            },
+            _ => Err("couldn't parse in form of 'host:port'"),
+        }
+    }
+}
+
+impl Serialize for Endpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Endpoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct EndpointVisitor;
+        impl<'de> serde::de::Visitor<'de> for EndpointVisitor {
+            type Value = Endpoint;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid host:port endpoint")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                s.parse().map_err(serde::de::Error::custom)
+            }
+        }
+        deserializer.deserialize_str(EndpointVisitor)
+    }
+}
+
+impl fmt::Display for Endpoint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.host.fmt(f)?;
+        f.write_str(":")?;
+        self.port.fmt(f)
+    }
+}
+
+impl Endpoint {
+    pub fn resolve(&self) -> Result<SocketAddr, String> {
+        let mut addrs = self
+            .to_string()
+            .to_socket_addrs()
+            .map_err(|e| e.to_string())?;
+        addrs
+            .next()
+            .ok_or_else(|| "failed to resolve address".to_string())
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "option", content = "content")]
 pub enum EndpointContents {
-    Set(SocketAddr),
+    Set(Endpoint),
     Unset,
 }
 
-impl Into<Option<SocketAddr>> for EndpointContents {
-    fn into(self) -> Option<SocketAddr> {
+impl Into<Option<Endpoint>> for EndpointContents {
+    fn into(self) -> Option<Endpoint> {
         match self {
             Self::Set(addr) => Some(addr),
             Self::Unset => None,
@@ -53,8 +145,8 @@ impl Into<Option<SocketAddr>> for EndpointContents {
     }
 }
 
-impl From<Option<SocketAddr>> for EndpointContents {
-    fn from(option: Option<SocketAddr>) -> Self {
+impl From<Option<Endpoint>> for EndpointContents {
+    fn from(option: Option<Endpoint>) -> Self {
         match option {
             Some(addr) => Self::Set(addr),
             None => Self::Unset,
@@ -246,7 +338,7 @@ pub struct PeerContents {
     pub ip: IpAddr,
     pub cidr_id: i64,
     pub public_key: String,
-    pub endpoint: Option<SocketAddr>,
+    pub endpoint: Option<Endpoint>,
     pub persistent_keepalive_interval: Option<u16>,
     pub is_admin: bool,
     pub is_disabled: bool,
@@ -287,8 +379,11 @@ impl Peer {
     pub fn diff(&self, peer: &PeerConfig) -> Option<PeerDiff> {
         assert_eq!(self.public_key, peer.public_key.to_base64());
 
-        let endpoint_diff = if peer.endpoint != self.endpoint {
-            self.endpoint
+        let endpoint_diff = if let Some(ref endpoint) = self.endpoint {
+            match endpoint.resolve() {
+                Ok(resolved) if Some(resolved) != peer.endpoint => Some(resolved),
+                _ => None,
+            }
         } else {
             None
         };
@@ -331,7 +426,9 @@ impl<'a> From<&'a Peer> for PeerConfigBuilder {
             builder
         };
 
-        if let Some(endpoint) = peer.endpoint {
+        let resolved = peer.endpoint.as_ref().map(|e| e.resolve().ok()).flatten();
+
+        if let Some(endpoint) = resolved {
             builder.set_endpoint(endpoint)
         } else {
             builder

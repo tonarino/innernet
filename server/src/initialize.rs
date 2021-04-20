@@ -5,7 +5,7 @@ use indoc::printdoc;
 use rusqlite::{params, Connection};
 use shared::{
     prompts::{self, hostname_validator},
-    CidrContents, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use wgctrl::KeyPair;
 
@@ -32,7 +32,7 @@ pub struct InitializeOpts {
 
     /// This server's external endpoint (ex: 100.100.100.100:51820)
     #[structopt(long, conflicts_with = "auto-external-endpoint")]
-    pub external_endpoint: Option<SocketAddr>,
+    pub external_endpoint: Option<Endpoint>,
 
     /// Auto-resolve external endpoint
     #[structopt(long = "auto-external-endpoint")]
@@ -49,7 +49,7 @@ struct DbInitData {
     server_cidr: IpNetwork,
     our_ip: IpAddr,
     public_key_base64: String,
-    endpoint: SocketAddr,
+    endpoint: Endpoint,
 }
 
 fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), Error> {
@@ -126,7 +126,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     // This probably won't error because of the `hostname_validator` regex.
     let name = name.parse()?;
 
-    let endpoint: SocketAddr = if let Some(endpoint) = opts.external_endpoint {
+    let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint.clone()
     } else {
         let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
@@ -139,7 +139,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
 
         if opts.auto_external_endpoint {
             let ip = external_ip.ok_or("couldn't get external IP")?;
-            (ip, 51820).into()
+            SocketAddr::new(ip, 51820).into()
         } else {
             prompts::ask_endpoint(external_ip)?
         }

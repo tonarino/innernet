@@ -1,4 +1,4 @@
-use crate::{ensure_dirs_exist, Error, IoErrorContext, CLIENT_CONFIG_PATH};
+use crate::{ensure_dirs_exist, Endpoint, Error, IoErrorContext, CLIENT_CONFIG_PATH};
 use colored::*;
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
@@ -46,7 +46,7 @@ pub struct ServerInfo {
     pub public_key: String,
 
     /// The external internet endpoint to reach the server.
-    pub external_endpoint: SocketAddr,
+    pub external_endpoint: Endpoint,
 
     /// An internal endpoint in the WireGuard network that hosts the coordination API.
     pub internal_endpoint: SocketAddr,

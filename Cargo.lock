@@ -1138,6 +1138,7 @@ dependencies = [
  "tokio",
  "toml",
  "ureq",
+ "url",
  "warp",
  "wgctrl",
 ]
@@ -1169,6 +1170,7 @@ dependencies = [
  "structopt",
  "toml",
  "ureq",
+ "url",
  "wgctrl",
 ]
 
