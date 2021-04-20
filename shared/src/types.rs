@@ -39,7 +39,7 @@ impl Deref for Interface {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 /// An external endpoint that supports both IP and domain name hosts.
 pub struct Endpoint {
     host: Host,
@@ -73,6 +73,39 @@ impl FromStr for Endpoint {
             },
             _ => Err("couldn't parse in form of 'host:port'"),
         }
+    }
+}
+
+impl Serialize for Endpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Endpoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct EndpointVisitor;
+        impl<'de> serde::de::Visitor<'de> for EndpointVisitor {
+            type Value = Endpoint;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid host:port endpoint")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                s.parse().map_err(serde::de::Error::custom)
+            }
+        }
+        deserializer.deserialize_str(EndpointVisitor)
     }
 }
 
