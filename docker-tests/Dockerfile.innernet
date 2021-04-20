@@ -2,7 +2,7 @@
 ## Builder
 ####################################################################################################
 FROM rust as planner
-RUN apt update && apt install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
+RUN apt-get update && apt-get install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
 RUN update-ca-certificates
 WORKDIR /app
 RUN cargo install cargo-chef 
@@ -10,7 +10,7 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM rust as cacher
-RUN apt update && apt install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
+RUN apt-get update && apt-get install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
 RUN update-ca-certificates
 WORKDIR /app
 RUN cargo install cargo-chef
@@ -18,12 +18,13 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 FROM rust as builder
-RUN apt update && apt install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
+RUN apt-get update && apt-get install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
 RUN update-ca-certificates
 WORKDIR /app
 COPY . .
 COPY --from=cacher /app/target target
 RUN cargo build --release --bin innernet
+RUN strip /app/target/release/innernet
 
 ####################################################################################################
 ## Final image
