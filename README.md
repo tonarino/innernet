@@ -178,9 +178,10 @@ brew install tonarino/innernet/innernet
 ### Cargo
 
 ```sh
-git checkout https://github.com/tonarino/innernet
+git clone https://github.com/tonarino/innernet
 cd innernet
 cargo install --path client
+cargo install --path server
 ```
 
 ## Development
