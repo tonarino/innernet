@@ -239,13 +239,16 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>, opts: InstallOpts) -> Res
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, false, hosts_file).is_ok() {
+        if fetch(&iface, false, hosts_file.clone()).is_ok() {
             fetch_success = true;
             break;
         }
     }
     if !fetch_success {
-        println!("{} Failed to fetch peers from server, you will need to manually run the 'up' command.", "[!]".red());
+        println!(
+            "{} Failed to fetch peers from server, you will need to manually run the 'up' command.",
+            "[!]".red()
+        );
     }
 
     if opts.delete_invite
