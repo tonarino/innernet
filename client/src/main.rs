@@ -237,7 +237,16 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>, opts: InstallOpts) -> Res
         e
     })?;
 
-    fetch(&iface, false, hosts_file)?;
+    let mut fetch_success = false;
+    for _ in 0..3 {
+        if fetch(&iface, false, hosts_file).is_ok() {
+            fetch_success = true;
+            break;
+        }
+    }
+    if !fetch_success {
+        println!("{} Failed to fetch peers from server, you will need to manually run the 'up' command.", "[!]".red());
+    }
 
     if opts.delete_invite
         || Confirm::with_theme(&*prompts::THEME)
@@ -319,15 +328,15 @@ fn redeem_invite(
         "[*]".dimmed(),
         target_conf.to_string_lossy().yellow()
     );
+
     println!(
-        "{} Waiting for server's WireGuard interface to transition to new key.",
+        "{} Changing keys and waiting for server's WireGuard interface to transition.",
         "[*]".dimmed(),
     );
-    thread::sleep(*REDEEM_TRANSITION_WAIT);
-
     DeviceConfigBuilder::new()
         .set_private_key(keypair.private)
         .apply(&iface)?;
+    thread::sleep(*REDEEM_TRANSITION_WAIT);
 
     Ok(())
 }
