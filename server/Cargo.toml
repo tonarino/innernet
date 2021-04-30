@@ -30,16 +30,15 @@ rusqlite = "0.25"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared = { path = "../shared" }
-subtle = "2"
 structopt = "0.3"
+subtle = "2"
 thiserror = "1"
-ureq = { version = "2", default-features = false }
-url = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 toml = "0.5"
+ureq = { version = "2", default-features = false }
+url = "2"
 warp = { git = "https://github.com/tonarino/warp", default-features = false } # pending https://github.com/seanmonstar/warp/issues/830
 wgctrl = { path = "../wgctrl-rs" }
-
 
 [target.'cfg(target_os = "linux")'.dependencies]
 socket2 = { version = "0.4", features = ["all"] }
