@@ -25,7 +25,7 @@ use util::{human_duration, human_size, Api};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "innernet", about)]
-struct Opt {
+struct Opts {
     #[structopt(subcommand)]
     command: Option<Command>,
 }
@@ -768,7 +768,10 @@ fn print_tree(cidr: &CidrTree, peers: &[Peer], level: usize) {
         pad = level * 2
     );
 
-    cidr.children()
+    let mut children: Vec<_> = cidr.children().collect();
+    children.sort_by(|a, b| a.cmp(&b));
+    children
+        .iter()
         .for_each(|child| print_tree(&child, peers, level + 1));
 
     for peer in peers.iter().filter(|p| p.cidr_id == cidr.id) {
@@ -860,7 +863,7 @@ fn print_peer(our_peer: &Peer, peer: &PeerInfo, short: bool) -> Result<(), Error
 }
 
 fn main() {
-    let opt = Opt::from_args();
+    let opt = Opts::from_args();
 
     if let Err(e) = run(opt) {
         eprintln!("\n{} {}\n", "[ERROR]".red(), e);
@@ -868,7 +871,7 @@ fn main() {
     }
 }
 
-fn run(opt: Opt) -> Result<(), Error> {
+fn run(opt: Opts) -> Result<(), Error> {
     if unsafe { libc::getuid() } != 0 {
         return Err("innernet must run as root.".into());
     }
