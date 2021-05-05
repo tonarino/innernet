@@ -15,8 +15,6 @@ path = "src/main.rs"
 [dependencies]
 bytes = "1"
 colored = "2"
-crossbeam = "0.8"
-dashmap = "4"
 dialoguer = "0.8"
 hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
 indoc = "1"
