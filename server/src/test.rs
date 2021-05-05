@@ -6,12 +6,13 @@ use crate::{
     Context, ServerConfig,
 };
 use anyhow::{anyhow, Result};
+use hyper::{Body, Request, Response, header::HeaderValue, http};
 use parking_lot::Mutex;
 use rusqlite::Connection;
+use serde::Serialize;
 use shared::{Cidr, CidrContents, PeerContents};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
-use warp::test::RequestBuilder;
 use wgctrl::{InterfaceName, Key, KeyPair};
 
 pub const ROOT_CIDR: &str = "10.80.0.0/15";
@@ -144,23 +145,47 @@ impl Server {
         self.conf.config_path(&self.interface)
     }
 
-    pub fn request_from_ip(&self, ip_str: &str) -> RequestBuilder {
+    pub async fn raw_request(&self, ip_str: &str, req: Request<Body>) -> Response<Body> {
         let port = 54321u16;
-        warp::test::request()
-            .remote_addr(SocketAddr::new(ip_str.parse().unwrap(), port))
-            .header(shared::INNERNET_PUBKEY_HEADER, self.public_key.to_base64())
+        crate::hyper_service(
+            req,
+            self.context(),
+            SocketAddr::new(ip_str.parse().unwrap(), port),
+        )
+        .await
+        .unwrap()
     }
 
-    pub fn post_request_from_ip(&self, ip_str: &str) -> RequestBuilder {
-        self.request_from_ip(ip_str)
-            .method("POST")
-            .header("Content-Type", "application/json")
+    fn base_request_builder(&self, verb: &str, path: &str) -> http::request::Builder {
+        Request::builder()
+            .uri(format!("http://{}{}", WG_MANAGE_PEER_IP, path))
+            .method(verb)
+            .header(
+                shared::INNERNET_PUBKEY_HEADER,
+                HeaderValue::from_str(&self.public_key.to_base64()).unwrap(),
+            )
     }
 
-    pub fn put_request_from_ip(&self, ip_str: &str) -> RequestBuilder {
-        self.request_from_ip(ip_str)
-            .method("PUT")
+    pub async fn request(&self, ip_str: &str, verb: &str, path: &str) -> Response<Body> {
+        let req = self.base_request_builder(verb, path)
+            .body(Body::empty())
+            .unwrap();
+        self.raw_request(ip_str, req).await
+    }
+    pub async fn form_request<F: Serialize>(
+        &self,
+        ip_str: &str,
+        verb: &str,
+        path: &str,
+        form: F,
+    ) -> Response<Body> {
+        let json = serde_json::to_string(&form).unwrap();
+        let req = self.base_request_builder(verb, path)
             .header("Content-Type", "application/json")
+            .header("Content-Length", json.len().to_string())
+            .body(Body::from(json))
+            .unwrap();
+        self.raw_request(ip_str, req).await
     }
 }
 

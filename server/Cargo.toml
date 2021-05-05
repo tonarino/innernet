@@ -13,11 +13,12 @@ name = "innernet-server"
 path = "src/main.rs"
 
 [dependencies]
+bytes = "1"
 colored = "2"
 crossbeam = "0.8"
 dashmap = "4"
 dialoguer = "0.8"
-hyper = "0.14"
+hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 libc = "0.2"
@@ -33,11 +34,10 @@ shared = { path = "../shared" }
 structopt = "0.3"
 subtle = "2"
 thiserror = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 toml = "0.5"
 ureq = { version = "2", default-features = false }
 url = "2"
-warp = { git = "https://github.com/tonarino/warp", default-features = false } # pending https://github.com/seanmonstar/warp/issues/830
 wgctrl = { path = "../wgctrl-rs" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

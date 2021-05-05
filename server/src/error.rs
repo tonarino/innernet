@@ -1,5 +1,7 @@
+use std::convert::TryFrom;
+
+use hyper::{Body, Response, StatusCode, http};
 use thiserror::Error;
-use warp::{http::StatusCode, reject::Rejection};
 
 #[derive(Error, Debug)]
 pub enum ServerError {
@@ -20,17 +22,15 @@ pub enum ServerError {
 
     #[error("internal I/O error")]
     Io(#[from] std::io::Error),
-}
 
-impl warp::reject::Reject for ServerError {}
+    #[error("JSON parsing/serialization error")]
+    Json(#[from] serde_json::Error),
 
-pub async fn handle_rejection(err: Rejection) -> Result<StatusCode, warp::Rejection> {
-    eprintln!("rejection: {:?}", err);
-    if let Some(error) = err.find::<ServerError>() {
-        Ok(error.into())
-    } else {
-        Err(err)
-    }
+    #[error("Generic HTTP error")]
+    Http(#[from] http::Error),
+
+    #[error("Generic Hyper error")]
+    Hyper(#[from] hyper::Error),
 }
 
 impl<'a> From<&'a ServerError> for StatusCode {
@@ -39,15 +39,25 @@ impl<'a> From<&'a ServerError> for StatusCode {
         match error {
             Unauthorized => StatusCode::UNAUTHORIZED,
             NotFound => StatusCode::NOT_FOUND,
-            InvalidQuery => StatusCode::BAD_REQUEST,
+            InvalidQuery | Json(_) => StatusCode::BAD_REQUEST,
             // Special-case the constraint violation situation.
             Database(rusqlite::Error::SqliteFailure(libsqlite3_sys::Error { code, .. }, ..))
                 if *code == libsqlite3_sys::ErrorCode::ConstraintViolation =>
             {
                 StatusCode::BAD_REQUEST
-            },
+            }
             Database(rusqlite::Error::QueryReturnedNoRows) => StatusCode::NOT_FOUND,
-            WireGuard | Io(_) | Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            WireGuard | Io(_) | Database(_) | Http(_) | Hyper(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+}
+
+impl TryFrom<ServerError> for Response<Body> {
+    type Error = http::Error;
+
+    fn try_from(e: ServerError) -> Result<Self, Self::Error> {
+        Response::builder()
+            .status(StatusCode::from(&e))
+            .body(Body::empty())
     }
 }

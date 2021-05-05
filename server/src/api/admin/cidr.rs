@@ -1,86 +1,61 @@
-use crate::{db::DatabaseCidr, form_body, with_admin_session, AdminSession, Context};
-use shared::CidrContents;
-use warp::{
-    http::{response::Response, StatusCode},
-    Filter,
+use std::collections::VecDeque;
+
+use crate::{
+    db::DatabaseCidr,
+    util::{form_body, json_response, status_response},
+    ServerError, Session,
 };
+use hyper::StatusCode;
+use hyper::{Body, Method, Request, Response};
+use shared::CidrContents;
 
-pub mod routes {
-    use super::*;
-
-    pub fn all(
-        context: Context,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("cidrs").and(
-            list(context.clone())
-                .or(create(context.clone()))
-                .or(delete(context)),
-        )
-    }
-
-    pub fn list(
-        context: Context,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path::end()
-            .and(warp::get())
-            .and(with_admin_session(context))
-            .and_then(handlers::list)
-    }
-
-    pub fn create(
-        context: Context,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path::end()
-            .and(warp::post())
-            .and(form_body())
-            .and(with_admin_session(context))
-            .and_then(handlers::create)
-    }
-
-    pub fn delete(
-        context: Context,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path::param()
-            .and(warp::path::end())
-            .and(warp::delete())
-            .and(with_admin_session(context))
-            .and_then(handlers::delete)
+pub async fn routes(
+    req: Request<Body>,
+    mut components: VecDeque<String>,
+    session: Session,
+) -> Result<Response<Body>, ServerError> {
+    match (req.method(), components.pop_front().as_deref()) {
+        (&Method::GET, None) => handlers::list(session).await,
+        (&Method::POST, None) => {
+            let form = form_body(req).await?;
+            handlers::create(form, session).await
+        }
+        (&Method::DELETE, Some(id)) => {
+            let id: i64 = id.parse().map_err(|_| ServerError::NotFound)?;
+            handlers::delete(id, session).await
+        }
+        _ => Err(ServerError::NotFound),
     }
 }
 
 mod handlers {
+    use crate::util::json_status_response;
+
     use super::*;
 
     pub async fn create(
         contents: CidrContents,
-        session: AdminSession,
-    ) -> Result<impl warp::Reply, warp::Rejection> {
+        session: Session,
+    ) -> Result<Response<Body>, ServerError> {
         let conn = session.context.db.lock();
 
         let cidr = DatabaseCidr::create(&conn, contents)?;
 
-        let response = Response::builder()
-            .status(StatusCode::CREATED)
-            .body(serde_json::to_string(&cidr).unwrap())
-            .unwrap();
-        Ok(response)
+        json_status_response(&cidr, StatusCode::CREATED)
     }
 
-    pub async fn list(session: AdminSession) -> Result<impl warp::Reply, warp::Rejection> {
+    pub async fn list(session: Session) -> Result<Response<Body>, ServerError> {
         let conn = session.context.db.lock();
         let cidrs = DatabaseCidr::list(&conn)?;
 
-        Ok(warp::reply::json(&cidrs))
+        json_response(&cidrs)
     }
 
-    pub async fn delete(
-        id: i64,
-        session: AdminSession,
-    ) -> Result<impl warp::Reply, warp::Rejection> {
+    pub async fn delete(id: i64, session: Session) -> Result<Response<Body>, ServerError> {
         let conn = session.context.db.lock();
         DatabaseCidr::delete(&conn, id)?;
 
-        Ok(StatusCode::NO_CONTENT)
+        status_response(StatusCode::NO_CONTENT)
     }
 }
 
@@ -89,6 +64,7 @@ mod tests {
     use super::*;
     use crate::{test, DatabasePeer};
     use anyhow::Result;
+    use bytes::Buf;
     use shared::Cidr;
 
     #[tokio::test]
@@ -103,17 +79,14 @@ mod tests {
             parent: Some(test::ROOT_CIDR_ID),
         };
 
-        let filter = crate::routes(server.context());
         let res = server
-            .post_request_from_ip(test::ADMIN_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
 
         assert_eq!(res.status(), 201);
 
-        let cidr_res: Cidr = serde_json::from_slice(&res.body())?;
+        let whole_body = hyper::body::aggregate(res).await?;
+        let cidr_res: Cidr = serde_json::from_reader(whole_body.reader())?;
         assert_eq!(contents, cidr_res.contents);
 
         let new_cidrs = DatabaseCidr::list(&server.db().lock())?;
@@ -132,15 +105,12 @@ mod tests {
             parent: Some(test::ROOT_CIDR_ID),
         };
 
-        let filter = crate::routes(server.context());
         let res = server
-            .post_request_from_ip(test::ADMIN_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
         assert!(res.status().is_success());
-        let cidr_res: Cidr = serde_json::from_slice(&res.body())?;
+        let whole_body = hyper::body::aggregate(res).await?;
+        let cidr_res: Cidr = serde_json::from_reader(whole_body.reader())?;
 
         let contents = CidrContents {
             name: "experimental".to_string(),
@@ -148,10 +118,7 @@ mod tests {
             parent: Some(cidr_res.id),
         };
         let res = server
-            .post_request_from_ip(test::ADMIN_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
         assert!(!res.status().is_success());
 
@@ -168,12 +135,8 @@ mod tests {
             parent: Some(test::ROOT_CIDR_ID),
         };
 
-        let filter = crate::routes(server.context());
         let res = server
-            .post_request_from_ip(test::USER1_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::USER1_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
         assert!(!res.status().is_success());
 
@@ -189,12 +152,8 @@ mod tests {
             cidr: test::EXPERIMENTAL_CIDR.parse()?,
             parent: Some(test::ROOT_CIDR_ID),
         };
-        let filter = crate::routes(server.context());
         let res = server
-            .post_request_from_ip(test::ADMIN_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
         assert!(res.status().is_success());
 
@@ -204,12 +163,8 @@ mod tests {
             parent: Some(test::ROOT_CIDR_ID),
         };
 
-        let filter = crate::routes(server.context());
         let res = server
-            .post_request_from_ip(test::ADMIN_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
         assert!(!res.status().is_success());
 
@@ -225,12 +180,8 @@ mod tests {
             cidr: "10.80.1.0/21".parse()?,
             parent: Some(test::ROOT_CIDR_ID),
         };
-        let filter = crate::routes(server.context());
         let res = server
-            .post_request_from_ip(test::ADMIN_PEER_IP)
-            .path("/v1/admin/cidrs")
-            .body(serde_json::to_string(&contents)?)
-            .reply(&filter)
+            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &contents)
             .await;
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 
@@ -258,31 +209,32 @@ mod tests {
             },
         )?;
 
-        let filter = crate::routes(server.context());
-
         let res = server
-            .request_from_ip(test::ADMIN_PEER_IP)
-            .method("DELETE")
-            .path(&format!("/v1/admin/cidrs/{}", experimental_cidr.id))
-            .reply(&filter)
+            .request(
+                test::ADMIN_PEER_IP,
+                "DELETE",
+                &format!("/v1/admin/cidrs/{}", experimental_cidr.id),
+            )
             .await;
         // Should fail because child CIDR exists.
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 
         let res = server
-            .request_from_ip(test::ADMIN_PEER_IP)
-            .method("DELETE")
-            .path(&format!("/v1/admin/cidrs/{}", experimental_subcidr.id))
-            .reply(&filter)
+            .request(
+                test::ADMIN_PEER_IP,
+                "DELETE",
+                &format!("/v1/admin/cidrs/{}", experimental_subcidr.id),
+            )
             .await;
         // Deleting child "leaf" CIDR should fail because peer exists inside it.
         assert_eq!(res.status(), StatusCode::NO_CONTENT);
 
         let res = server
-            .request_from_ip(test::ADMIN_PEER_IP)
-            .method("DELETE")
-            .path(&format!("/v1/admin/cidrs/{}", experimental_cidr.id))
-            .reply(&filter)
+            .request(
+                test::ADMIN_PEER_IP,
+                "DELETE",
+                &format!("/v1/admin/cidrs/{}", experimental_cidr.id),
+            )
             .await;
         // Now deleting parent CIDR should work because child is gone.
         assert_eq!(res.status(), StatusCode::NO_CONTENT);
@@ -312,13 +264,12 @@ mod tests {
             )?,
         )?;
 
-        let filter = crate::routes(server.context());
-
         let res = server
-            .request_from_ip(test::ADMIN_PEER_IP)
-            .method("DELETE")
-            .path(&format!("/v1/admin/cidrs/{}", experimental_cidr.id))
-            .reply(&filter)
+            .request(
+                test::ADMIN_PEER_IP,
+                "DELETE",
+                &format!("/v1/admin/cidrs/{}", experimental_cidr.id),
+            )
             .await;
         // Deleting CIDR should fail because peer exists inside it.
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
