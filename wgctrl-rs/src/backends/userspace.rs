@@ -259,7 +259,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<DeviceInfo, io::Error> {
 /// available.
 fn get_userspace_implementation() -> String {
     std::env::var("WG_USERSPACE_IMPLEMENTATION")
-        .or(std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
+        .or_else(|_| std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
         .unwrap_or_else(|_| "wireguard-go".to_string())
 }
 

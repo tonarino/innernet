@@ -201,9 +201,9 @@ impl DatabasePeer {
                 cidr_id,
                 public_key,
                 endpoint,
+                persistent_keepalive_interval,
                 is_admin,
                 is_disabled,
-                persistent_keepalive_interval,
                 is_redeemed,
             },
         }

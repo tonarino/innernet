@@ -480,7 +480,7 @@ fn get_session(
         }
     }
 
-    Err(ServerError::Unauthorized.into())
+    Err(ServerError::Unauthorized)
 }
 
 #[cfg(test)]
