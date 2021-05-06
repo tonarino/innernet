@@ -187,7 +187,7 @@ impl std::error::Error for ClientError {
 fn update_hosts_file(
     interface: &InterfaceName,
     hosts_path: PathBuf,
-    peers: &Vec<Peer>,
+    peers: &[Peer],
 ) -> Result<(), Error> {
     println!(
         "{} updating {} with the latest peers.",
@@ -445,7 +445,7 @@ fn fetch(
 
     for peer in existing_peers {
         let public_key = peer.config.public_key.to_base64();
-        if peers.iter().find(|p| p.public_key == public_key).is_none() {
+        if !peers.iter().any(|p| p.public_key == public_key) {
             println!(
                 "    peer ({}...) was {}.",
                 &public_key[..10].yellow(),
@@ -712,7 +712,7 @@ fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error
 
 fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
     let interfaces =
-        interface.map_or_else(|| DeviceInfo::enumerate(), |interface| Ok(vec![*interface]))?;
+        interface.map_or_else(DeviceInfo::enumerate, |interface| Ok(vec![*interface]))?;
 
     let devices = interfaces.into_iter().filter_map(|name| {
         DataStore::open(&name)
@@ -744,7 +744,7 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
         });
 
         if tree {
-            let cidr_tree = CidrTree::new(&cidrs[..]);
+            let cidr_tree = CidrTree::new(cidrs);
             print_tree(&cidr_tree, &peers, 1);
         } else {
             for peer in device_info.peers {
@@ -769,7 +769,7 @@ fn print_tree(cidr: &CidrTree, peers: &[Peer], level: usize) {
     );
 
     let mut children: Vec<_> = cidr.children().collect();
-    children.sort_by(|a, b| a.cmp(&b));
+    children.sort();
     children
         .iter()
         .for_each(|child| print_tree(&child, peers, level + 1));

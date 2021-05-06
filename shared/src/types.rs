@@ -176,7 +176,7 @@ impl Deref for Association {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct CidrContents {
     pub name: String,
     pub cidr: IpNetwork,
@@ -191,7 +191,7 @@ impl Deref for CidrContents {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Cidr {
     pub id: i64,
 
@@ -207,6 +207,7 @@ impl Deref for Cidr {
     }
 }
 
+#[derive(PartialEq, PartialOrd, Eq, Ord)]
 pub struct CidrTree<'a> {
     cidrs: &'a [Cidr],
     contents: &'a Cidr,
