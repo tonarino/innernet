@@ -227,7 +227,11 @@ fn open_database_connection(
         .into());
     }
 
-    Ok(Connection::open(&database_path)?)
+    let conn = Connection::open(&database_path)?;
+    // Foreign key constraints aren't on in SQLite by default. Enable.
+    conn.pragma_update(None, "foreign_keys", &1)?;
+
+    Ok(conn)
 }
 
 fn add_peer(
@@ -300,11 +304,39 @@ fn add_cidr(
     Ok(())
 }
 
+fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+    if Confirm::with_theme(&*prompts::THEME)
+        .with_prompt(&format!(
+            "Permanently delete network \"{}\"?",
+            interface.as_str_lossy().yellow()
+        ))
+        .default(false)
+        .interact()?
+    {
+        println!("{} bringing down interface (if up).", "[*]".dimmed());
+        wg::down(interface).ok();
+        let config = conf.config_path(interface);
+        let data = conf.database_path(interface);
+        std::fs::remove_file(&config)
+            .with_path(&config)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        std::fs::remove_file(&data)
+            .with_path(&data)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        println!(
+            "{} network {} is uninstalled.",
+            "[*]".dimmed(),
+            interface.as_str_lossy().yellow()
+        );
+    }
+    Ok(())
+}
+
 async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
-    // Foreign key constraints aren't on in SQLite by default. Enable.
-    conn.pragma_update(None, "foreign_keys", &1)?;
 
     let peers = DatabasePeer::list(&conn)?;
     let peer_configs = peers
@@ -356,36 +388,6 @@ async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Err
 
     server.await?;
 
-    Ok(())
-}
-
-fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
-    if Confirm::with_theme(&*prompts::THEME)
-        .with_prompt(&format!(
-            "Permanently delete network \"{}\"?",
-            interface.as_str_lossy().yellow()
-        ))
-        .default(false)
-        .interact()?
-    {
-        println!("{} bringing down interface (if up).", "[*]".dimmed());
-        wg::down(interface).ok();
-        let config = conf.config_path(interface);
-        let data = conf.database_path(interface);
-        std::fs::remove_file(&config)
-            .with_path(&config)
-            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
-            .ok();
-        std::fs::remove_file(&data)
-            .with_path(&data)
-            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
-            .ok();
-        println!(
-            "{} network {} is uninstalled.",
-            "[*]".dimmed(),
-            interface.as_str_lossy().yellow()
-        );
-    }
     Ok(())
 }
 
@@ -446,7 +448,7 @@ async fn routes(
     if components.pop_front().as_deref() != Some("v1") {
         Err(ServerError::NotFound)
     } else {
-        let session = _get_session(&req, context, remote_addr.ip())?;
+        let session = get_session(&req, context, remote_addr.ip())?;
         let component = components.pop_front();
         match component.as_deref() {
             Some("user") => api::user::routes(req, components, session).await,
@@ -456,7 +458,7 @@ async fn routes(
     }
 }
 
-fn _get_session(
+fn get_session(
     req: &Request<Body>,
     context: Context,
     addr: IpAddr,
