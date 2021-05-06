@@ -6,7 +6,7 @@ use crate::{
     Context, ServerConfig,
 };
 use anyhow::{anyhow, Result};
-use hyper::{Body, Request, Response, header::HeaderValue, http};
+use hyper::{header::HeaderValue, http, Body, Request, Response};
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde::Serialize;
@@ -167,11 +167,13 @@ impl Server {
     }
 
     pub async fn request(&self, ip_str: &str, verb: &str, path: &str) -> Response<Body> {
-        let req = self.base_request_builder(verb, path)
+        let req = self
+            .base_request_builder(verb, path)
             .body(Body::empty())
             .unwrap();
         self.raw_request(ip_str, req).await
     }
+
     pub async fn form_request<F: Serialize>(
         &self,
         ip_str: &str,
@@ -180,7 +182,8 @@ impl Server {
         form: F,
     ) -> Response<Body> {
         let json = serde_json::to_string(&form).unwrap();
-        let req = self.base_request_builder(verb, path)
+        let req = self
+            .base_request_builder(verb, path)
             .header("Content-Type", "application/json")
             .header("Content-Length", json.len().to_string())
             .body(Body::from(json))

@@ -9,8 +9,7 @@ use crate::{
     util::{form_body, json_response, status_response},
     ServerError, Session,
 };
-use hyper::StatusCode;
-use hyper::{Body, Method, Request, Response};
+use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::AssociationContents;
 
 pub async fn routes(
@@ -23,11 +22,11 @@ pub async fn routes(
         (&Method::POST, None) => {
             let form = form_body(req).await?;
             handlers::create(form, session).await
-        }
+        },
         (&Method::DELETE, Some(id)) => {
             let id: i64 = id.parse().map_err(|_| ServerError::NotFound)?;
             handlers::delete(id, session).await
-        }
+        },
         _ => Err(ServerError::NotFound),
     }
 }

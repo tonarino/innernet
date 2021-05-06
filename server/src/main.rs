@@ -204,7 +204,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(e) = initialize::init_wizard(&conf, opts) {
                 println!("{}: {}.", "creation failed".red(), e);
             }
-        }
+        },
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
         Command::Serve { interface } => serve(&interface, &conf).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,

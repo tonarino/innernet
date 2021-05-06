@@ -21,21 +21,21 @@ pub async fn routes(
                 return Err(ServerError::Unauthorized);
             }
             handlers::state(session).await
-        }
+        },
         (&Method::POST, Some("redeem")) => {
             if !session.redeemable() {
                 return Err(ServerError::Unauthorized);
             }
             let form = form_body(req).await?;
             handlers::redeem(form, session).await
-        }
+        },
         (&Method::PUT, Some("endpoint")) => {
             if !session.user_capable() {
                 return Err(ServerError::Unauthorized);
             }
             let form = form_body(req).await?;
             handlers::endpoint(form, session).await
-        }
+        },
         _ => Err(ServerError::NotFound),
     }
 }

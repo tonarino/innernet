@@ -1,7 +1,17 @@
 use parking_lot::RwLock;
 use wgctrl::{DeviceInfo, InterfaceName};
 
-use std::{collections::HashMap, io, net::SocketAddr, sync::{Arc, mpsc::{SyncSender, TryRecvError, sync_channel}}, thread, time::Duration};
+use std::{
+    collections::HashMap,
+    io,
+    net::SocketAddr,
+    sync::{
+        mpsc::{sync_channel, SyncSender, TryRecvError},
+        Arc,
+    },
+    thread,
+    time::Duration,
+};
 
 pub struct Endpoints {
     pub endpoints: Arc<RwLock<HashMap<String, SocketAddr>>>,
@@ -27,12 +37,14 @@ impl Endpoints {
         if cfg!(not(test)) {
             thread::spawn(move || loop {
                 if matches!(stop_rx.try_recv(), Ok(_) | Err(TryRecvError::Disconnected)) {
-                     break;
+                    break;
                 }
                 if let Ok(info) = DeviceInfo::get_by_name(&iface) {
                     for peer in info.peers {
                         if let Some(endpoint) = peer.config.endpoint {
-                            thread_endpoints.write().insert(peer.config.public_key.to_base64(), endpoint);
+                            thread_endpoints
+                                .write()
+                                .insert(peer.config.public_key.to_base64(), endpoint);
                         }
                     }
                 }

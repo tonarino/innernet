@@ -29,7 +29,10 @@ pub fn json_response<F: Serialize>(form: F) -> Result<Response<Body>, ServerErro
         .body(Body::from(json))?)
 }
 
-pub fn json_status_response<F: Serialize>(form: F, status: StatusCode) -> Result<Response<Body>, ServerError> {
+pub fn json_status_response<F: Serialize>(
+    form: F,
+    status: StatusCode,
+) -> Result<Response<Body>, ServerError> {
     let json = serde_json::to_string(&form)?;
     Ok(Response::builder()
         .status(status)

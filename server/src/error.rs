@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use hyper::{Body, Response, StatusCode, http};
+use hyper::{http, Body, Response, StatusCode};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -45,9 +45,11 @@ impl<'a> From<&'a ServerError> for StatusCode {
                 if *code == libsqlite3_sys::ErrorCode::ConstraintViolation =>
             {
                 StatusCode::BAD_REQUEST
-            }
+            },
             Database(rusqlite::Error::QueryReturnedNoRows) => StatusCode::NOT_FOUND,
-            WireGuard | Io(_) | Database(_) | Http(_) | Hyper(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            WireGuard | Io(_) | Database(_) | Http(_) | Hyper(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
         }
     }
 }
