@@ -23,6 +23,7 @@ pub fn is_valid_hostname(name: &str) -> bool {
     name.len() < 64 && PEER_NAME_REGEX.is_match(name)
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn hostname_validator(name: &String) -> Result<(), &'static str> {
     if is_valid_hostname(name) {
         Ok(())
@@ -119,8 +120,8 @@ pub fn choose_association<'a>(
 }
 
 pub fn add_association(cidrs: &[Cidr]) -> Result<Option<(&Cidr, &Cidr)>, Error> {
-    let cidr1 = choose_cidr(&cidrs[..], "First CIDR")?;
-    let cidr2 = choose_cidr(&cidrs[..], "Second CIDR")?;
+    let cidr1 = choose_cidr(cidrs, "First CIDR")?;
+    let cidr2 = choose_cidr(cidrs, "Second CIDR")?;
 
     Ok(
         if Confirm::with_theme(&*THEME)
@@ -178,7 +179,7 @@ pub fn add_peer(
     let mut available_ip = None;
     let candidate_ips = cidr.iter().filter(|ip| cidr.is_assignable(*ip));
     for ip in candidate_ips {
-        if peers.iter().find(|peer| peer.ip == ip).is_none() {
+        if !peers.iter().any(|peer| peer.ip == ip) {
             available_ip = Some(ip);
             break;
         }
@@ -388,7 +389,7 @@ pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
     endpoint_builder
         .with_prompt("External endpoint")
         .interact()
-        .map_err(|e| Error::from(e))
+        .map_err(Into::into)
 }
 
 pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {

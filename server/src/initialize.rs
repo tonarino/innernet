@@ -105,7 +105,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     })?;
 
     let name: String = if let Some(name) = opts.network_name {
-        name.clone()
+        name
     } else {
         println!("Here you'll specify the network CIDR, which will encompass the entire network.");
         Input::with_theme(&theme)
@@ -115,7 +115,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     };
 
     let root_cidr: IpNetwork = if let Some(cidr) = opts.network_cidr {
-        cidr.clone()
+        cidr
     } else {
         Input::with_theme(&theme)
             .with_prompt("Network CIDR")
@@ -127,7 +127,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let name = name.parse()?;
 
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
-        endpoint.clone()
+        endpoint
     } else {
         let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
             .call()

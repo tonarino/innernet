@@ -201,9 +201,9 @@ impl DatabasePeer {
                 cidr_id,
                 public_key,
                 endpoint,
+                persistent_keepalive_interval,
                 is_admin,
                 is_disabled,
-                persistent_keepalive_interval,
                 is_redeemed,
             },
         }
@@ -223,7 +223,7 @@ impl DatabasePeer {
         Ok(result)
     }
 
-    pub fn get_from_ip(conn: &Connection, ip: IpAddr) -> Result<Self, ServerError> {
+    pub fn get_from_ip(conn: &Connection, ip: IpAddr) -> Result<Self, rusqlite::Error> {
         let result = conn.query_row(
             "SELECT
             id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed

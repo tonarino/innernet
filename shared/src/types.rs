@@ -136,11 +136,11 @@ pub enum EndpointContents {
     Unset,
 }
 
-impl Into<Option<Endpoint>> for EndpointContents {
-    fn into(self) -> Option<Endpoint> {
-        match self {
-            Self::Set(addr) => Some(addr),
-            Self::Unset => None,
+impl From<EndpointContents> for Option<Endpoint> {
+    fn from(endpoint: EndpointContents) -> Self {
+        match endpoint {
+            EndpointContents::Set(addr) => Some(addr),
+            EndpointContents::Unset => None,
         }
     }
 }

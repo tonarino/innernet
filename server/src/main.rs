@@ -1,15 +1,15 @@
 use colored::*;
 use dialoguer::Confirm;
-use error::handle_rejection;
-use hyper::{server::conn::AddrStream, Body, Request};
+use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use ipnetwork::IpNetwork;
 use parking_lot::Mutex;
 use rusqlite::Connection;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, INNERNET_PUBKEY_HEADER};
 use std::{
-    convert::Infallible,
+    collections::VecDeque,
+    convert::TryInto,
     env,
     fs::File,
     io::prelude::*,
@@ -20,7 +20,6 @@ use std::{
 };
 use structopt::StructOpt;
 use subtle::ConstantTimeEq;
-use warp::{filters, Filter};
 use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, Key, PeerConfigBuilder};
 
 pub mod api;
@@ -29,6 +28,7 @@ pub mod endpoints;
 pub mod error;
 #[cfg(test)]
 mod test;
+pub mod util;
 
 mod initialize;
 
@@ -95,21 +95,17 @@ pub struct Session {
     pub peer: DatabasePeer,
 }
 
-pub struct AdminSession(Session);
-impl Deref for AdminSession {
-    type Target = Session;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl Session {
+    pub fn admin_capable(&self) -> bool {
+        self.peer.is_admin && self.user_capable()
     }
-}
 
-pub struct UnredeemedSession(Session);
-impl Deref for UnredeemedSession {
-    type Target = Session;
+    pub fn user_capable(&self) -> bool {
+        !self.peer.is_disabled && self.peer.is_redeemed
+    }
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    pub fn redeemable(&self) -> bool {
+        !self.peer.is_disabled && !self.peer.is_redeemed
     }
 }
 
@@ -231,7 +227,11 @@ fn open_database_connection(
         .into());
     }
 
-    Ok(Connection::open(&database_path)?)
+    let conn = Connection::open(&database_path)?;
+    // Foreign key constraints aren't on in SQLite by default. Enable.
+    conn.pragma_update(None, "foreign_keys", &1)?;
+
+    Ok(conn)
 }
 
 fn add_peer(
@@ -304,11 +304,39 @@ fn add_cidr(
     Ok(())
 }
 
+fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+    if Confirm::with_theme(&*prompts::THEME)
+        .with_prompt(&format!(
+            "Permanently delete network \"{}\"?",
+            interface.as_str_lossy().yellow()
+        ))
+        .default(false)
+        .interact()?
+    {
+        println!("{} bringing down interface (if up).", "[*]".dimmed());
+        wg::down(interface).ok();
+        let config = conf.config_path(interface);
+        let data = conf.database_path(interface);
+        std::fs::remove_file(&config)
+            .with_path(&config)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        std::fs::remove_file(&data)
+            .with_path(&data)
+            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .ok();
+        println!(
+            "{} network {} is uninstalled.",
+            "[*]".dimmed(),
+            interface.as_str_lossy().yellow()
+        );
+    }
+    Ok(())
+}
+
 async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
-    // Foreign key constraints aren't on in SQLite by default. Enable.
-    conn.pragma_update(None, "foreign_keys", &1)?;
 
     let peers = DatabasePeer::list(&conn)?;
     let peer_configs = peers
@@ -343,55 +371,23 @@ async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Err
     };
 
     log::info!("innernet-server {} starting.", VERSION);
-    let routes = routes(context.clone()).with(warp::log("warp")).boxed();
 
     let listener = get_listener((config.address, config.listen_port).into(), interface)?;
 
-    let warp_svc = warp::service(routes);
     let make_svc = hyper::service::make_service_fn(move |socket: &AddrStream| {
         let remote_addr = socket.remote_addr();
-        let warp_svc = warp_svc.clone();
+        let context = context.clone();
         async move {
-            let svc = hyper::service::service_fn(move |req: Request<Body>| {
-                let warp_svc = warp_svc.clone();
-                async move { warp_svc.call_with_addr(req, Some(remote_addr)).await }
-            });
-            Ok::<_, Infallible>(svc)
+            Ok::<_, http::Error>(hyper::service::service_fn(move |req: Request<Body>| {
+                hyper_service(req, context.clone(), remote_addr)
+            }))
         }
     });
 
-    hyper::Server::from_tcp(listener)?.serve(make_svc).await?;
+    let server = hyper::Server::from_tcp(listener)?.serve(make_svc);
 
-    Ok(())
-}
+    server.await?;
 
-fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
-    if Confirm::with_theme(&*prompts::THEME)
-        .with_prompt(&format!(
-            "Permanently delete network \"{}\"?",
-            interface.as_str_lossy().yellow()
-        ))
-        .default(false)
-        .interact()?
-    {
-        println!("{} bringing down interface (if up).", "[*]".dimmed());
-        wg::down(interface).ok();
-        let config = conf.config_path(interface);
-        let data = conf.database_path(interface);
-        std::fs::remove_file(&config)
-            .with_path(&config)
-            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
-            .ok();
-        std::fs::remove_file(&data)
-            .with_path(&data)
-            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
-            .ok();
-        println!(
-            "{} network {} is uninstalled.",
-            "[*]".dimmed(),
-            interface.as_str_lossy().yellow()
-        );
-    }
     Ok(())
 }
 
@@ -423,103 +419,68 @@ fn get_listener(addr: SocketAddr, _interface: &InterfaceName) -> Result<TcpListe
     Ok(listener)
 }
 
-pub fn routes(
+pub(crate) async fn hyper_service(
+    req: Request<Body>,
     context: Context,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path("v1")
-        .and(api::admin::routes(context.clone()).or(api::user::routes(context)))
-        .recover(handle_rejection)
+    remote_addr: SocketAddr,
+) -> Result<Response<Body>, http::Error> {
+    // Break the path into components.
+    let components: VecDeque<_> = req
+        .uri()
+        .path()
+        .trim_start_matches('/')
+        .split('/')
+        .map(String::from)
+        .collect();
+
+    routes(req, context, remote_addr, components)
+        .await
+        .or_else(TryInto::try_into)
 }
 
-pub fn form_body<T>() -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
-where
-    T: DeserializeOwned + Send,
-{
-    warp::body::content_length_limit(1024 * 16).and(warp::body::json())
+async fn routes(
+    req: Request<Body>,
+    context: Context,
+    remote_addr: SocketAddr,
+    mut components: VecDeque<String>,
+) -> Result<Response<Body>, ServerError> {
+    // Must be "/v1/[something]"
+    if components.pop_front().as_deref() != Some("v1") {
+        Err(ServerError::NotFound)
+    } else {
+        let session = get_session(&req, context, remote_addr.ip())?;
+        let component = components.pop_front();
+        match component.as_deref() {
+            Some("user") => api::user::routes(req, components, session).await,
+            Some("admin") => api::admin::routes(req, components, session).await,
+            _ => Err(ServerError::NotFound),
+        }
+    }
 }
 
-pub fn with_unredeemed_session(
+fn get_session(
+    req: &Request<Body>,
     context: Context,
-) -> impl Filter<Extract = (UnredeemedSession,), Error = warp::Rejection> + Clone {
-    filters::addr::remote()
-        .and(filters::header::header(INNERNET_PUBKEY_HEADER))
-        .and_then(move |addr: Option<SocketAddr>, pubkey: String| {
-            get_session(
-                context.clone(),
-                addr.map(|addr| addr.ip()),
-                pubkey,
-                false,
-                false,
-            )
-        })
-        .map(|session| UnredeemedSession(session))
-}
-
-pub fn with_session(
-    context: Context,
-) -> impl Filter<Extract = (Session,), Error = warp::Rejection> + Clone {
-    filters::addr::remote()
-        .and(filters::header::header(INNERNET_PUBKEY_HEADER))
-        .and_then(move |addr: Option<SocketAddr>, pubkey: String| {
-            get_session(
-                context.clone(),
-                addr.map(|addr| addr.ip()),
-                pubkey,
-                false,
-                true,
-            )
-        })
-}
-
-pub fn with_admin_session(
-    context: Context,
-) -> impl Filter<Extract = (AdminSession,), Error = warp::Rejection> + Clone {
-    filters::addr::remote()
-        .and(filters::header::header(INNERNET_PUBKEY_HEADER))
-        .and_then(move |addr: Option<SocketAddr>, pubkey: String| {
-            get_session(
-                context.clone(),
-                addr.map(|addr| addr.ip()),
-                pubkey,
-                true,
-                true,
-            )
-        })
-        .map(|session| AdminSession(session))
-}
-
-async fn get_session(
-    context: Context,
-    addr: Option<IpAddr>,
-    pubkey: String,
-    admin_only: bool,
-    redeemed_only: bool,
-) -> Result<Session, warp::Rejection> {
-    _get_session(context, addr, pubkey, admin_only, redeemed_only)
-        .map_err(|_| warp::reject::custom(ServerError::Unauthorized))
-}
-
-fn _get_session(
-    context: Context,
-    addr: Option<IpAddr>,
-    pubkey: String,
-    admin_only: bool,
-    redeemed_only: bool,
-) -> Result<Session, Error> {
-    let pubkey = Key::from_base64(&pubkey)?;
+    addr: IpAddr,
+) -> Result<Session, ServerError> {
+    let pubkey = req
+        .headers()
+        .get(INNERNET_PUBKEY_HEADER)
+        .ok_or(ServerError::Unauthorized)?;
+    let pubkey = pubkey.to_str().map_err(|_| ServerError::Unauthorized)?;
+    let pubkey = Key::from_base64(&pubkey).map_err(|_| ServerError::Unauthorized)?;
     if pubkey.0.ct_eq(&context.public_key.0).into() {
-        let addr = addr.ok_or(ServerError::NotFound)?;
-        let peer = DatabasePeer::get_from_ip(&context.db.lock(), addr)?;
+        let peer = DatabasePeer::get_from_ip(&context.db.lock(), addr).map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => ServerError::Unauthorized,
+            e => ServerError::Database(e),
+        })?;
 
-        if !peer.is_disabled
-            && (!admin_only || peer.is_admin)
-            && (!redeemed_only || peer.is_redeemed)
-        {
+        if !peer.is_disabled {
             return Ok(Session { context, peer });
         }
     }
 
-    Err(ServerError::Unauthorized.into())
+    Err(ServerError::Unauthorized)
 }
 
 #[cfg(test)]
@@ -527,8 +488,8 @@ mod tests {
     use super::*;
     use crate::test;
     use anyhow::Result;
+    use hyper::StatusCode;
     use std::path::Path;
-    use warp::http::StatusCode;
 
     #[test]
     fn test_init_wizard() -> Result<()> {
@@ -543,17 +504,17 @@ mod tests {
     #[tokio::test]
     async fn test_with_session_disguised_with_headers() -> Result<()> {
         let server = test::Server::new()?;
-        let filter = routes(server.context());
 
-        // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
-        let res = server
-            .request_from_ip("10.80.80.80")
-            .path("/v1/admin/peers")
+        let req = Request::builder()
+            .uri(format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP))
             .header("Forwarded", format!("for={}", test::ADMIN_PEER_IP))
             .header("X-Forwarded-For", test::ADMIN_PEER_IP)
             .header("X-Real-IP", test::ADMIN_PEER_IP)
-            .reply(&filter)
-            .await;
+            .body(Body::empty())
+            .unwrap();
+
+        // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
+        let res = server.raw_request("10.80.80.80", req).await;
 
         // addr::remote() filter only look at remote_addr from TCP socket.
         // HTTP headers are not considered. This also means that innernet
@@ -566,17 +527,16 @@ mod tests {
     #[tokio::test]
     async fn test_incorrect_public_key() -> Result<()> {
         let server = test::Server::new()?;
-        let filter = routes(server.context());
 
         let key = Key::generate_private().generate_public();
 
         // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
-        let res = server
-            .request_from_ip("10.80.80.80")
-            .path("/v1/admin/peers")
+        let req = Request::builder()
+            .uri(format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP))
             .header(shared::INNERNET_PUBKEY_HEADER, key.to_base64())
-            .reply(&filter)
-            .await;
+            .body(Body::empty())
+            .unwrap();
+        let res = server.raw_request("10.80.80.80", req).await;
 
         // addr::remote() filter only look at remote_addr from TCP socket.
         // HTTP headers are not considered. This also means that innernet
@@ -589,15 +549,13 @@ mod tests {
     #[tokio::test]
     async fn test_unparseable_public_key() -> Result<()> {
         let server = test::Server::new()?;
-        let filter = routes(server.context());
 
-        // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
-        let res = server
-            .request_from_ip("10.80.80.80")
-            .path("/v1/admin/peers")
-            .header(shared::INNERNET_PUBKEY_HEADER, "")
-            .reply(&filter)
-            .await;
+        let req = Request::builder()
+            .uri(format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP))
+            .header(shared::INNERNET_PUBKEY_HEADER, "!!!")
+            .body(Body::empty())
+            .unwrap();
+        let res = server.raw_request("10.80.80.80", req).await;
 
         // addr::remote() filter only look at remote_addr from TCP socket.
         // HTTP headers are not considered. This also means that innernet
