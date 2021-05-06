@@ -230,7 +230,7 @@ fn open_database_connection(
     let conn = Connection::open(&database_path)?;
     // Foreign key constraints aren't on in SQLite by default. Enable.
     conn.pragma_update(None, "foreign_keys", &1)?;
-
+    db::auto_migrate(&conn)?;
     Ok(conn)
 }
 

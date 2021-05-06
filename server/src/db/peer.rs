@@ -20,6 +20,7 @@ pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
       is_admin        INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
       is_disabled     INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
       is_redeemed     INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
+      invite_expires  INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
       FOREIGN KEY (cidr_id)
          REFERENCES cidrs (id)
             ON UPDATE RESTRICT
