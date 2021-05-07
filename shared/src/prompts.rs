@@ -8,7 +8,10 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::SystemTime,
+};
 use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
@@ -215,6 +218,15 @@ pub fn add_peer(
             .interact()?
     };
 
+    let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
+        invite_expires.clone()
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("Invite expires after")
+            .default("30d".parse()?)
+            .interact()?
+    };
+
     let default_keypair = KeyPair::generate();
     let peer_request = PeerContents {
         name,
@@ -226,7 +238,7 @@ pub fn add_peer(
         is_disabled: false,
         is_redeemed: false,
         persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
-        invite_expires: None,
+        invite_expires: Some(SystemTime::now() + invite_expires.into()),
     };
 
     Ok(

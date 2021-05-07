@@ -1,10 +1,12 @@
 use colored::*;
 use lazy_static::lazy_static;
 use std::{
+    fmt::Display,
     fs::{self, File},
     io,
     os::unix::fs::PermissionsExt,
     path::Path,
+    str::FromStr,
     time::Duration,
 };
 
@@ -68,4 +70,48 @@ pub fn chmod(file: &File, new_mode: u32) -> Result<bool, Error> {
     };
 
     Ok(updated)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Timestring {
+    timestring: String,
+    seconds: u64,
+}
+
+impl Display for Timestring {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.timestring)
+    }
+}
+
+impl FromStr for Timestring {
+    type Err = &'static str;
+
+    fn from_str(timestring: &str) -> Result<Self, Self::Err> {
+        if timestring.len() < 2 {
+            Err("timestring isn't long enough!".into())
+        } else {
+            let (n, suffix) = timestring.split_at(timestring.len() - 1);
+            let n: u64 = n.parse().map_err(|_| "invalid timestring (a number followed by a time unit character, eg. '15m')")?;
+            let multiplier = match suffix {
+                "s" => Ok(1),
+                "m" => Ok(60),
+                "h" => Ok(60 * 60),
+                "d" => Ok(60 * 60 * 24),
+                "w" => Ok(60 * 60 * 24 * 7),
+                _ => Err("invalid timestring suffix (must be one of 's', 'm', 'h', 'd', or 'w')"),
+            }?;
+
+            Ok(Self {
+                timestring: timestring.to_string(),
+                seconds: n * multiplier,
+            })
+        }
+    }
+}
+
+impl From<Timestring> for Duration {
+    fn from(timestring: Timestring) -> Self {
+        Duration::from_secs(timestring.seconds)
+    }
 }

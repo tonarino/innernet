@@ -1,4 +1,4 @@
-use crate::prompts::hostname_validator;
+use crate::{prompts::hostname_validator, Timestring};
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -310,6 +310,10 @@ pub struct AddPeerOpts {
     /// Save the config to the given location
     #[structopt(long)]
     pub save_config: Option<String>,
+
+    /// Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")
+    #[structopt(long)]
+    pub invite_expires: Option<Timestring>,
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
