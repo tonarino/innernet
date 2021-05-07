@@ -5,12 +5,12 @@ use crate::{
     initialize::{init_wizard, InitializeOpts},
     Context, ServerConfig,
 };
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use hyper::{header::HeaderValue, http, Body, Request, Response};
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde::Serialize;
-use shared::{Cidr, CidrContents, PeerContents};
+use shared::{Cidr, CidrContents, Error, PeerContents};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wgctrl::{InterfaceName, Key, KeyPair};
@@ -54,7 +54,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, Error> {
         let test_dir = tempfile::tempdir()?;
         let test_dir_path = test_dir.path();
 
@@ -68,7 +68,7 @@ impl Server {
         };
 
         let opts = InitializeOpts {
-            network_name: Some(interface.clone()),
+            network_name: Some(interface.parse()?),
             network_cidr: Some(ROOT_CIDR.parse()?),
             external_endpoint: Some("155.155.155.155:54321".parse().unwrap()),
             listen_port: Some(54321),
@@ -192,7 +192,7 @@ impl Server {
     }
 }
 
-pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr> {
+pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr, Error> {
     let cidr = DatabaseCidr::create(
         db,
         CidrContents {
@@ -214,11 +214,11 @@ pub fn peer_contents(
     ip_str: &str,
     cidr_id: i64,
     is_admin: bool,
-) -> Result<PeerContents> {
+) -> Result<PeerContents, Error> {
     let public_key = KeyPair::generate().public;
 
     Ok(PeerContents {
-        name: name.to_string(),
+        name: name.parse()?,
         ip: ip_str.parse()?,
         cidr_id,
         public_key: public_key.to_base64(),
@@ -231,18 +231,18 @@ pub fn peer_contents(
     })
 }
 
-pub fn admin_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn admin_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, ADMIN_CIDR_ID, true)
 }
 
-pub fn infra_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn infra_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, INFRA_CIDR_ID, false)
 }
 
-pub fn developer_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn developer_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, DEVELOPER_CIDR_ID, false)
 }
 
-pub fn user_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn user_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, USER_CIDR_ID, false)
 }

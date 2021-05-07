@@ -135,7 +135,7 @@ mod tests {
         static ref BASE_PEERS: Vec<Peer> = vec![Peer {
             id: 0,
             contents: PeerContents {
-                name: "blah".to_string(),
+                name: "blah".parse().unwrap(),
                 ip: "10.0.0.1".parse().unwrap(),
                 cidr_id: 1,
                 public_key: "abc".to_string(),

@@ -149,12 +149,11 @@ mod handlers {
 mod tests {
     use super::*;
     use crate::{db::DatabaseAssociation, test};
-    use anyhow::Result;
     use bytes::Buf;
-    use shared::{AssociationContents, CidrContents, EndpointContents};
+    use shared::{AssociationContents, CidrContents, EndpointContents, Error};
 
     #[tokio::test]
-    async fn test_get_state_from_developer1() -> Result<()> {
+    async fn test_get_state_from_developer1() -> Result<(), Error> {
         let server = test::Server::new()?;
         let res = server
             .request(test::DEVELOPER1_PEER_IP, "GET", "/v1/user/state")
@@ -164,7 +163,7 @@ mod tests {
 
         let whole_body = hyper::body::aggregate(res).await?;
         let State { peers, .. } = serde_json::from_reader(whole_body.reader())?;
-        let mut peer_names = peers.iter().map(|p| &p.contents.name).collect::<Vec<_>>();
+        let mut peer_names = peers.iter().map(|p| &*p.contents.name).collect::<Vec<_>>();
         peer_names.sort();
         // Developers should see only peers in infra CIDR and developer CIDR.
         assert_eq!(
@@ -176,7 +175,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_override_endpoint() -> Result<()> {
+    async fn test_override_endpoint() -> Result<(), Error> {
         let server = test::Server::new()?;
         assert_eq!(
             server
@@ -222,7 +221,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_peers_from_unknown_ip() -> Result<()> {
+    async fn test_list_peers_from_unknown_ip() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         // Request comes from an unknown IP.
@@ -234,7 +233,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_peers_for_developer_subcidr() -> Result<()> {
+    async fn test_list_peers_for_developer_subcidr() -> Result<(), Error> {
         let server = test::Server::new()?;
         {
             let db = server.db.lock();
@@ -286,7 +285,7 @@ mod tests {
             assert_eq!(res.status(), StatusCode::OK);
             let whole_body = hyper::body::aggregate(res).await?;
             let State { peers, .. } = serde_json::from_reader(whole_body.reader())?;
-            let mut peer_names = peers.iter().map(|p| &p.contents.name).collect::<Vec<_>>();
+            let mut peer_names = peers.iter().map(|p| &*p.contents.name).collect::<Vec<_>>();
             peer_names.sort();
             // Developers should see only peers in infra CIDR and developer CIDR.
             assert_eq!(
@@ -304,7 +303,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_redeem() -> Result<()> {
+    async fn test_redeem() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let experimental_cidr = DatabaseCidr::create(

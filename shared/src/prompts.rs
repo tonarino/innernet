@@ -7,7 +7,6 @@ use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
-use regex::Regex;
 use std::{
     net::{IpAddr, SocketAddr},
     time::SystemTime,
@@ -16,23 +15,6 @@ use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
     pub static ref THEME: ColorfulTheme = ColorfulTheme::default();
-
-    /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
-    /// Note that the full length also must be maximum 63 characters, which this regex does not check.
-    static ref PEER_NAME_REGEX: Regex = Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap();
-}
-
-pub fn is_valid_hostname(name: &str) -> bool {
-    name.len() < 64 && PEER_NAME_REGEX.is_match(name)
-}
-
-#[allow(clippy::ptr_arg)]
-pub fn hostname_validator(name: &String) -> Result<(), &'static str> {
-    if is_valid_hostname(name) {
-        Ok(())
-    } else {
-        Err("not a valid hostname")
-    }
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
@@ -203,10 +185,7 @@ pub fn add_peer(
     let name = if let Some(ref name) = args.name {
         name.clone()
     } else {
-        Input::with_theme(&*THEME)
-            .with_prompt("Name")
-            .validate_with(hostname_validator)
-            .interact()?
+        Input::with_theme(&*THEME).with_prompt("Name").interact()?
     };
 
     let is_admin = if let Some(is_admin) = args.admin {
@@ -223,7 +202,7 @@ pub fn add_peer(
     } else {
         Input::with_theme(&*THEME)
             .with_prompt("Invite expires after")
-            .default("30d".parse()?)
+            .default("14d".parse()?)
             .interact()?
     };
 

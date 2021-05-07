@@ -99,7 +99,7 @@ impl DatabasePeer {
         conn.execute(
             "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
-                name,
+                &**name,
                 ip.to_string(),
                 cidr_id,
                 &public_key,
@@ -146,7 +146,7 @@ impl DatabasePeer {
                 is_disabled = ?4
             WHERE id = ?5",
             params![
-                new_contents.name,
+                &*new_contents.name,
                 new_contents
                     .endpoint
                     .as_ref()
@@ -187,7 +187,10 @@ impl DatabasePeer {
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let id = row.get(0)?;
-        let name = row.get(1)?;
+        let name = row
+            .get::<_, String>(1)?
+            .parse()
+            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
         let ip: IpAddr = row
             .get::<_, String>(2)?
             .parse()

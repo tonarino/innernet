@@ -4,8 +4,7 @@ use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use rusqlite::{params, Connection};
 use shared::{
-    prompts::{self, hostname_validator},
-    CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    prompts, CidrContents, Endpoint, Hostname, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use wgctrl::KeyPair;
 
@@ -24,7 +23,7 @@ fn create_database<P: AsRef<Path>>(
 pub struct InitializeOpts {
     /// The network name (ex: evilcorp)
     #[structopt(long)]
-    pub network_name: Option<String>,
+    pub network_name: Option<Hostname>,
 
     /// The network CIDR (ex: 10.42.0.0/16)
     #[structopt(long)]
@@ -78,7 +77,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     let _me = DatabasePeer::create(
         &conn,
         PeerContents {
-            name: SERVER_NAME.into(),
+            name: SERVER_NAME.parse()?,
             ip: db_init_data.our_ip,
             cidr_id: server_cidr.id,
             public_key: db_init_data.public_key_base64,
@@ -105,13 +104,12 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         )
     })?;
 
-    let name: String = if let Some(name) = opts.network_name {
+    let name: Hostname = if let Some(name) = opts.network_name {
         name
     } else {
         println!("Here you'll specify the network CIDR, which will encompass the entire network.");
         Input::with_theme(&theme)
             .with_prompt("Network name")
-            .validate_with(hostname_validator)
             .interact()?
     };
 

@@ -1,5 +1,6 @@
-use crate::{prompts::hostname_validator, Timestring};
 use ipnetwork::IpNetwork;
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Formatter},
@@ -7,7 +8,7 @@ use std::{
     ops::Deref,
     path::Path,
     str::FromStr,
-    time::SystemTime,
+    time::{Duration, SystemTime},
     vec,
 };
 use structopt::StructOpt;
@@ -23,8 +24,9 @@ impl FromStr for Interface {
     type Err = String;
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        let name = name.to_string();
-        hostname_validator(&name)?;
+        if !Hostname::is_valid(name) {
+            return Err("interface name is not a valid hostname".into());
+        }
         let name = name
             .parse()
             .map_err(|e: InvalidInterfaceName| e.to_string())?;
@@ -285,7 +287,7 @@ pub struct InstallOpts {
 pub struct AddPeerOpts {
     /// Name of new peer
     #[structopt(long)]
-    pub name: Option<String>,
+    pub name: Option<Hostname>,
 
     /// Specify desired IP of new peer (within parent CIDR)
     #[structopt(long, conflicts_with = "auto-ip")]
@@ -346,7 +348,7 @@ pub struct AddAssociationOpts {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct PeerContents {
-    pub name: String,
+    pub name: Hostname,
     pub ip: IpAddr,
     pub cidr_id: i64,
     pub public_key: String,
@@ -487,6 +489,93 @@ pub struct State {
     pub cidrs: Vec<Cidr>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Timestring {
+    timestring: String,
+    seconds: u64,
+}
+
+impl Display for Timestring {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.timestring)
+    }
+}
+
+impl FromStr for Timestring {
+    type Err = &'static str;
+
+    fn from_str(timestring: &str) -> Result<Self, Self::Err> {
+        if timestring.len() < 2 {
+            Err("timestring isn't long enough!")
+        } else {
+            let (n, suffix) = timestring.split_at(timestring.len() - 1);
+            let n: u64 = n.parse().map_err(|_| {
+                "invalid timestring (a number followed by a time unit character, eg. '15m')"
+            })?;
+            let multiplier = match suffix {
+                "s" => Ok(1),
+                "m" => Ok(60),
+                "h" => Ok(60 * 60),
+                "d" => Ok(60 * 60 * 24),
+                "w" => Ok(60 * 60 * 24 * 7),
+                _ => Err("invalid timestring suffix (must be one of 's', 'm', 'h', 'd', or 'w')"),
+            }?;
+
+            Ok(Self {
+                timestring: timestring.to_string(),
+                seconds: n * multiplier,
+            })
+        }
+    }
+}
+
+impl From<Timestring> for Duration {
+    fn from(timestring: Timestring) -> Self {
+        Duration::from_secs(timestring.seconds)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Hostname(String);
+
+lazy_static! {
+    /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
+    /// Note that the full length also must be maximum 63 characters, which this regex does not check.
+    static ref HOSTNAME_REGEX: Regex = Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap();
+}
+
+impl Hostname {
+    pub fn is_valid(name: &str) -> bool {
+        name.len() < 64 && HOSTNAME_REGEX.is_match(name)
+    }
+}
+
+impl FromStr for Hostname {
+    type Err = &'static str;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        if Self::is_valid(name) {
+            Ok(Self(name.to_string()))
+        } else {
+            Err("invalid hostname")
+        }
+    }
+}
+
+impl Deref for Hostname {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Display for Hostname {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 pub trait IoErrorContext<T> {
     fn with_path<P: AsRef<Path>>(self, path: P) -> Result<T, WrappedIoError>;
     fn with_str<S: Into<String>>(self, context: S) -> Result<T, WrappedIoError>;
@@ -532,7 +621,7 @@ mod tests {
         let peer = Peer {
             id: 1,
             contents: PeerContents {
-                name: "peer1".to_owned(),
+                name: "peer1".parse().unwrap(),
                 ip,
                 cidr_id: 1,
                 public_key: PUBKEY.to_owned(),
@@ -559,7 +648,7 @@ mod tests {
         let peer = Peer {
             id: 1,
             contents: PeerContents {
-                name: "peer1".to_owned(),
+                name: "peer1".parse().unwrap(),
                 ip,
                 cidr_id: 1,
                 public_key: PUBKEY.to_owned(),

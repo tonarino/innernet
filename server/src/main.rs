@@ -492,7 +492,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn test_init_wizard() -> Result<()> {
+    fn test_init_wizard() -> Result<(), Error> {
         // This runs init_wizard().
         let server = test::Server::new()?;
 
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_with_session_disguised_with_headers() -> Result<()> {
+    async fn test_with_session_disguised_with_headers() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let req = Request::builder()
@@ -525,7 +525,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_incorrect_public_key() -> Result<()> {
+    async fn test_incorrect_public_key() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let key = Key::generate_private().generate_public();
@@ -547,7 +547,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_unparseable_public_key() -> Result<()> {
+    async fn test_unparseable_public_key() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let req = Request::builder()
