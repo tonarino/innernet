@@ -7,6 +7,7 @@ use std::{
     ops::Deref,
     path::Path,
     str::FromStr,
+    time::SystemTime,
     vec,
 };
 use structopt::StructOpt;
@@ -350,6 +351,7 @@ pub struct PeerContents {
     pub is_admin: bool,
     pub is_disabled: bool,
     pub is_redeemed: bool,
+    pub invite_expires: Option<SystemTime>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -535,6 +537,7 @@ mod tests {
                 is_admin: false,
                 is_disabled: false,
                 is_redeemed: true,
+                invite_expires: None,
             },
         };
         let builder =
@@ -561,6 +564,7 @@ mod tests {
                 is_admin: false,
                 is_disabled: false,
                 is_redeemed: true,
+                invite_expires: None,
             },
         };
         let builder =

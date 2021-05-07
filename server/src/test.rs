@@ -227,6 +227,7 @@ pub fn peer_contents(
         persistent_keepalive_interval: None,
         is_disabled: false,
         is_redeemed: true,
+        invite_expires: None,
     })
 }
 

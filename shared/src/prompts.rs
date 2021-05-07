@@ -226,6 +226,7 @@ pub fn add_peer(
         is_disabled: false,
         is_redeemed: false,
         persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
+        invite_expires: None,
     };
 
     Ok(
