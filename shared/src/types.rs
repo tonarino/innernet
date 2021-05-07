@@ -199,6 +199,12 @@ pub struct Cidr {
     pub contents: CidrContents,
 }
 
+impl Display for Cidr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({})", self.name, self.cidr)
+    }
+}
+
 impl Deref for Cidr {
     type Target = CidrContents;
 

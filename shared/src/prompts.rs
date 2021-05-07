@@ -76,16 +76,15 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
 }
 
 pub fn choose_cidr<'a>(cidrs: &'a [Cidr], text: &'static str) -> Result<&'a Cidr, Error> {
-    let cidr_names: Vec<_> = cidrs
+    let eligible_cidrs: Vec<_> = cidrs
         .iter()
         .filter(|cidr| cidr.name != "innernet-server")
-        .map(|cidr| format!("{} ({})", &cidr.name, &cidr.cidr))
         .collect();
     let cidr_index = Select::with_theme(&*THEME)
         .with_prompt(text)
-        .items(&cidr_names)
+        .items(&eligible_cidrs)
         .interact()?;
-    Ok(&cidrs[cidr_index])
+    Ok(&eligible_cidrs[cidr_index])
 }
 
 pub fn choose_association<'a>(
