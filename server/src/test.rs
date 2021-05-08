@@ -1,5 +1,9 @@
 #![allow(dead_code)]
-use crate::{Context, Db, Endpoints, ServerConfig, db::{DatabaseCidr, DatabasePeer}, initialize::{init_wizard, InitializeOpts}};
+use crate::{
+    db::{DatabaseCidr, DatabasePeer},
+    initialize::{init_wizard, InitializeOpts},
+    Context, Db, Endpoints, ServerConfig,
+};
 use anyhow::anyhow;
 use hyper::{header::HeaderValue, http, Body, Request, Response};
 use parking_lot::{Mutex, RwLock};
