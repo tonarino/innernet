@@ -7,8 +7,19 @@ innernet-server new \
     --external-endpoint "172.18.1.1:51820" \
     --listen-port 51820
 
-innernet-server add-cidr evilcorp --name "humans" --cidr "10.66.1.0/24" --parent "evilcorp" --yes
+innernet-server add-cidr evilcorp \
+    --name "humans" \
+    --cidr "10.66.1.0/24" \
+    --parent "evilcorp" \
+    --yes
 
-innernet-server add-peer evilcorp --name "admin" --cidr "humans" --admin true --auto-ip --save-config "peer1.toml" --yes
+innernet-server add-peer evilcorp \
+    --name "admin" \
+    --cidr "humans" \
+    --admin true \
+    --auto-ip \
+    --save-config "peer1.toml" \
+    --invite-expires "30d" \
+    --yes
 
 innernet-server serve evilcorp
