@@ -105,7 +105,7 @@ enum Command {
     /// Uninstall an innernet network.
     Uninstall { interface: Interface },
 
-    /// Bring down the interface (equivalent to "wg-quick down [interface]")
+    /// Bring down the interface (equivalent to "wg-quick down <interface>")
     Down { interface: Interface },
 
     /// Add a new peer.
