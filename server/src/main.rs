@@ -17,6 +17,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use structopt::StructOpt;
 use subtle::ConstantTimeEq;
@@ -364,11 +365,22 @@ async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Err
     let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));
     let context = Context {
-        db,
+        db: db.clone(),
         interface: *interface,
         endpoints,
         public_key,
     };
+
+    tokio::task::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            match DatabasePeer::delete_expired_invites(&db.lock()) {
+                Ok(deleted) => log::info!("Deleted {} expired peer invitations.", deleted),
+                Err(e) => log::error!("Failed to delete expired peer invitations: {}", e),
+            }
+        }
+    });
 
     log::info!("innernet-server {} starting.", VERSION);
 

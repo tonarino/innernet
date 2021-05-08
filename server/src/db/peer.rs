@@ -308,4 +308,17 @@ impl DatabasePeer {
 
         Ok(peer_iter.collect::<Result<_, _>>()?)
     }
+
+    pub fn delete_expired_invites(conn: &Connection) -> Result<usize, ServerError> {
+        let unix_now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("Something is horribly wrong with system time.");
+        let deleted = conn.execute(
+            "DELETE FROM peers
+            WHERE is_redeemed = 0 AND invite_expires < ?1",
+            params![unix_now.as_secs()],
+        )?;
+
+        Ok(deleted)
+    }
 }
