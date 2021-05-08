@@ -1,17 +1,12 @@
 #![allow(dead_code)]
-use crate::{
-    db::{DatabaseCidr, DatabasePeer},
-    endpoints::Endpoints,
-    initialize::{init_wizard, InitializeOpts},
-    Context, ServerConfig,
-};
+use crate::{Context, Db, Endpoints, ServerConfig, db::{DatabaseCidr, DatabasePeer}, initialize::{init_wizard, InitializeOpts}};
 use anyhow::anyhow;
 use hyper::{header::HeaderValue, http, Body, Request, Response};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::Serialize;
 use shared::{Cidr, CidrContents, Error, PeerContents};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wgctrl::{InterfaceName, Key, KeyPair};
 
@@ -44,8 +39,8 @@ pub const USER1_PEER_ID: i64 = 5;
 pub const USER2_PEER_ID: i64 = 6;
 
 pub struct Server {
-    pub db: Arc<Mutex<Connection>>,
-    endpoints: Arc<Endpoints>,
+    pub db: Db,
+    endpoints: Endpoints,
     interface: InterfaceName,
     conf: ServerConfig,
     public_key: Key,
@@ -116,7 +111,7 @@ impl Server {
         );
 
         let db = Arc::new(Mutex::new(db));
-        let endpoints = Arc::new(Endpoints::new(&interface)?);
+        let endpoints = Arc::new(RwLock::new(HashMap::new()));
 
         Ok(Self {
             conf,
