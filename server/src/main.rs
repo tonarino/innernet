@@ -3,12 +3,12 @@ use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use ipnetwork::IpNetwork;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, INNERNET_PUBKEY_HEADER};
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     convert::TryInto,
     env,
     fs::File,
@@ -25,7 +25,6 @@ use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, Key, PeerConfigBuil
 
 pub mod api;
 pub mod db;
-pub mod endpoints;
 pub mod error;
 #[cfg(test)]
 mod test;
@@ -34,7 +33,6 @@ pub mod util;
 mod initialize;
 
 use db::{DatabaseCidr, DatabasePeer};
-pub use endpoints::Endpoints;
 pub use error::ServerError;
 use initialize::InitializeOpts;
 use shared::{prompts, wg, CidrTree, Error, Interface, SERVER_CONFIG_DIR, SERVER_DATABASE_DIR};
@@ -82,11 +80,12 @@ enum Command {
 }
 
 pub type Db = Arc<Mutex<Connection>>;
+pub type Endpoints = Arc<RwLock<HashMap<String, SocketAddr>>>;
 
 #[derive(Clone)]
 pub struct Context {
     pub db: Db,
-    pub endpoints: Arc<Endpoints>,
+    pub endpoints: Arc<RwLock<HashMap<String, SocketAddr>>>,
     pub interface: InterfaceName,
     pub public_key: Key,
 }
@@ -207,7 +206,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
-        Command::Serve { interface } => serve(&interface, &conf).await?,
+        Command::Serve { interface } => serve(*interface, &conf).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
     }
@@ -335,42 +334,30 @@ fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error
     Ok(())
 }
 
-async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
-    let config = ConfigFile::from_file(conf.config_path(interface))?;
-    let conn = open_database_connection(interface, conf)?;
+fn spawn_endpoint_refresher(interface: InterfaceName) -> Endpoints {
+    let endpoints = Arc::new(RwLock::new(HashMap::new()));
+    tokio::task::spawn({
+        let endpoints = endpoints.clone();
+        async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                if let Ok(info) = DeviceInfo::get_by_name(&interface) {
+                    for peer in info.peers {
+                        if let Some(endpoint) = peer.config.endpoint {
+                            endpoints
+                                .write()
+                                .insert(peer.config.public_key.to_base64(), endpoint);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    endpoints
+}
 
-    let peers = DatabasePeer::list(&conn)?;
-    let peer_configs = peers
-        .iter()
-        .map(|peer| peer.deref().into())
-        .collect::<Vec<PeerConfigBuilder>>();
-
-    log::info!("bringing up interface.");
-    wg::up(
-        interface,
-        &config.private_key,
-        IpNetwork::new(config.address, config.network_cidr_prefix)?,
-        Some(config.listen_port),
-        None,
-    )?;
-
-    DeviceConfigBuilder::new()
-        .add_peers(&peer_configs)
-        .apply(&interface)?;
-
-    let endpoints = Arc::new(Endpoints::new(&interface)?);
-
-    log::info!("{} peers added to wireguard interface.", peers.len());
-
-    let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
-    let db = Arc::new(Mutex::new(conn));
-    let context = Context {
-        db: db.clone(),
-        interface: *interface,
-        endpoints,
-        public_key,
-    };
-
+fn spawn_expired_invite_sweeper(db: Db) {
     tokio::task::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(10));
         loop {
@@ -381,10 +368,48 @@ async fn serve(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Err
             }
         }
     });
+}
+
+async fn serve(interface: InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+    let config = ConfigFile::from_file(conf.config_path(&interface))?;
+    let conn = open_database_connection(&interface, conf)?;
+
+    let peers = DatabasePeer::list(&conn)?;
+    let peer_configs = peers
+        .iter()
+        .map(|peer| peer.deref().into())
+        .collect::<Vec<PeerConfigBuilder>>();
+
+    log::info!("bringing up interface.");
+    wg::up(
+        &interface,
+        &config.private_key,
+        IpNetwork::new(config.address, config.network_cidr_prefix)?,
+        Some(config.listen_port),
+        None,
+    )?;
+
+    DeviceConfigBuilder::new()
+        .add_peers(&peer_configs)
+        .apply(&interface)?;
+
+    log::info!("{} peers added to wireguard interface.", peers.len());
+
+    let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
+    let db = Arc::new(Mutex::new(conn));
+    let endpoints = spawn_endpoint_refresher(interface);
+    spawn_expired_invite_sweeper(db.clone());
+
+    let context = Context {
+        db,
+        interface,
+        endpoints,
+        public_key,
+    };
 
     log::info!("innernet-server {} starting.", VERSION);
 
-    let listener = get_listener((config.address, config.listen_port).into(), interface)?;
+    let listener = get_listener((config.address, config.listen_port).into(), &interface)?;
 
     let make_svc = hyper::service::make_service_fn(move |socket: &AddrStream| {
         let remote_addr = socket.remote_addr();
