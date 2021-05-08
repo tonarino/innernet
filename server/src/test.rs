@@ -1,17 +1,16 @@
 #![allow(dead_code)]
 use crate::{
     db::{DatabaseCidr, DatabasePeer},
-    endpoints::Endpoints,
     initialize::{init_wizard, InitializeOpts},
-    Context, ServerConfig,
+    Context, Db, Endpoints, ServerConfig,
 };
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use hyper::{header::HeaderValue, http, Body, Request, Response};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::Serialize;
-use shared::{Cidr, CidrContents, PeerContents};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use shared::{Cidr, CidrContents, Error, PeerContents};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wgctrl::{InterfaceName, Key, KeyPair};
 
@@ -44,8 +43,8 @@ pub const USER1_PEER_ID: i64 = 5;
 pub const USER2_PEER_ID: i64 = 6;
 
 pub struct Server {
-    pub db: Arc<Mutex<Connection>>,
-    endpoints: Arc<Endpoints>,
+    pub db: Db,
+    endpoints: Endpoints,
     interface: InterfaceName,
     conf: ServerConfig,
     public_key: Key,
@@ -54,7 +53,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, Error> {
         let test_dir = tempfile::tempdir()?;
         let test_dir_path = test_dir.path();
 
@@ -68,7 +67,7 @@ impl Server {
         };
 
         let opts = InitializeOpts {
-            network_name: Some(interface.clone()),
+            network_name: Some(interface.parse()?),
             network_cidr: Some(ROOT_CIDR.parse()?),
             external_endpoint: Some("155.155.155.155:54321".parse().unwrap()),
             listen_port: Some(54321),
@@ -116,7 +115,7 @@ impl Server {
         );
 
         let db = Arc::new(Mutex::new(db));
-        let endpoints = Arc::new(Endpoints::new(&interface)?);
+        let endpoints = Arc::new(RwLock::new(HashMap::new()));
 
         Ok(Self {
             conf,
@@ -192,7 +191,7 @@ impl Server {
     }
 }
 
-pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr> {
+pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr, Error> {
     let cidr = DatabaseCidr::create(
         db,
         CidrContents {
@@ -214,11 +213,11 @@ pub fn peer_contents(
     ip_str: &str,
     cidr_id: i64,
     is_admin: bool,
-) -> Result<PeerContents> {
+) -> Result<PeerContents, Error> {
     let public_key = KeyPair::generate().public;
 
     Ok(PeerContents {
-        name: name.to_string(),
+        name: name.parse()?,
         ip: ip_str.parse()?,
         cidr_id,
         public_key: public_key.to_base64(),
@@ -227,21 +226,22 @@ pub fn peer_contents(
         persistent_keepalive_interval: None,
         is_disabled: false,
         is_redeemed: true,
+        invite_expires: None,
     })
 }
 
-pub fn admin_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn admin_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, ADMIN_CIDR_ID, true)
 }
 
-pub fn infra_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn infra_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, INFRA_CIDR_ID, false)
 }
 
-pub fn developer_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn developer_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, DEVELOPER_CIDR_ID, false)
 }
 
-pub fn user_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn user_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, USER_CIDR_ID, false)
 }

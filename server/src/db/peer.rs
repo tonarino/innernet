@@ -7,6 +7,7 @@ use shared::{Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},
+    time::{Duration, SystemTime},
 };
 use structopt::lazy_static;
 
@@ -20,6 +21,7 @@ pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
       is_admin        INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
       is_disabled     INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
       is_redeemed     INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
+      invite_expires  INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
       FOREIGN KEY (cidr_id)
          REFERENCES cidrs (id)
             ON UPDATE RESTRICT
@@ -68,6 +70,7 @@ impl DatabasePeer {
             is_admin,
             is_disabled,
             is_redeemed,
+            invite_expires,
             ..
         } = &contents;
         log::info!("creating peer {:?}", contents);
@@ -88,10 +91,15 @@ impl DatabasePeer {
             return Err(ServerError::InvalidQuery);
         }
 
+        let invite_expires = invite_expires
+            .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .flatten()
+            .map(|t| t.as_secs());
+
         conn.execute(
-            "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
-                name,
+                &**name,
                 ip.to_string(),
                 cidr_id,
                 &public_key,
@@ -99,6 +107,7 @@ impl DatabasePeer {
                 is_admin,
                 is_disabled,
                 is_redeemed,
+                invite_expires,
             ],
         )?;
         let id = conn.last_insert_rowid();
@@ -137,7 +146,7 @@ impl DatabasePeer {
                 is_disabled = ?4
             WHERE id = ?5",
             params![
-                new_contents.name,
+                &*new_contents.name,
                 new_contents
                     .endpoint
                     .as_ref()
@@ -163,6 +172,14 @@ impl DatabasePeer {
     }
 
     pub fn redeem(&mut self, conn: &Connection, pubkey: &str) -> Result<(), ServerError> {
+        if self.is_redeemed {
+            return Err(ServerError::Gone);
+        }
+
+        if matches!(self.invite_expires, Some(time) if time < SystemTime::now()) {
+            return Err(ServerError::Unauthorized);
+        }
+
         match conn.execute(
             "UPDATE peers SET is_redeemed = 1, public_key = ?1 WHERE id = ?2 AND is_redeemed = 0",
             params![pubkey, self.id],
@@ -178,7 +195,10 @@ impl DatabasePeer {
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         let id = row.get(0)?;
-        let name = row.get(1)?;
+        let name = row
+            .get::<_, String>(1)?
+            .parse()
+            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
         let ip: IpAddr = row
             .get::<_, String>(2)?
             .parse()
@@ -191,6 +211,10 @@ impl DatabasePeer {
         let is_admin = row.get(6)?;
         let is_disabled = row.get(7)?;
         let is_redeemed = row.get(8)?;
+        let invite_expires = row
+            .get::<_, Option<u64>>(9)?
+            .map(|unixtime| SystemTime::UNIX_EPOCH + Duration::from_secs(unixtime));
+
         let persistent_keepalive_interval = Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS);
 
         Ok(Peer {
@@ -205,6 +229,7 @@ impl DatabasePeer {
                 is_admin,
                 is_disabled,
                 is_redeemed,
+                invite_expires,
             },
         }
         .into())
@@ -213,7 +238,7 @@ impl DatabasePeer {
     pub fn get(conn: &Connection, id: i64) -> Result<Self, ServerError> {
         let result = conn.query_row(
             "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed
+            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires
             FROM peers
             WHERE id = ?1",
             params![id],
@@ -226,7 +251,7 @@ impl DatabasePeer {
     pub fn get_from_ip(conn: &Connection, ip: IpAddr) -> Result<Self, rusqlite::Error> {
         let result = conn.query_row(
             "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed
+            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires
             FROM peers
             WHERE ip = ?1",
             params![ip.to_string()],
@@ -264,7 +289,7 @@ impl DatabasePeer {
                     UNION
                     SELECT id FROM cidrs, associated_subcidrs WHERE cidrs.parent=associated_subcidrs.cidr_id
                 )
-                SELECT DISTINCT peers.id, peers.name, peers.ip, peers.cidr_id, peers.public_key, peers.endpoint, peers.is_admin, peers.is_disabled, peers.is_redeemed
+                SELECT DISTINCT peers.id, peers.name, peers.ip, peers.cidr_id, peers.public_key, peers.endpoint, peers.is_admin, peers.is_disabled, peers.is_redeemed, peers.invite_expires
                 FROM peers
                 JOIN associated_subcidrs ON peers.cidr_id=associated_subcidrs.cidr_id
                 WHERE peers.is_disabled = 0 AND peers.is_redeemed = 1;",
@@ -277,10 +302,23 @@ impl DatabasePeer {
 
     pub fn list(conn: &Connection) -> Result<Vec<Self>, ServerError> {
         let mut stmt = conn.prepare_cached(
-            "SELECT id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed FROM peers",
+            "SELECT id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires FROM peers",
         )?;
         let peer_iter = stmt.query_map(params![], Self::from_row)?;
 
         Ok(peer_iter.collect::<Result<_, _>>()?)
+    }
+
+    pub fn delete_expired_invites(conn: &Connection) -> Result<usize, ServerError> {
+        let unix_now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("Something is horribly wrong with system time.");
+        let deleted = conn.execute(
+            "DELETE FROM peers
+            WHERE is_redeemed = 0 AND invite_expires < ?1",
+            params![unix_now.as_secs()],
+        )?;
+
+        Ok(deleted)
     }
 }
