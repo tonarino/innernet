@@ -92,7 +92,7 @@ impl DatabasePeer {
         }
 
         let invite_expires = invite_expires
-            .map(|t| SystemTime::UNIX_EPOCH.duration_since(t).ok())
+            .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
             .flatten()
             .map(|t| t.as_secs());
 
@@ -172,6 +172,14 @@ impl DatabasePeer {
     }
 
     pub fn redeem(&mut self, conn: &Connection, pubkey: &str) -> Result<(), ServerError> {
+        if self.is_redeemed {
+            return Err(ServerError::Gone);
+        }
+
+        if matches!(self.invite_expires, Some(time) if time < SystemTime::now()) {
+            return Err(ServerError::Unauthorized);
+        }
+
         match conn.execute(
             "UPDATE peers SET is_redeemed = 1, public_key = ?1 WHERE id = ?2 AND is_redeemed = 0",
             params![pubkey, self.id],
