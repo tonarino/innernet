@@ -6,7 +6,8 @@ on:
     - 'v*'
 
 jobs:
-  build:
+  build-deb:
+    name: 'Build Debian packages'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -66,9 +67,40 @@ jobs:
       with:
         command: deb
         args: -p client
+    - name: Save DEBs
+      uses: actions/upload-artifact@v2
+      with:
+        name: packaged-deb
+        path: target/debian/*.deb
+
+  build-rpm:
+    name: 'Build RPM packages'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        distros: ['fedora:32', 'fedora:33', 'centos:8']
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build RPMs
+      run: rpm/build-package.sh ${{ matrix.distros }}
+    - name: Save RPMs
+      uses: actions/upload-artifact@v2
+      with:
+        name: packaged-rpm
+        path: target/rpm/*.rpm
+
+  release:
+    name: 'Release packages'
+    runs-on: ubuntu-latest
+    needs: [build-deb, build-rpm]
+    steps:
+    - name: Get artifacts
+      uses: actions/download-artifact@v2
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
-        files: target/debian/*.deb
+        files: |
+          packaged-deb/*.deb
+          packaged-rpm/*.rpm
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
