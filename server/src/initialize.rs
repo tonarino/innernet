@@ -4,8 +4,7 @@ use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use rusqlite::{params, Connection};
 use shared::{
-    prompts::{self, hostname_validator},
-    CidrContents, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    prompts, CidrContents, Endpoint, Hostname, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use wgctrl::KeyPair;
 
@@ -17,16 +16,41 @@ fn create_database<P: AsRef<Path>>(
     conn.execute(db::peer::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::association::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::cidr::CREATE_TABLE_SQL, params![])?;
+    conn.pragma_update(None, "user_version", &db::CURRENT_VERSION)?;
+
     Ok(conn)
 }
 
+#[derive(Debug, Default, Clone, PartialEq, StructOpt)]
+pub struct InitializeOpts {
+    /// The network name (ex: evilcorp)
+    #[structopt(long)]
+    pub network_name: Option<Hostname>,
+
+    /// The network CIDR (ex: 10.42.0.0/16)
+    #[structopt(long)]
+    pub network_cidr: Option<IpNetwork>,
+
+    /// This server's external endpoint (ex: 100.100.100.100:51820)
+    #[structopt(long, conflicts_with = "auto-external-endpoint")]
+    pub external_endpoint: Option<Endpoint>,
+
+    /// Auto-resolve external endpoint
+    #[structopt(long = "auto-external-endpoint")]
+    pub auto_external_endpoint: bool,
+
+    /// Port to listen on (for the WireGuard interface)
+    #[structopt(long)]
+    pub listen_port: Option<u16>,
+}
+
 struct DbInitData {
-    root_cidr_name: String,
-    root_cidr: IpNetwork,
+    network_name: String,
+    network_cidr: IpNetwork,
     server_cidr: IpNetwork,
     our_ip: IpAddr,
     public_key_base64: String,
-    endpoint: SocketAddr,
+    endpoint: Endpoint,
 }
 
 fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), Error> {
@@ -35,8 +59,8 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     let root_cidr = DatabaseCidr::create(
         &conn,
         CidrContents {
-            name: db_init_data.root_cidr_name.clone(),
-            cidr: db_init_data.root_cidr,
+            name: db_init_data.network_name.clone(),
+            cidr: db_init_data.network_cidr,
             parent: None,
         },
     )
@@ -55,7 +79,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     let _me = DatabasePeer::create(
         &conn,
         PeerContents {
-            name: SERVER_NAME.into(),
+            name: SERVER_NAME.parse()?,
             ip: db_init_data.our_ip,
             cidr_id: server_cidr.id,
             public_key: db_init_data.public_key_base64,
@@ -64,6 +88,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             is_disabled: false,
             is_redeemed: true,
             persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
+            invite_expires: None,
         },
     )
     .map_err(|_| "failed to create innernet peer.".to_string())?;
@@ -71,7 +96,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     Ok(())
 }
 
-pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
+pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Error> {
     let theme = ColorfulTheme::default();
 
     shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(|_| {
@@ -81,39 +106,56 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
         )
     })?;
 
-    let (name, root_cidr) = conf.root_cidr.clone().unwrap_or_else(|| {
-        println!("Please specify a root CIDR, which will define the entire network.");
-        let name: String = Input::with_theme(&theme)
+    let name: Hostname = if let Some(name) = opts.network_name {
+        name
+    } else {
+        println!("Here you'll specify the network CIDR, which will encompass the entire network.");
+        Input::with_theme(&theme)
             .with_prompt("Network name")
-            .validate_with(hostname_validator)
-            .interact()
-            .map_err(|_| println!("failed to get name."))
-            .unwrap();
+            .interact()?
+    };
 
-        let root_cidr: IpNetwork = Input::with_theme(&theme)
+    let root_cidr: IpNetwork = if let Some(cidr) = opts.network_cidr {
+        cidr
+    } else {
+        Input::with_theme(&theme)
             .with_prompt("Network CIDR")
             .with_initial_text("10.42.0.0/16")
-            .interact()
-            .map_err(|_| println!("failed to get cidr."))
-            .unwrap();
+            .interact()?
+    };
 
-        (name, root_cidr)
-    });
+    // This probably won't error because of the `hostname_validator` regex.
+    let name = name.parse()?;
 
-    let endpoint: SocketAddr = conf.endpoint.unwrap_or_else(|| {
-        prompts::ask_endpoint()
-            .map_err(|_| println!("failed to get endpoint."))
-            .unwrap()
-    });
+    let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
+        endpoint
+    } else {
+        let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
+            .call()
+            .ok()
+            .map(|res| res.into_string().ok())
+            .flatten()
+            .map(|body| body.trim().to_string())
+            .and_then(|body| body.parse().ok());
 
-    let listen_port: u16 = conf.listen_port.unwrap_or_else(|| {
+        if opts.auto_external_endpoint {
+            let ip = external_ip.ok_or("couldn't get external IP")?;
+            SocketAddr::new(ip, 51820).into()
+        } else {
+            prompts::ask_endpoint(external_ip)?
+        }
+    };
+
+    let listen_port: u16 = if let Some(listen_port) = opts.listen_port {
+        listen_port
+    } else {
         Input::with_theme(&theme)
             .with_prompt("Listen port")
             .default(51820)
             .interact()
-            .map_err(|_| println!("failed to get listen port."))
-            .unwrap()
-    });
+            .map_err(|_| "failed to get listen port.")?
+    };
+
     let our_ip = root_cidr
         .iter()
         .find(|ip| root_cidr.is_assignable(*ip))
@@ -131,8 +173,8 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
     config.write_to_path(&config_path)?;
 
     let db_init_data = DbInitData {
-        root_cidr_name: name.clone(),
-        root_cidr,
+        network_name: name.to_string(),
+        network_cidr: root_cidr,
         server_cidr,
         our_ip,
         public_key_base64: our_keypair.public.to_base64(),
@@ -176,7 +218,7 @@ pub fn init_wizard(conf: &ServerConfig) -> Result<(), Error> {
 
     ",
         star = "[*]".dimmed(),
-        interface = name.yellow(),
+        interface = name.to_string().yellow(),
         created = "created".green(),
         wg_manage_server = "innernet-server".yellow(),
         add_cidr = "add-cidr".yellow(),

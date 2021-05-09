@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt,
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write},
     net::IpAddr,
     path::{Path, PathBuf},
@@ -88,7 +88,7 @@ impl HostsBuilder {
     /// Adds a mapping of `ip` to `hostname`. If there hostnames associated with the IP already,
     /// the hostname will be appended to the list.
     pub fn add_hostname<S: ToString>(&mut self, ip: IpAddr, hostname: S) {
-        let hostnames_dest = self.hostname_map.entry(ip.into()).or_insert(Vec::new());
+        let hostnames_dest = self.hostname_map.entry(ip).or_insert_with(Vec::new);
         hostnames_dest.push(hostname.to_string());
     }
 
@@ -99,7 +99,7 @@ impl HostsBuilder {
         ip: IpAddr,
         hostnames: I,
     ) {
-        let hostnames_dest = self.hostname_map.entry(ip.into()).or_insert(Vec::new());
+        let hostnames_dest = self.hostname_map.entry(ip).or_insert_with(Vec::new);
         for hostname in hostnames.into_iter() {
             hostnames_dest.push(hostname.to_string());
         }
@@ -127,18 +127,20 @@ impl HostsBuilder {
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
     /// name already, it will be replaced with the new list instead.
-    pub fn write_to<P: AsRef<Path>>(&self, hosts_file: P) -> Result<()> {
-        let hosts_file = hosts_file.as_ref();
+    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> Result<()> {
+        let hosts_path = hosts_path.as_ref();
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
 
-        let mut lines = match File::open(hosts_file) {
-            Ok(file) => BufReader::new(file)
-                .lines()
-                .map(|line| line.unwrap())
-                .collect::<Vec<_>>(),
-            _ => Vec::new(),
-        };
+        let hosts_file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(hosts_path)?;
+        let mut lines = BufReader::new(hosts_file)
+            .lines()
+            .map(|line| line.unwrap())
+            .collect::<Vec<_>>();
 
         let begin = lines.iter().position(|line| line.trim() == begin_marker);
         let end = lines.iter().position(|line| line.trim() == end_marker);
@@ -151,7 +153,7 @@ impl HostsBuilder {
             (None, None) => {
                 // Insert a blank line before a new section.
                 if let Some(last_line) = lines.iter().last() {
-                    if last_line != "" {
+                    if !last_line.is_empty() {
                         lines.push("".to_string());
                     }
                 }
@@ -160,20 +162,20 @@ impl HostsBuilder {
             _ => {
                 return Err(Box::new(Error(format!(
                     "start or end marker missing in {:?}",
-                    &hosts_file
+                    &hosts_path
                 ))));
             },
         };
 
         // The tempfile should be in the same filesystem as the hosts file.
-        let hosts_dir = hosts_file
+        let hosts_dir = hosts_path
             .parent()
             .expect("hosts file must be an absolute file path");
         let temp_dir = tempfile::Builder::new().tempdir_in(hosts_dir)?;
         let temp_path = temp_dir.path().join("hosts");
 
         // Copy the existing hosts file to preserve permissions.
-        fs::copy(&hosts_file, &temp_path)?;
+        fs::copy(&hosts_path, &temp_path)?;
 
         let mut file = File::create(&temp_path)?;
 
@@ -192,7 +194,7 @@ impl HostsBuilder {
         }
 
         // Move the file atomically to avoid a partial state.
-        fs::rename(&temp_path, &hosts_file)?;
+        fs::rename(&temp_path, &hosts_path)?;
 
         Ok(())
     }

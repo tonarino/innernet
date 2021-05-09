@@ -12,7 +12,7 @@ This has not received an independent security audit, and should be considered ex
 
 ### Server Creation
 
-Every `innernet` network needs a coordination server to manage peers and provide endpoint information so peers can contact each other. Create a new one with
+Every `innernet` network needs a coordination server to manage peers and provide endpoint information so peers can directly connect to each other. Create a new one with
 
 ```sh
 sudo innernet-server new
@@ -144,6 +144,29 @@ or unset the port and use a randomized port with
 sudo innernet set-listen-port -u <interface>
 ```
 
+## Security recommendations
+
+If you're running a service on innernet, there are some important security considerations.
+
+### Enable strict Reverse Path Filtering ([RFC 3704](https://tools.ietf.org/html/rfc3704))
+
+Strict RPF prevents packets from *other* interfaces from having internal source IP addresses. This is *not* the default on Linux, even though it is the right choice for 99.99% of situations. You can enable it by adding the following to a `/etc/sysctl.d/60-network-security.conf`:
+
+```
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.default.rp_filter=1
+```
+
+### Bind to the WireGuard device
+
+If possible, to *ensure* that packets are only ever transmitted over the WireGuard interface, it's recommended that you use `SO_BINDTODEVICE` on Linux or `IP_BOUND_IF` on macOS/BSDs. If you have strict reverse path filtering, though, this is less of a concern.
+
+### IP addresses alone often aren't enough authentication
+
+Even following all the above precautions, rogue applications on a peer's machines could be able to make requests on their behalf unless you add extra layers of authentication to mitigate this CSRF-type vector.
+
+It's recommended that you carefully consider this possibility before deciding that the source IP is sufficient for your authentication needs on a service.
+
 ## Installation
 
 innernet has only officially been tested on Linux and MacOS, but we hope to support as many platforms as is feasible!
@@ -154,22 +177,10 @@ It's assumed that WireGuard is installed on your system, either via the kernel m
 
 [WireGuard Installation Instructions](https://www.wireguard.com/install/)
 
-If you're not already a WireGuard user, you may need to load the kernel module:
+### Arch Linux
 
 ```sh
-modprobe wireguard
-```
-
-You can make the kernel module loading persistent with:
-
-```sh
-echo wireguard > /etc/modules-load.d/wireguard.conf
-```
-
-### Arch
-
-```sh
-yay -S innernet
+pacman -S innernet
 ```
 
 ### Ubuntu
@@ -184,14 +195,23 @@ sudo apt install ./innernet*.deb
 ### macOS
 
 ```sh
-./macos/install.sh
+brew install tonarino/innernet/innernet
+```
+
+### Cargo
+
+```sh
+git clone https://github.com/tonarino/innernet
+cd innernet
+cargo install --path client
+cargo install --path server
 ```
 
 ## Development
 
 ### `innernet-server` Build dependencies
 
-* `rustc` / `cargo` (version 1.46.0 or higher)
+* `rustc` / `cargo` (version 1.50.0 or higher)
 * `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
 * `libsqlite3`
 
@@ -205,7 +225,7 @@ The resulting binary will be located at `./target/release/innernet-server`
 
 ### `innernet` Client CLI Build dependencies
 
-* `rustc` / `cargo` (version 1.46.0 or higher)
+* `rustc` / `cargo` (version 1.50.0 or higher)
 * `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
 
 Build:

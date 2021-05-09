@@ -1,4 +1,5 @@
-use crate::{ensure_dirs_exist, Error, IoErrorContext, CLIENT_CONFIG_PATH};
+use crate::{ensure_dirs_exist, Endpoint, Error, IoErrorContext, CLIENT_CONFIG_PATH};
+use colored::*;
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
@@ -9,8 +10,9 @@ use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
+use wgctrl::InterfaceName;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct InterfaceConfig {
     /// The information to bring up the interface.
@@ -20,7 +22,7 @@ pub struct InterfaceConfig {
     pub server: ServerInfo,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct InterfaceInfo {
     /// The interface name (i.e. "tonari")
@@ -37,14 +39,14 @@ pub struct InterfaceInfo {
     pub listen_port: Option<u16>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct ServerInfo {
     /// The server's WireGuard public key
     pub public_key: String,
 
     /// The external internet endpoint to reach the server.
-    pub external_endpoint: SocketAddr,
+    pub external_endpoint: Endpoint,
 
     /// An internal endpoint in the WireGuard network that hosts the coordination API.
     pub internal_endpoint: SocketAddr,
@@ -57,12 +59,20 @@ impl InterfaceConfig {
         comments: bool,
         mode: Option<u32>,
     ) -> Result<(), Error> {
+        let path = path.as_ref();
         let mut target_file = OpenOptions::new()
             .create_new(true)
             .write(true)
-            .open(&path)
-            .with_path(&path)?;
+            .open(path)
+            .with_path(path)?;
         if let Some(val) = mode {
+            if crate::chmod(&target_file, 0o600)? {
+                println!(
+                    "{} updated permissions for {} to 0600.",
+                    "[!]".yellow(),
+                    path.display()
+                );
+            }
             let metadata = target_file.metadata()?;
             let mut permissions = metadata.permissions();
             permissions.set_mode(val);
@@ -92,7 +102,7 @@ impl InterfaceConfig {
     }
 
     /// Overwrites the config file if it already exists.
-    pub fn write_to_interface(&self, interface: &str) -> Result<PathBuf, Error> {
+    pub fn write_to_interface(&self, interface: &InterfaceName) -> Result<PathBuf, Error> {
         let path = Self::build_config_file_path(interface)?;
         File::create(&path)
             .with_path(&path)?
@@ -104,13 +114,28 @@ impl InterfaceConfig {
         Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
     }
 
-    pub fn from_interface(interface: &str) -> Result<Self, Error> {
-        Self::from_file(Self::build_config_file_path(interface)?)
+    pub fn from_interface(interface: &InterfaceName) -> Result<Self, Error> {
+        let path = Self::build_config_file_path(interface)?;
+        let file = File::open(&path).with_path(&path)?;
+        if crate::chmod(&file, 0o600)? {
+            println!(
+                "{} updated permissions for {} to 0600.",
+                "[!]".yellow(),
+                path.display()
+            );
+        }
+        Self::from_file(path)
     }
 
-    fn build_config_file_path(interface: &str) -> Result<PathBuf, Error> {
+    pub fn get_path(interface: &InterfaceName) -> PathBuf {
+        CLIENT_CONFIG_PATH
+            .join(interface.to_string())
+            .with_extension("conf")
+    }
+
+    fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, Error> {
         ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
-        Ok(CLIENT_CONFIG_PATH.join(interface).with_extension("conf"))
+        Ok(Self::get_path(interface))
     }
 }
 

@@ -1,18 +1,18 @@
 #![allow(dead_code)]
 use crate::{
     db::{DatabaseCidr, DatabasePeer},
-    endpoints::Endpoints,
-    initialize::init_wizard,
-    Context, ServerConfig,
+    initialize::{init_wizard, InitializeOpts},
+    Context, Db, Endpoints, ServerConfig,
 };
-use anyhow::{anyhow, Result};
-use parking_lot::Mutex;
+use anyhow::anyhow;
+use hyper::{header::HeaderValue, http, Body, Request, Response};
+use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
-use shared::{Cidr, CidrContents, PeerContents};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use serde::Serialize;
+use shared::{Cidr, CidrContents, Error, PeerContents};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
-use warp::test::RequestBuilder;
-use wgctrl::KeyPair;
+use wgctrl::{InterfaceName, Key, KeyPair};
 
 pub const ROOT_CIDR: &str = "10.80.0.0/15";
 pub const SERVER_CIDR: &str = "10.80.0.1/32";
@@ -43,32 +43,39 @@ pub const USER1_PEER_ID: i64 = 5;
 pub const USER2_PEER_ID: i64 = 6;
 
 pub struct Server {
-    pub db: Arc<Mutex<Connection>>,
-    endpoints: Arc<Endpoints>,
-    interface: String,
+    pub db: Db,
+    endpoints: Endpoints,
+    interface: InterfaceName,
     conf: ServerConfig,
+    public_key: Key,
     // The directory will be removed during destruction.
     _test_dir: TempDir,
 }
 
 impl Server {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, Error> {
         let test_dir = tempfile::tempdir()?;
         let test_dir_path = test_dir.path();
 
+        let public_key = Key::generate_private().generate_public();
         // Run the init wizard to initialize the database and create basic
         // cidrs and peers.
         let interface = "test".to_string();
         let conf = ServerConfig {
             wg_manage_dir_override: Some(test_dir_path.to_path_buf()),
             wg_dir_override: Some(test_dir_path.to_path_buf()),
-            root_cidr: Some((interface.clone(), ROOT_CIDR.parse()?)),
-            endpoint: Some("155.155.155.155:54321".parse()?),
-            listen_port: Some(54321),
-            noninteractive: true,
         };
-        init_wizard(&conf).map_err(|_| anyhow!("init_wizard failed"))?;
 
+        let opts = InitializeOpts {
+            network_name: Some(interface.parse()?),
+            network_cidr: Some(ROOT_CIDR.parse()?),
+            external_endpoint: Some("155.155.155.155:54321".parse().unwrap()),
+            listen_port: Some(54321),
+            auto_external_endpoint: false,
+        };
+        init_wizard(&conf, opts).map_err(|_| anyhow!("init_wizard failed"))?;
+
+        let interface = interface.parse().unwrap();
         // Add developer CIDR and user CIDR and some peers for testing.
         let db = Connection::open(&conf.database_path(&interface))?;
         db.pragma_update(None, "foreign_keys", &1)?;
@@ -108,13 +115,14 @@ impl Server {
         );
 
         let db = Arc::new(Mutex::new(db));
-        let endpoints = Arc::new(Endpoints::new(&interface)?);
+        let endpoints = Arc::new(RwLock::new(HashMap::new()));
 
         Ok(Self {
             conf,
             db,
             endpoints,
             interface,
+            public_key,
             _test_dir: test_dir,
         })
     }
@@ -128,15 +136,62 @@ impl Server {
             db: self.db.clone(),
             interface: self.interface.clone(),
             endpoints: self.endpoints.clone(),
+            public_key: self.public_key.clone(),
         }
     }
 
     pub fn wg_conf_path(&self) -> PathBuf {
         self.conf.config_path(&self.interface)
     }
+
+    pub async fn raw_request(&self, ip_str: &str, req: Request<Body>) -> Response<Body> {
+        let port = 54321u16;
+        crate::hyper_service(
+            req,
+            self.context(),
+            SocketAddr::new(ip_str.parse().unwrap(), port),
+        )
+        .await
+        .unwrap()
+    }
+
+    fn base_request_builder(&self, verb: &str, path: &str) -> http::request::Builder {
+        Request::builder()
+            .uri(format!("http://{}{}", WG_MANAGE_PEER_IP, path))
+            .method(verb)
+            .header(
+                shared::INNERNET_PUBKEY_HEADER,
+                HeaderValue::from_str(&self.public_key.to_base64()).unwrap(),
+            )
+    }
+
+    pub async fn request(&self, ip_str: &str, verb: &str, path: &str) -> Response<Body> {
+        let req = self
+            .base_request_builder(verb, path)
+            .body(Body::empty())
+            .unwrap();
+        self.raw_request(ip_str, req).await
+    }
+
+    pub async fn form_request<F: Serialize>(
+        &self,
+        ip_str: &str,
+        verb: &str,
+        path: &str,
+        form: F,
+    ) -> Response<Body> {
+        let json = serde_json::to_string(&form).unwrap();
+        let req = self
+            .base_request_builder(verb, path)
+            .header("Content-Type", "application/json")
+            .header("Content-Length", json.len().to_string())
+            .body(Body::from(json))
+            .unwrap();
+        self.raw_request(ip_str, req).await
+    }
 }
 
-pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr> {
+pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr, Error> {
     let cidr = DatabaseCidr::create(
         db,
         CidrContents {
@@ -153,33 +208,16 @@ pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr> 
 // Below are helper functions for writing tests.
 //
 
-pub fn request_from_ip(ip_str: &str) -> RequestBuilder {
-    let port = 54321u16;
-    warp::test::request().remote_addr(SocketAddr::new(ip_str.parse().unwrap(), port))
-}
-
-pub fn post_request_from_ip(ip_str: &str) -> RequestBuilder {
-    request_from_ip(ip_str)
-        .method("POST")
-        .header("Content-Type", "application/json")
-}
-
-pub fn put_request_from_ip(ip_str: &str) -> RequestBuilder {
-    request_from_ip(ip_str)
-        .method("PUT")
-        .header("Content-Type", "application/json")
-}
-
 pub fn peer_contents(
     name: &str,
     ip_str: &str,
     cidr_id: i64,
     is_admin: bool,
-) -> Result<PeerContents> {
+) -> Result<PeerContents, Error> {
     let public_key = KeyPair::generate().public;
 
     Ok(PeerContents {
-        name: name.to_string(),
+        name: name.parse()?,
         ip: ip_str.parse()?,
         cidr_id,
         public_key: public_key.to_base64(),
@@ -188,21 +226,22 @@ pub fn peer_contents(
         persistent_keepalive_interval: None,
         is_disabled: false,
         is_redeemed: true,
+        invite_expires: None,
     })
 }
 
-pub fn admin_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn admin_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, ADMIN_CIDR_ID, true)
 }
 
-pub fn infra_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn infra_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, INFRA_CIDR_ID, false)
 }
 
-pub fn developer_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn developer_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, DEVELOPER_CIDR_ID, false)
 }
 
-pub fn user_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents> {
+pub fn user_peer_contents(name: &str, ip_str: &str) -> Result<PeerContents, Error> {
     peer_contents(name, ip_str, USER_CIDR_ID, false)
 }

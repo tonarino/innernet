@@ -1,11 +1,13 @@
 use crate::Error;
+use colored::*;
 use serde::{Deserialize, Serialize};
 use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, CLIENT_DATA_PATH};
 use std::{
     fs::{File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
+use wgctrl::InterfaceName;
 
 #[derive(Debug)]
 pub struct DataStore {
@@ -22,12 +24,22 @@ pub enum Contents {
 
 impl DataStore {
     pub(self) fn open_with_path<P: AsRef<Path>>(path: P, create: bool) -> Result<Self, Error> {
+        let path = path.as_ref();
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(create)
-            .open(&path)
-            .with_path(&path)?;
+            .open(path)
+            .with_path(path)?;
+
+        if shared::chmod(&file, 0o600)? {
+            println!(
+                "{} updated permissions for {} to 0600.",
+                "[!]".yellow(),
+                path.display()
+            );
+        }
+
         let mut json = String::new();
         file.read_to_string(&mut json).with_path(path)?;
         let contents = serde_json::from_str(&json).unwrap_or_else(|_| Contents::V1 {
@@ -38,19 +50,22 @@ impl DataStore {
         Ok(Self { file, contents })
     }
 
-    fn _open(interface: &str, create: bool) -> Result<Self, Error> {
-        ensure_dirs_exist(&[*CLIENT_DATA_PATH])?;
-        Self::open_with_path(
-            CLIENT_DATA_PATH.join(interface).with_extension("json"),
-            create,
-        )
+    pub fn get_path(interface: &InterfaceName) -> PathBuf {
+        CLIENT_DATA_PATH
+            .join(interface.to_string())
+            .with_extension("json")
     }
 
-    pub fn open(interface: &str) -> Result<Self, Error> {
+    fn _open(interface: &InterfaceName, create: bool) -> Result<Self, Error> {
+        ensure_dirs_exist(&[*CLIENT_DATA_PATH])?;
+        Self::open_with_path(Self::get_path(interface), create)
+    }
+
+    pub fn open(interface: &InterfaceName) -> Result<Self, Error> {
         Self::_open(interface, false)
     }
 
-    pub fn open_or_create(interface: &str) -> Result<Self, Error> {
+    pub fn open_or_create(interface: &InterfaceName) -> Result<Self, Error> {
         Self::_open(interface, true)
     }
 
@@ -120,7 +135,7 @@ mod tests {
         static ref BASE_PEERS: Vec<Peer> = vec![Peer {
             id: 0,
             contents: PeerContents {
-                name: "blah".to_string(),
+                name: "blah".parse().unwrap(),
                 ip: "10.0.0.1".parse().unwrap(),
                 cidr_id: 1,
                 public_key: "abc".to_string(),
@@ -129,6 +144,7 @@ mod tests {
                 is_disabled: false,
                 is_redeemed: true,
                 persistent_keepalive_interval: None,
+                invite_expires: None,
             }
         }];
         static ref BASE_CIDRS: Vec<Cidr> = vec![Cidr {

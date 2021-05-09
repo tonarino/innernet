@@ -1,41 +1,44 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    Association, Cidr, CidrContents, CidrTree, Error, Peer, PeerContents,
-    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Endpoint, Error, Peer,
+    PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
-use regex::Regex;
-use std::net::{IpAddr, SocketAddr};
-use wgctrl::KeyPair;
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::SystemTime,
+};
+use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
-    static ref THEME: ColorfulTheme = ColorfulTheme::default();
-
-    /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
-    /// Note that the full length also must be maximum 63 characters, which this regex does not check.
-    static ref PEER_NAME_REGEX: Regex = Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap();
-}
-
-pub fn is_valid_hostname(name: &str) -> bool {
-    name.len() < 64 && PEER_NAME_REGEX.is_match(name)
-}
-
-pub fn hostname_validator(name: &String) -> Result<(), &'static str> {
-    if is_valid_hostname(name) {
-        Ok(())
-    } else {
-        Err("not a valid hostname")
-    }
+    pub static ref THEME: ColorfulTheme = ColorfulTheme::default();
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
-pub fn add_cidr(cidrs: &[Cidr]) -> Result<Option<CidrContents>, Error> {
-    let parent_cidr = choose_cidr(cidrs, "Parent CIDR")?;
-    let name: String = Input::with_theme(&*THEME).with_prompt("Name").interact()?;
-    let cidr: IpNetwork = Input::with_theme(&*THEME).with_prompt("CIDR").interact()?;
+pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrContents>, Error> {
+    let parent_cidr = if let Some(ref parent_name) = request.parent {
+        cidrs
+            .iter()
+            .find(|cidr| &cidr.name == parent_name)
+            .ok_or("No parent CIDR with that name exists.")?
+    } else {
+        choose_cidr(cidrs, "Parent CIDR")?
+    };
+
+    let name = if let Some(ref name) = request.name {
+        name.clone()
+    } else {
+        Input::with_theme(&*THEME).with_prompt("Name").interact()?
+    };
+
+    let cidr = if let Some(cidr) = request.cidr {
+        cidr
+    } else {
+        Input::with_theme(&*THEME).with_prompt("CIDR").interact()?
+    };
 
     let cidr_request = CidrContents {
         name,
@@ -44,10 +47,11 @@ pub fn add_cidr(cidrs: &[Cidr]) -> Result<Option<CidrContents>, Error> {
     };
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
-            .default(false)
-            .interact()?
+        if request.yes
+            || Confirm::with_theme(&*THEME)
+                .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
+                .default(false)
+                .interact()?
         {
             Some(cidr_request)
         } else {
@@ -57,15 +61,15 @@ pub fn add_cidr(cidrs: &[Cidr]) -> Result<Option<CidrContents>, Error> {
 }
 
 pub fn choose_cidr<'a>(cidrs: &'a [Cidr], text: &'static str) -> Result<&'a Cidr, Error> {
-    let cidr_names: Vec<_> = cidrs
+    let eligible_cidrs: Vec<_> = cidrs
         .iter()
-        .map(|cidr| format!("{} ({})", &cidr.name, &cidr.cidr))
+        .filter(|cidr| cidr.name != "innernet-server")
         .collect();
     let cidr_index = Select::with_theme(&*THEME)
         .with_prompt(text)
-        .items(&cidr_names)
+        .items(&eligible_cidrs)
         .interact()?;
-    Ok(&cidrs[cidr_index])
+    Ok(&eligible_cidrs[cidr_index])
 }
 
 pub fn choose_association<'a>(
@@ -100,8 +104,8 @@ pub fn choose_association<'a>(
 }
 
 pub fn add_association(cidrs: &[Cidr]) -> Result<Option<(&Cidr, &Cidr)>, Error> {
-    let cidr1 = choose_cidr(&cidrs[..], "First CIDR")?;
-    let cidr2 = choose_cidr(&cidrs[..], "Second CIDR")?;
+    let cidr1 = choose_cidr(cidrs, "First CIDR")?;
+    let cidr2 = choose_cidr(cidrs, "Second CIDR")?;
 
     Ok(
         if Confirm::with_theme(&*THEME)
@@ -143,15 +147,23 @@ pub fn delete_association<'a>(
 pub fn add_peer(
     peers: &[Peer],
     cidr_tree: &CidrTree,
+    args: &AddPeerOpts,
 ) -> Result<Option<(PeerContents, KeyPair)>, Error> {
     let leaves = cidr_tree.leaves();
 
-    let cidr = choose_cidr(&leaves[..], "Eligible CIDRs for peer")?;
+    let cidr = if let Some(ref parent_name) = args.cidr {
+        leaves
+            .iter()
+            .find(|cidr| &cidr.name == parent_name)
+            .ok_or("No eligible CIDR with that name exists.")?
+    } else {
+        choose_cidr(&leaves[..], "Eligible CIDRs for peer")?
+    };
 
     let mut available_ip = None;
     let candidate_ips = cidr.iter().filter(|ip| cidr.is_assignable(*ip));
     for ip in candidate_ips {
-        if peers.iter().find(|peer| peer.ip == ip).is_none() {
+        if !peers.iter().any(|peer| peer.ip == ip) {
             available_ip = Some(ip);
             break;
         }
@@ -159,20 +171,41 @@ pub fn add_peer(
 
     let available_ip = available_ip.expect("No IPs in this CIDR are avavilable");
 
-    let ip = Input::with_theme(&*THEME)
-        .with_prompt("IP")
-        .default(available_ip)
-        .interact()?;
+    let ip = if let Some(ip) = args.ip {
+        ip
+    } else if args.auto_ip {
+        available_ip
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("IP")
+            .default(available_ip)
+            .interact()?
+    };
 
-    let name: String = Input::with_theme(&*THEME)
-        .with_prompt("Name")
-        .validate_with(hostname_validator)
-        .interact()?;
+    let name = if let Some(ref name) = args.name {
+        name.clone()
+    } else {
+        Input::with_theme(&*THEME).with_prompt("Name").interact()?
+    };
 
-    let is_admin = Confirm::with_theme(&*THEME)
-        .with_prompt(&format!("Make {} an admin?", name))
-        .default(false)
-        .interact()?;
+    let is_admin = if let Some(is_admin) = args.admin {
+        is_admin
+    } else {
+        Confirm::with_theme(&*THEME)
+            .with_prompt(&format!("Make {} an admin?", name))
+            .default(false)
+            .interact()?
+    };
+
+    let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
+        invite_expires.clone()
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("Invite expires after")
+            .default("14d".parse()?)
+            .interact()?
+    };
+
     let default_keypair = KeyPair::generate();
     let peer_request = PeerContents {
         name,
@@ -184,13 +217,15 @@ pub fn add_peer(
         is_disabled: false,
         is_redeemed: false,
         persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
+        invite_expires: Some(SystemTime::now() + invite_expires.into()),
     };
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
-            .default(false)
-            .interact()?
+        if args.yes
+            || Confirm::with_theme(&*THEME)
+                .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
+                .default(false)
+                .interact()?
         {
             Some((peer_request, default_keypair))
         } else {
@@ -239,12 +274,13 @@ pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Pee
 
 /// Confirm and write a innernet invitation file after a peer has been created.
 pub fn save_peer_invitation(
-    network_name: &str,
+    network_name: &InterfaceName,
     peer: &Peer,
     server_peer: &Peer,
     root_cidr: &Cidr,
     keypair: KeyPair,
     server_api_addr: &SocketAddr,
+    config_location: &Option<String>,
 ) -> Result<(), Error> {
     let peer_invitation = InterfaceConfig {
         interface: InterfaceInfo {
@@ -256,16 +292,21 @@ pub fn save_peer_invitation(
         server: ServerInfo {
             external_endpoint: server_peer
                 .endpoint
+                .clone()
                 .expect("The innernet server should have a WireGuard endpoint"),
             internal_endpoint: *server_api_addr,
             public_key: server_peer.public_key.clone(),
         },
     };
 
-    let invitation_save_path = Input::with_theme(&*THEME)
-        .with_prompt("Save peer invitation file as")
-        .default(format!("{}.toml", peer.name))
-        .interact()?;
+    let invitation_save_path = if let Some(location) = config_location {
+        location.clone()
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("Save peer invitation file as")
+            .default(format!("{}.toml", peer.name))
+            .interact()?
+    };
 
     peer_invitation.write_to_path(&invitation_save_path, true, None)?;
 
@@ -315,31 +356,39 @@ pub fn set_listen_port(
     }
 }
 
-pub fn ask_endpoint() -> Result<SocketAddr, Error> {
+pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
-    let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
-        .call()
-        .ok()
-        .map(|res| res.into_string().ok())
-        .flatten()
-        .map(|body| body.trim().to_string())
-        .and_then(|body| body.parse().ok());
+    let external_ip = if external_ip.is_some() {
+        external_ip
+    } else {
+        ureq::get("http://4.icanhazip.com")
+            .call()
+            .ok()
+            .map(|res| res.into_string().ok())
+            .flatten()
+            .map(|body| body.trim().to_string())
+            .and_then(|body| body.parse().ok())
+    };
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
-        endpoint_builder.default(SocketAddr::new(ip, 51820));
+        endpoint_builder.default(SocketAddr::new(ip, 51820).into());
     } else {
         println!("failed to get external IP.");
     }
     endpoint_builder
         .with_prompt("External endpoint")
         .interact()
-        .map_err(|e| Error::from(e))
+        .map_err(Into::into)
 }
 
-pub fn override_endpoint(unset: bool) -> Result<Option<Option<SocketAddr>>, Error> {
-    let endpoint = if !unset { Some(ask_endpoint()?) } else { None };
+pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {
+    let endpoint = if !unset {
+        Some(ask_endpoint(None)?)
+    } else {
+        None
+    };
 
     Ok(
         if Confirm::with_theme(&*THEME)

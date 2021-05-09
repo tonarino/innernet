@@ -4,16 +4,18 @@ edition = "2018"
 license = "MIT"
 name = "shared"
 publish = false
-version = "1.0.0"
+version = "1.3.0-beta.1"
 
 [dependencies]
 colored = "2.0"
 dialoguer = "0.8"
 indoc = "1"
-ipnetwork = { git = "https://github.com/mcginty/ipnetwork" }
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 lazy_static = "1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
+structopt = "0.3"
 toml = "0.5"
 ureq = { version = "2", default-features = false }
+url = "2"
 wgctrl = { path = "../wgctrl-rs" }
