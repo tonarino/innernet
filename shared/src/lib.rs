@@ -35,7 +35,7 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
     for dir in dirs {
         match fs::create_dir(dir).with_path(dir) {
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
-                return Err(e.into());
+                return Err(e);
             }
             _ => {
                 let target_file = File::open(dir).with_path(dir)?;

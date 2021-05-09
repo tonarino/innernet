@@ -143,13 +143,11 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
 
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
+    } else if opts.auto_external_endpoint {
+        let ip = publicip::get_any(Preference::Ipv4)?.ok_or("couldn't get external IP")?;
+        SocketAddr::new(ip, 51820).into()
     } else {
-        if opts.auto_external_endpoint {
-            let ip = publicip::get_any(Preference::Ipv4)?.ok_or("couldn't get external IP")?;
-            SocketAddr::new(ip, 51820).into()
-        } else {
-            prompts::ask_endpoint()?
-        }
+        prompts::ask_endpoint()?
     };
 
     let listen_port: u16 = if let Some(listen_port) = opts.listen_port {
