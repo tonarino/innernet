@@ -2,6 +2,7 @@ use crate::*;
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
+use publicip::Preference;
 use rusqlite::{params, Connection};
 use shared::{
     prompts, CidrContents, Endpoint, Hostname, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
@@ -105,11 +106,24 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             "(are you not running as root?)".bold()
         )
     })?;
+    printdoc!(
+        "\nTime to setup your innernet network.
+
+        Your network name can be any hostname-valid string, i.e. \"evilcorp\", and
+        your network CIDR should be in the RFC1918 IPv4 (10/8, 172.16/12, or 192.168/16), 
+        or RFC4193 IPv6 (fd00::/8) ranges.
+
+        The external endpoint specified is a <host>:<port> string that is the address clients
+        will connect to. It's up to you to forward/open ports in your routers/firewalls
+        as needed.
+
+        For more usage instructions, see https://github.com/tonarino/innernet#usage
+        \n"
+    );
 
     let name: Hostname = if let Some(name) = opts.network_name {
         name
     } else {
-        println!("Here you'll specify the network CIDR, which will encompass the entire network.");
         Input::with_theme(&theme)
             .with_prompt("Network name")
             .interact()?
@@ -130,14 +144,11 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
     } else {
-        let (v4, v6) = publicip::public_ip()?;
-        let external_ip = v4.map(IpAddr::from).or(v6.map(IpAddr::from));
-
         if opts.auto_external_endpoint {
-            let ip = external_ip.ok_or("couldn't get external IP")?;
+            let ip = publicip::get_any(Preference::Ipv4)?.ok_or("couldn't get external IP")?;
             SocketAddr::new(ip, 51820).into()
         } else {
-            prompts::ask_endpoint(external_ip)?
+            prompts::ask_endpoint()?
         }
     };
 
@@ -197,7 +208,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         "
         {star} Setup finished.
 
-            Network {interface} has been {created}!
+            Network {interface} has been {created}, but it's not started yet!
 
             Your new network starts with only one peer: this innernet server. Next,
             you'll want to create additional CIDRs and peers using the commands:
@@ -205,7 +216,8 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
                 {wg_manage_server} {add_cidr} {interface}, and
                 {wg_manage_server} {add_peer} {interface}
             
-            See the documentation for more detailed instruction on designing your network.
+            See https://github.com/tonarino/innernet for more detailed instruction
+            on designing your network.
         
             When you're ready to start the network, you can auto-start the server:
             

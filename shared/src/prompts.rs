@@ -7,10 +7,8 @@ use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
-use std::{
-    net::{IpAddr, SocketAddr},
-    time::SystemTime,
-};
+use publicip::Preference;
+use std::{net::SocketAddr, time::SystemTime};
 use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
@@ -356,15 +354,10 @@ pub fn set_listen_port(
     }
 }
 
-pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
+pub fn ask_endpoint() -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
-    let external_ip = if external_ip.is_some() {
-        external_ip
-    } else {
-        let (v4, v6) = publicip::public_ip()?;
-        v4.map(IpAddr::from).or(v6.map(IpAddr::from))
-    };
+    let external_ip = publicip::get_any(Preference::Ipv4)?;
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
@@ -379,11 +372,7 @@ pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
 }
 
 pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {
-    let endpoint = if !unset {
-        Some(ask_endpoint(None)?)
-    } else {
-        None
-    };
+    let endpoint = if !unset { Some(ask_endpoint()?) } else { None };
 
     Ok(
         if Confirm::with_theme(&*THEME)

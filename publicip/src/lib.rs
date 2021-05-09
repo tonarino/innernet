@@ -27,10 +27,24 @@ static CLOUDFLARE_QNAME: &[&str] = &["whoami", "cloudflare"];
 const CLOUDFLARE_IPV4: Ipv4Addr = Ipv4Addr::new(1, 1, 1, 1);
 const CLOUDFLARE_IPV6: Ipv6Addr = Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111);
 
-pub fn public_ip() -> Result<(Option<Ipv4Addr>, Option<Ipv6Addr>), Error> {
+pub enum Preference {
+    Ipv4,
+    Ipv6,
+}
+
+pub fn get_both() -> Result<(Option<Ipv4Addr>, Option<Ipv6Addr>), Error> {
     let ipv4 = Request::start(CLOUDFLARE_IPV4)?;
     let ipv6 = Request::start(CLOUDFLARE_IPV6)?;
     Ok((ipv4.read_response().ok(), ipv6.read_response().ok()))
+}
+
+pub fn get_any(preference: Preference) -> Result<Option<IpAddr>, Error> {
+    let (v4, v6) = get_both()?;
+    let (v4, v6) = (v4.map(IpAddr::from), v6.map(IpAddr::from));
+    Ok(match preference {
+        Preference::Ipv4 => v4.or(v6),
+        Preference::Ipv6 => v6.or(v4),
+    })
 }
 
 struct Request<T> {
@@ -169,7 +183,7 @@ mod tests {
     #[ignore]
     fn it_works() -> Result<(), Error> {
         let now = Instant::now();
-        let (v4, v6) = public_ip()?;
+        let (v4, v6) = get_both()?;
         println!("Done in {}ms", now.elapsed().as_millis());
         println!("v4: {:?}, v6: {:?}", v4, v6);
         assert!(v4.is_some());
