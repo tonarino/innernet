@@ -1,5 +1,5 @@
 [workspace]
-members = ["server", "client", "hostsfile", "shared"]
+members = ["server", "client", "hostsfile", "shared", "publicip"]
 
 [profile.release]
 codegen-units = 1

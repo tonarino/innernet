@@ -130,13 +130,8 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
     } else {
-        let external_ip: Option<IpAddr> = ureq::get("http://4.icanhazip.com")
-            .call()
-            .ok()
-            .map(|res| res.into_string().ok())
-            .flatten()
-            .map(|body| body.trim().to_string())
-            .and_then(|body| body.parse().ok());
+        let (v4, v6) = publicip::public_ip()?;
+        let external_ip = v4.map(IpAddr::from).or(v6.map(IpAddr::from));
 
         if opts.auto_external_endpoint {
             let ip = external_ip.ok_or("couldn't get external IP")?;
