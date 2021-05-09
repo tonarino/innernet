@@ -23,6 +23,7 @@ libc = "0.2"
 libsqlite3-sys = "0.22"
 log = "0.4"
 parking_lot = "0.11"
+publicip = { path = "../publicip" }
 pretty_env_logger = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
 rusqlite = "0.25"
@@ -34,7 +35,6 @@ subtle = "2"
 thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 toml = "0.5"
-ureq = { version = "2", default-features = false }
 url = "2"
 wgctrl = { path = "../wgctrl-rs" }
 

@@ -362,13 +362,8 @@ pub fn ask_endpoint(external_ip: Option<IpAddr>) -> Result<Endpoint, Error> {
     let external_ip = if external_ip.is_some() {
         external_ip
     } else {
-        ureq::get("http://4.icanhazip.com")
-            .call()
-            .ok()
-            .map(|res| res.into_string().ok())
-            .flatten()
-            .map(|body| body.trim().to_string())
-            .and_then(|body| body.parse().ok())
+        let (v4, v6) = publicip::public_ip()?;
+        v4.map(IpAddr::from).or(v6.map(IpAddr::from))
     };
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
