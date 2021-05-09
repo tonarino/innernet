@@ -67,6 +67,7 @@ pub fn up(
     address: IpNetwork,
     listen_port: Option<u16>,
     peer: Option<(&str, IpAddr, SocketAddr)>,
+    do_routing: bool,
 ) -> Result<(), Error> {
     let mut device = DeviceConfigBuilder::new();
     if let Some((public_key, address, endpoint)) = peer {
@@ -83,7 +84,9 @@ pub fn up(
         .set_private_key(wgctrl::Key::from_base64(&private_key).unwrap())
         .apply(interface)?;
     set_addr(interface, address)?;
-    add_route(interface, address)?;
+    if do_routing {
+        add_route(interface, address)?;
+    }
     Ok(())
 }
 

@@ -5,7 +5,8 @@ use indoc::printdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
-    IoErrorContext, Peer, RedeemContents, State, CLIENT_CONFIG_PATH, REDEEM_TRANSITION_WAIT,
+    IoErrorContext, Peer, RedeemContents, RoutingOpt, State, CLIENT_CONFIG_PATH,
+    REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt,
@@ -60,6 +61,9 @@ enum Command {
 
         #[structopt(flatten)]
         opts: InstallOpts,
+
+        #[structopt(flatten)]
+        routing: RoutingOpt,
     },
 
     /// Enumerate all innernet connections.
@@ -91,6 +95,9 @@ enum Command {
         #[structopt(flatten)]
         hosts: HostsOpt,
 
+        #[structopt(flatten)]
+        routing: RoutingOpt,
+
         interface: Interface,
     },
 
@@ -100,6 +107,9 @@ enum Command {
 
         #[structopt(flatten)]
         hosts: HostsOpt,
+
+        #[structopt(flatten)]
+        routing: RoutingOpt,
     },
 
     /// Uninstall an innernet network.
@@ -207,7 +217,12 @@ fn update_hosts_file(
     Ok(())
 }
 
-fn install(invite: &Path, hosts_file: Option<PathBuf>, opts: InstallOpts) -> Result<(), Error> {
+fn install(
+    invite: &Path,
+    hosts_file: Option<PathBuf>,
+    opts: InstallOpts,
+    routing: RoutingOpt,
+) -> Result<(), Error> {
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
     let config = InterfaceConfig::from_file(invite)?;
 
@@ -228,7 +243,7 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>, opts: InstallOpts) -> Res
     }
 
     let iface = iface.parse()?;
-    redeem_invite(&iface, config, target_conf).map_err(|e| {
+    redeem_invite(&iface, config, target_conf, routing).map_err(|e| {
         println!("{} bringing down the interface.", "[*]".dimmed());
         if let Err(e) = wg::down(&iface) {
             println!("{} failed to bring down interface: {}.", "[*]".yellow(), e.to_string());
@@ -239,7 +254,7 @@ fn install(invite: &Path, hosts_file: Option<PathBuf>, opts: InstallOpts) -> Res
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, false, hosts_file.clone()).is_ok() {
+        if fetch(&iface, false, hosts_file.clone(), routing).is_ok() {
             fetch_success = true;
             break;
         }
@@ -293,6 +308,7 @@ fn redeem_invite(
     iface: &InterfaceName,
     mut config: InterfaceConfig,
     target_conf: PathBuf,
+    routing: RoutingOpt,
 ) -> Result<(), Error> {
     println!("{} bringing up the interface.", "[*]".dimmed());
     let resolved_endpoint = config.server.external_endpoint.resolve()?;
@@ -306,6 +322,7 @@ fn redeem_invite(
             config.server.internal_endpoint.ip(),
             resolved_endpoint,
         )),
+        !routing.no_routing,
     )?;
 
     println!("{} Generating new keypair.", "[*]".dimmed());
@@ -348,9 +365,10 @@ fn up(
     interface: &InterfaceName,
     loop_interval: Option<Duration>,
     hosts_path: Option<PathBuf>,
+    routing: RoutingOpt,
 ) -> Result<(), Error> {
     loop {
-        fetch(interface, true, hosts_path.clone())?;
+        fetch(interface, true, hosts_path.clone(), routing)?;
         match loop_interval {
             Some(interval) => thread::sleep(interval),
             None => break,
@@ -364,6 +382,7 @@ fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
     hosts_path: Option<PathBuf>,
+    routing: RoutingOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     let interface_up = if let Ok(interfaces) = DeviceInfo::enumerate() {
@@ -393,6 +412,7 @@ fn fetch(
                 config.server.internal_endpoint.ip(),
                 resolved_endpoint,
             )),
+            !routing.no_routing,
         )?
     }
 
@@ -887,22 +907,29 @@ fn run(opt: Opts) -> Result<(), Error> {
             invite,
             hosts,
             opts,
-        } => install(&invite, hosts.into(), opts)?,
+            routing,
+        } => install(&invite, hosts.into(), opts, routing)?,
         Command::Show {
             short,
             tree,
             interface,
         } => show(short, tree, interface)?,
-        Command::Fetch { interface, hosts } => fetch(&interface, false, hosts.into())?,
+        Command::Fetch {
+            interface,
+            hosts,
+            routing,
+        } => fetch(&interface, false, hosts.into(), routing)?,
         Command::Up {
             interface,
             daemon,
             hosts,
+            routing,
             interval,
         } => up(
             &interface,
             daemon.then(|| Duration::from_secs(interval)),
             hosts.into(),
+            routing,
         )?,
         Command::Down { interface } => wg::down(&interface)?,
         Command::Uninstall { interface } => uninstall(&interface)?,
