@@ -11,7 +11,7 @@ use std::{
     fmt,
     path::{Path, PathBuf},
     thread,
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 use structopt::StructOpt;
 use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfigBuilder, PeerInfo};
@@ -22,6 +22,18 @@ mod util;
 use data_store::DataStore;
 use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
+
+struct PeerState<'a> {
+    peer: &'a Peer,
+    info: Option<&'a PeerInfo>,
+}
+
+macro_rules! println_pad {
+    ($pad:expr, $($arg:tt)*) => {
+        print!("{:pad$}", "", pad = $pad);
+        println!($($arg)*);
+    }
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "innernet", about)]
@@ -714,17 +726,26 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
     let interfaces =
         interface.map_or_else(DeviceInfo::enumerate, |interface| Ok(vec![*interface]))?;
 
-    let devices = interfaces.into_iter().filter_map(|name| {
-        DataStore::open(&name)
-            .and_then(|store| {
-                Ok((
-                    DeviceInfo::get_by_name(&name).with_str(name.as_str_lossy())?,
-                    store,
-                ))
-            })
-            .ok()
-    });
-    for (mut device_info, store) in devices {
+    let devices = interfaces
+        .into_iter()
+        .filter_map(|name| {
+            DataStore::open(&name)
+                .and_then(|store| {
+                    Ok((
+                        DeviceInfo::get_by_name(&name).with_str(name.as_str_lossy())?,
+                        store,
+                    ))
+                })
+                .ok()
+        })
+        .collect::<Vec<_>>();
+
+    if devices.is_empty() {
+        println!("No innernet networks currently running.");
+        return Ok(());
+    }
+
+    for (device_info, store) in devices {
         let peers = store.peers();
         let cidrs = store.cidrs();
         let me = peers
@@ -732,45 +753,46 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
             .find(|p| p.public_key == device_info.public_key.as_ref().unwrap().to_base64())
             .ok_or("missing peer info")?;
 
-        print_interface(&device_info, me, short)?;
-        // Sort the peers by last handshake time (descending),
-        // then by IP address (ascending)
-        device_info.peers.sort_by_key(|peer| {
-            let our_peer = peers
-                .iter()
-                .find(|p| p.public_key == peer.config.public_key.to_base64())
-                .ok_or("missing peer info")
-                .unwrap();
-
-            (
-                std::cmp::Reverse(peer.stats.last_handshake_time),
-                our_peer.ip,
-            )
+        let mut peer_states = device_info
+            .peers
+            .iter()
+            .map(|info| {
+                let public_key = info.config.public_key.to_base64();
+                match peers.iter().find(|p| p.public_key == public_key) {
+                    Some(peer) => Ok(PeerState {
+                        peer,
+                        info: Some(info),
+                    }),
+                    None => Err(format!("peer {} isn't an innernet peer.", public_key)),
+                }
+            })
+            .collect::<Result<Vec<PeerState>, _>>()?;
+        peer_states.push(PeerState {
+            peer: me,
+            info: None,
         });
+
+        print_interface(&device_info, short || tree)?;
+        peer_states.sort_by_key(|peer| peer.peer.ip);
 
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peers, 1);
+            print_tree(&cidr_tree, &peer_states, 1);
         } else {
-            for peer in device_info.peers {
-                let our_peer = peers
-                    .iter()
-                    .find(|p| p.public_key == peer.config.public_key.to_base64())
-                    .ok_or("missing peer info")?;
-                print_peer(our_peer, &peer, short)?;
+            for peer_state in peer_states {
+                print_peer(&peer_state, short, 1);
             }
         }
     }
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[Peer], level: usize) {
-    println!(
-        "{:pad$}{} {}",
-        "",
+fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
+    println_pad!(
+        level * 2,
+        "{} {}",
         cidr.cidr.to_string().bold().blue(),
         cidr.name.blue(),
-        pad = level * 2
     );
 
     let mut children: Vec<_> = cidr.children().collect();
@@ -779,92 +801,88 @@ fn print_tree(cidr: &CidrTree, peers: &[Peer], level: usize) {
         .iter()
         .for_each(|child| print_tree(&child, peers, level + 1));
 
-    for peer in peers.iter().filter(|p| p.cidr_id == cidr.id) {
+    for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
+        print_peer(peer, true, level);
+    }
+}
+
+fn print_interface(device_info: &DeviceInfo, short: bool) -> Result<(), Error> {
+    if short {
+        let listen_port_str = device_info
+            .listen_port
+            .map(|p| format!("(:{}) ", p))
+            .unwrap_or_default();
         println!(
-            "{:pad$}| {} {}",
-            "",
+            "{} {}",
+            device_info.name.to_string().green().bold(),
+            listen_port_str.dimmed(),
+        );
+    } else {
+        println!(
+            "{}: {}",
+            "network".green().bold(),
+            device_info.name.to_string().green(),
+        );
+        if let Some(listen_port) = device_info.listen_port {
+            println!("  {}: {}", "listening port".bold(), listen_port);
+        }
+    }
+    Ok(())
+}
+
+fn print_peer(peer: &PeerState, short: bool, level: usize) {
+    let pad = level * 2;
+    let PeerState { peer, info } = peer;
+    if short {
+        let last_handshake = info
+            .and_then(|i| i.stats.last_handshake_time)
+            .and_then(|t| t.elapsed().ok())
+            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
+
+        let online = last_handshake <= Duration::from_secs(150) || info.is_none();
+
+        println_pad!(
+            pad,
+            "| {} {}: {} ({}{}…)",
+            if online { "◉".bold() } else { "◯".dimmed() },
             peer.ip.to_string().yellow().bold(),
             peer.name.yellow(),
-            pad = level * 2
-        );
-    }
-}
-
-fn print_interface(device_info: &DeviceInfo, me: &Peer, short: bool) -> Result<(), Error> {
-    let public_key = device_info
-        .public_key
-        .as_ref()
-        .ok_or("interface has no private key set.")?
-        .to_base64();
-
-    if short {
-        println!("{}", device_info.name.to_string().green().bold());
-        println!(
-            "  {} {}: {} ({}...)",
-            "(you)".bold(),
-            me.ip.to_string().yellow().bold(),
-            me.name.yellow(),
-            public_key[..10].dimmed()
+            if info.is_none() { "you, " } else { "" },
+            &peer.public_key[..6].dimmed(),
         );
     } else {
-        println!(
-            "{}: {} ({}...)",
-            "interface".green().bold(),
-            device_info.name.to_string().green(),
-            public_key[..10].yellow()
-        );
-        if !short {
-            if let Some(listen_port) = device_info.listen_port {
-                println!("  {}: {}", "listening_port".bold(), listen_port);
-            }
-            println!("  {}: {}", "ip".bold(), me.ip);
-        }
-    }
-    Ok(())
-}
-
-fn print_peer(our_peer: &Peer, peer: &PeerInfo, short: bool) -> Result<(), Error> {
-    if short {
-        println!(
-            "  {}: {} ({}...)",
-            peer.config.allowed_ips[0]
-                .address
-                .to_string()
-                .yellow()
-                .bold(),
-            our_peer.name.yellow(),
-            &our_peer.public_key[..10].dimmed()
-        );
-    } else {
-        println!(
+        println_pad!(
+            pad,
             "{}: {} ({}...)",
             "peer".yellow().bold(),
-            our_peer.name.yellow(),
-            &our_peer.public_key[..10].yellow()
+            peer.name.yellow(),
+            &peer.public_key[..10].yellow(),
         );
-        println!("  {}: {}", "ip".bold(), our_peer.ip);
-        if let Some(ref endpoint) = our_peer.endpoint {
-            println!("  {}: {}", "endpoint".bold(), endpoint);
+        println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
+        if let Some(ref endpoint) = peer.endpoint {
+            println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
         }
-        if let Some(last_handshake) = peer.stats.last_handshake_time {
-            let duration = last_handshake.elapsed()?;
-            println!(
-                "  {}: {}",
-                "last handshake".bold(),
-                human_duration(duration),
-            );
-        }
-        if peer.stats.tx_bytes > 0 || peer.stats.rx_bytes > 0 {
-            println!(
-                "  {}: {} received, {} sent",
-                "transfer".bold(),
-                human_size(peer.stats.rx_bytes),
-                human_size(peer.stats.tx_bytes),
-            );
+        if let Some(info) = info {
+            if let Some(last_handshake) = info.stats.last_handshake_time {
+                let duration = last_handshake.elapsed().expect("horrible clock problem");
+                println_pad!(
+                    pad,
+                    "  {}: {}",
+                    "last handshake".bold(),
+                    human_duration(duration),
+                );
+            }
+            if info.stats.tx_bytes > 0 || info.stats.rx_bytes > 0 {
+                println_pad!(
+                    pad,
+                    "  {}: {} received, {} sent",
+                    "transfer".bold(),
+                    human_size(info.stats.rx_bytes),
+                    human_size(info.stats.tx_bytes),
+                );
+            }
         }
     }
-
-    Ok(())
 }
 
 fn main() {
