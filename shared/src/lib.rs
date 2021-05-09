@@ -31,22 +31,22 @@ pub type Error = Box<dyn std::error::Error>;
 pub static WG_MANAGE_DIR: &str = "/etc/innernet";
 pub static WG_DIR: &str = "/etc/wireguard";
 
-pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
+pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
     for dir in dirs {
-        match fs::create_dir(dir) {
+        match fs::create_dir(dir).with_path(dir) {
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
                 return Err(e.into());
-            },
+            }
             _ => {
                 let target_file = File::open(dir).with_path(dir)?;
-                if chmod(&target_file, 0o700)? {
+                if chmod(&target_file, 0o700).with_path(dir)? {
                     println!(
                         "{} updated permissions for {} to 0700.",
                         "[!]".yellow(),
                         dir.display()
                     );
                 }
-            },
+            }
         }
     }
     Ok(())
@@ -55,7 +55,7 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), Error> {
 /// Updates the permissions of a file or directory. Returns `Ok(true)` if
 /// permissions had to be changed, `Ok(false)` if permissions were already
 /// correct.
-pub fn chmod(file: &File, new_mode: u32) -> Result<bool, Error> {
+pub fn chmod(file: &File, new_mode: u32) -> Result<bool, io::Error> {
     let metadata = file.metadata()?;
     let mut permissions = metadata.permissions();
     let mode = permissions.mode() & 0o777;

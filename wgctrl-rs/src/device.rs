@@ -252,6 +252,7 @@ impl DeviceInfo {
         if backends::kernel::exists() {
             backends::kernel::get_by_name(name)
         } else {
+            println!("kernel module not detected. falling back to userspace backend.");
             backends::userspace::get_by_name(name)
         }
     }

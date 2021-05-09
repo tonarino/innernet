@@ -73,7 +73,7 @@ impl FromStr for Endpoint {
                 let port = port.parse().map_err(|_| "couldn't parse port")?;
                 let host = Host::parse(host).map_err(|_| "couldn't parse host")?;
                 Ok(Endpoint { host, port })
-            },
+            }
             _ => Err("couldn't parse in form of 'host:port'"),
         }
     }
@@ -603,6 +603,14 @@ pub struct WrappedIoError {
 impl std::fmt::Display for WrappedIoError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{} - {}", self.context, self.io_error)
+    }
+}
+
+impl Deref for WrappedIoError {
+    type Target = std::io::Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.io_error
     }
 }
 
