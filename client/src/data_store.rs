@@ -215,6 +215,14 @@ mod tests {
 
         // Should work, since peer is unmodified.
         store.update_peers(vec![]).unwrap();
-        assert_eq!(store.peers(), &*BASE_PEERS);
+        let new_peers = BASE_PEERS
+            .iter()
+            .cloned()
+            .map(|mut p| {
+                p.contents.is_disabled = true;
+                p
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(store.peers(), &new_peers);
     }
 }
