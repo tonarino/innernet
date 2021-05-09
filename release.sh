@@ -17,7 +17,7 @@ done
 [ "$#" -eq 1 ] || die "usage: ./release.sh [patch|major|minor|rc]"
 git diff --quiet || die 'ERROR: git repo is dirty.'
 
-cargo release "$1" --no-confirm --exclude "hostsfile,publicip"
+cargo release "$1" --no-confirm --exclude "hostsfile" --exclude "publicip"
 
 # re-stage the manpage commit and the cargo-release commit
 git reset --soft @~1
