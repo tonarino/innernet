@@ -86,22 +86,31 @@ impl DataStore {
     ///
     /// Note, however, that this does not prevent a compromised server from adding a new
     /// peer under its control, of course.
-    pub fn add_peers(&mut self, new_peers: Vec<Peer>) -> Result<(), Error> {
+    pub fn update_peers(&mut self, current_peers: Vec<Peer>) -> Result<(), Error> {
         let peers = match &mut self.contents {
             Contents::V1 { ref mut peers, .. } => peers,
         };
 
-        for new_peer in new_peers {
+        for new_peer in current_peers.iter() {
             if let Some(existing_peer) = peers.iter_mut().find(|p| p.ip == new_peer.ip) {
                 if existing_peer.public_key != new_peer.public_key {
                     return Err(
                         "PINNING ERROR: New peer has same IP but different public key.".into(),
                     );
                 } else {
-                    *existing_peer = new_peer;
+                    *existing_peer = new_peer.clone();
                 }
             } else {
-                peers.push(new_peer);
+                peers.push(new_peer.clone());
+            }
+        }
+
+        for existing_peer in peers.iter_mut() {
+            if !current_peers
+                .iter()
+                .any(|p| p.public_key == existing_peer.public_key)
+            {
+                existing_peer.contents.is_disabled = true;
             }
         }
 
@@ -166,7 +175,7 @@ mod tests {
         assert_eq!(0, store.peers().len());
         assert_eq!(0, store.cidrs().len());
 
-        store.add_peers(BASE_PEERS.to_owned()).unwrap();
+        store.update_peers(BASE_PEERS.to_owned()).unwrap();
         store.set_cidrs(BASE_CIDRS.to_owned());
         store.write().unwrap();
     }
@@ -188,13 +197,13 @@ mod tests {
             DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
-        store.add_peers(BASE_PEERS.clone()).unwrap();
+        store.update_peers(BASE_PEERS.clone()).unwrap();
 
         let mut modified = BASE_PEERS.clone();
         modified[0].contents.public_key = "foo".to_string();
 
         // Should NOT work, since peer is unmodified.
-        assert!(store.add_peers(modified).is_err());
+        assert!(store.update_peers(modified).is_err());
     }
 
     #[test]
@@ -205,7 +214,7 @@ mod tests {
             DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
-        store.add_peers(vec![]).unwrap();
+        store.update_peers(vec![]).unwrap();
         assert_eq!(store.peers(), &*BASE_PEERS);
     }
 }

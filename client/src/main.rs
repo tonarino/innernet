@@ -474,7 +474,7 @@ fn fetch(
         println!("{}", "    peers are already up to date.".green());
     }
     store.set_cidrs(cidrs);
-    store.add_peers(peers)?;
+    store.update_peers(peers)?;
     store.write()?;
 
     Ok(())
