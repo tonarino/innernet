@@ -357,7 +357,7 @@ pub fn set_listen_port(
 pub fn ask_endpoint() -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
-    let external_ip = publicip::get_any(Preference::Ipv4)?;
+    let external_ip = publicip::get_any(Preference::Ipv4);
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
