@@ -10,7 +10,7 @@ cmd() {
 }
 
 info() {
-  TERM=${TERM:-dumb} echo -e "$(tput setaf 4)- $@$(tput sgr0)" 1>&2
+  echo -e "\033[0;34m- $@\033[0m" 1>&2
 }
 
 tmp_dir=$(mktemp -d -t innernet-tests-XXXXXXXXXX)
@@ -35,12 +35,14 @@ info "Starting server."
 SERVER_CONTAINER=$(cmd docker run -itd --rm \
     --network "$NETWORK" \
     --ip 172.18.1.1 \
+    --env RUST_LOG=trace \
     --cap-add NET_ADMIN \
     innernet-server)
 
 info "server started as $SERVER_CONTAINER"
-info "Waiting for server to initialize."
-cmd sleep 10
+info "Waiting 10 seconds for server to initialize."
+sleep 10
+cmd docker logs "$SERVER_CONTAINER"
 
 info "Starting first peer."
 cmd docker cp "$SERVER_CONTAINER:/app/peer1.toml" "$tmp_dir"
