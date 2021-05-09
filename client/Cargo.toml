@@ -7,7 +7,7 @@ license = "MIT"
 name = "client"
 publish = false
 repository = "https://github.com/tonarino/innernet"
-version = "1.2.0"
+version = "1.3.0-beta.3"
 
 [[bin]]
 name = "innernet"
@@ -45,3 +45,16 @@ maintainer = "tonari <hey@tonari.no>"
 name = "innernet"
 priority = "optional"
 section = "net"
+
+[package.metadata.rpm]
+package = "innernet"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.files]
+"../innernet@.service" = { path = "/usr/lib/systemd/system/innernet@.service" }
+"../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet.8.gz" }
+
+[package.metadata.rpm.targets]
+innernet = { path = "/usr/bin/innernet" }

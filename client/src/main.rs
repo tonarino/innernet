@@ -420,7 +420,7 @@ fn fetch(
     let mut store = DataStore::open_or_create(&interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = DeviceInfo::get_by_name(&interface)?;
+    let device_info = DeviceInfo::get_by_name(&interface).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -736,7 +736,12 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
 
     let devices = interfaces.into_iter().filter_map(|name| {
         DataStore::open(&name)
-            .and_then(|store| Ok((DeviceInfo::get_by_name(&name)?, store)))
+            .and_then(|store| {
+                Ok((
+                    DeviceInfo::get_by_name(&name).with_str(name.as_str_lossy())?,
+                    store,
+                ))
+            })
             .ok()
     });
     for (mut device_info, store) in devices {

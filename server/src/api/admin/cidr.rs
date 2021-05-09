@@ -64,10 +64,10 @@ mod tests {
     use crate::{test, DatabasePeer};
     use anyhow::Result;
     use bytes::Buf;
-    use shared::Cidr;
+    use shared::{Cidr, Error};
 
     #[tokio::test]
-    async fn test_cidr_add() -> Result<()> {
+    async fn test_cidr_add() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let old_cidrs = DatabaseCidr::list(&server.db().lock())?;
@@ -95,7 +95,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cidr_name_uniqueness() -> Result<()> {
+    async fn test_cidr_name_uniqueness() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let contents = CidrContents {
@@ -125,7 +125,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cidr_create_auth() -> Result<()> {
+    async fn test_cidr_create_auth() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let contents = CidrContents {
@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cidr_bad_parent() -> Result<()> {
+    async fn test_cidr_bad_parent() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let contents = CidrContents {
@@ -171,7 +171,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cidr_overlap() -> Result<()> {
+    async fn test_cidr_overlap() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let contents = CidrContents {
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cidr_delete_fail_with_child_cidr() -> Result<()> {
+    async fn test_cidr_delete_fail_with_child_cidr() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let experimental_cidr = DatabaseCidr::create(
@@ -241,7 +241,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cidr_delete_fail_with_peer_inside() -> Result<()> {
+    async fn test_cidr_delete_fail_with_peer_inside() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let experimental_cidr = DatabaseCidr::create(

@@ -3,12 +3,12 @@ use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use ipnetwork::IpNetwork;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, RoutingOpt, INNERNET_PUBKEY_HEADER};
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     convert::TryInto,
     env,
     fs::File,
@@ -17,6 +17,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use structopt::StructOpt;
 use subtle::ConstantTimeEq;
@@ -24,7 +25,6 @@ use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, Key, PeerConfigBuil
 
 pub mod api;
 pub mod db;
-pub mod endpoints;
 pub mod error;
 #[cfg(test)]
 mod test;
@@ -33,7 +33,6 @@ pub mod util;
 mod initialize;
 
 use db::{DatabaseCidr, DatabasePeer};
-pub use endpoints::Endpoints;
 pub use error::ServerError;
 use initialize::InitializeOpts;
 use shared::{prompts, wg, CidrTree, Error, Interface, SERVER_CONFIG_DIR, SERVER_DATABASE_DIR};
@@ -86,11 +85,12 @@ enum Command {
 }
 
 pub type Db = Arc<Mutex<Connection>>;
+pub type Endpoints = Arc<RwLock<HashMap<String, SocketAddr>>>;
 
 #[derive(Clone)]
 pub struct Context {
     pub db: Db,
-    pub endpoints: Arc<Endpoints>,
+    pub endpoints: Arc<RwLock<HashMap<String, SocketAddr>>>,
     pub interface: InterfaceName,
     pub public_key: Key,
 }
@@ -211,7 +211,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
-        Command::Serve { interface, routing } => serve(&interface, &conf, routing).await?,
+        Command::Serve { interface, routing } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
     }
@@ -235,7 +235,7 @@ fn open_database_connection(
     let conn = Connection::open(&database_path)?;
     // Foreign key constraints aren't on in SQLite by default. Enable.
     conn.pragma_update(None, "foreign_keys", &1)?;
-
+    db::auto_migrate(&conn)?;
     Ok(conn)
 }
 
@@ -339,13 +339,49 @@ fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error
     Ok(())
 }
 
+fn spawn_endpoint_refresher(interface: InterfaceName) -> Endpoints {
+    let endpoints = Arc::new(RwLock::new(HashMap::new()));
+    tokio::task::spawn({
+        let endpoints = endpoints.clone();
+        async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                if let Ok(info) = DeviceInfo::get_by_name(&interface) {
+                    for peer in info.peers {
+                        if let Some(endpoint) = peer.config.endpoint {
+                            endpoints
+                                .write()
+                                .insert(peer.config.public_key.to_base64(), endpoint);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    endpoints
+}
+
+fn spawn_expired_invite_sweeper(db: Db) {
+    tokio::task::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            match DatabasePeer::delete_expired_invites(&db.lock()) {
+                Ok(deleted) => log::info!("Deleted {} expired peer invitations.", deleted),
+                Err(e) => log::error!("Failed to delete expired peer invitations: {}", e),
+            }
+        }
+    });
+}
+
 async fn serve(
-    interface: &InterfaceName,
+    interface: InterfaceName,
     conf: &ServerConfig,
     routing: RoutingOpt,
 ) -> Result<(), Error> {
-    let config = ConfigFile::from_file(conf.config_path(interface))?;
-    let conn = open_database_connection(interface, conf)?;
+    let config = ConfigFile::from_file(conf.config_path(&interface))?;
+    let conn = open_database_connection(&interface, conf)?;
 
     let peers = DatabasePeer::list(&conn)?;
     let peer_configs = peers
@@ -355,7 +391,7 @@ async fn serve(
 
     log::info!("bringing up interface.");
     wg::up(
-        interface,
+        &interface,
         &config.private_key,
         IpNetwork::new(config.address, config.network_cidr_prefix)?,
         Some(config.listen_port),
@@ -367,22 +403,23 @@ async fn serve(
         .add_peers(&peer_configs)
         .apply(&interface)?;
 
-    let endpoints = Arc::new(Endpoints::new(&interface)?);
-
     log::info!("{} peers added to wireguard interface.", peers.len());
 
     let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));
+    let endpoints = spawn_endpoint_refresher(interface);
+    spawn_expired_invite_sweeper(db.clone());
+
     let context = Context {
         db,
-        interface: *interface,
+        interface,
         endpoints,
         public_key,
     };
 
     log::info!("innernet-server {} starting.", VERSION);
 
-    let listener = get_listener((config.address, config.listen_port).into(), interface)?;
+    let listener = get_listener((config.address, config.listen_port).into(), &interface)?;
 
     let make_svc = hyper::service::make_service_fn(move |socket: &AddrStream| {
         let remote_addr = socket.remote_addr();
@@ -502,7 +539,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn test_init_wizard() -> Result<()> {
+    fn test_init_wizard() -> Result<(), Error> {
         // This runs init_wizard().
         let server = test::Server::new()?;
 
@@ -512,7 +549,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_with_session_disguised_with_headers() -> Result<()> {
+    async fn test_with_session_disguised_with_headers() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let req = Request::builder()
@@ -535,7 +572,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_incorrect_public_key() -> Result<()> {
+    async fn test_incorrect_public_key() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let key = Key::generate_private().generate_public();
@@ -557,7 +594,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_unparseable_public_key() -> Result<()> {
+    async fn test_unparseable_public_key() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let req = Request::builder()

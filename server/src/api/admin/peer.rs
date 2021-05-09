@@ -94,12 +94,11 @@ mod handlers {
 mod tests {
     use super::*;
     use crate::test;
-    use anyhow::Result;
     use bytes::Buf;
-    use shared::Peer;
+    use shared::{Error, Peer};
 
     #[tokio::test]
-    async fn test_add_peer() -> Result<()> {
+    async fn test_add_peer() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
@@ -125,21 +124,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_add_peer_with_invalid_name() -> Result<()> {
-        let server = test::Server::new()?;
-
-        let peer = test::developer_peer_contents("devel oper", "10.80.64.4")?;
-
-        let res = server
-            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/peers", &peer)
-            .await;
-
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    async fn test_add_peer_with_invalid_name() -> Result<(), Error> {
+        assert!(test::developer_peer_contents("devel oper", "10.80.64.4").is_err());
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_add_peer_with_duplicate_name() -> Result<()> {
+    async fn test_add_peer_with_duplicate_name() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
@@ -161,7 +152,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_add_peer_with_duplicate_ip() -> Result<()> {
+    async fn test_add_peer_with_duplicate_ip() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
@@ -183,7 +174,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_add_peer_with_outside_cidr_range_ip() -> Result<()> {
+    async fn test_add_peer_with_outside_cidr_range_ip() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
@@ -217,7 +208,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_add_peer_from_non_admin() -> Result<()> {
+    async fn test_add_peer_from_non_admin() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let peer = test::developer_peer_contents("developer3", "10.80.64.4")?;
@@ -233,12 +224,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_peer_from_admin() -> Result<()> {
+    async fn test_update_peer_from_admin() -> Result<(), Error> {
         let server = test::Server::new()?;
         let old_peer = DatabasePeer::get(&server.db.lock(), test::DEVELOPER1_PEER_ID)?;
 
         let change = PeerContents {
-            name: "new-peer-name".to_string(),
+            name: "new-peer-name".parse()?,
             ..old_peer.contents.clone()
         };
 
@@ -255,12 +246,12 @@ mod tests {
         assert_eq!(res.status(), StatusCode::NO_CONTENT);
 
         let new_peer = DatabasePeer::get(&server.db.lock(), test::DEVELOPER1_PEER_ID)?;
-        assert_eq!(new_peer.name, "new-peer-name");
+        assert_eq!(&*new_peer.name, "new-peer-name");
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_update_peer_from_non_admin() -> Result<()> {
+    async fn test_update_peer_from_non_admin() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let peer = test::developer_peer_contents("developer3", "10.80.64.4")?;
@@ -281,7 +272,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_all_peers_from_admin() -> Result<()> {
+    async fn test_list_all_peers_from_admin() -> Result<(), Error> {
         let server = test::Server::new()?;
         let res = server
             .request(test::ADMIN_PEER_IP, "GET", "/v1/admin/peers")
@@ -291,7 +282,7 @@ mod tests {
 
         let whole_body = hyper::body::aggregate(res).await?;
         let peers: Vec<Peer> = serde_json::from_reader(whole_body.reader())?;
-        let peer_names = peers.iter().map(|p| &p.contents.name).collect::<Vec<_>>();
+        let peer_names = peers.iter().map(|p| &*p.contents.name).collect::<Vec<_>>();
         // An admin peer should see all the peers.
         assert_eq!(
             &[
@@ -309,7 +300,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_all_peers_from_non_admin() -> Result<()> {
+    async fn test_list_all_peers_from_non_admin() -> Result<(), Error> {
         let server = test::Server::new()?;
         let res = server
             .request(test::DEVELOPER1_PEER_IP, "GET", "/v1/admin/peers")
@@ -321,7 +312,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete() -> Result<()> {
+    async fn test_delete() -> Result<(), Error> {
         let server = test::Server::new()?;
         let old_peers = DatabasePeer::list(&server.db().lock())?;
 
@@ -344,7 +335,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_from_non_admin() -> Result<()> {
+    async fn test_delete_from_non_admin() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
@@ -367,7 +358,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_unknown_id() -> Result<()> {
+    async fn test_delete_unknown_id() -> Result<(), Error> {
         let server = test::Server::new()?;
 
         let res = server

@@ -38,6 +38,7 @@ SERVER_CONTAINER=$(cmd docker run -itd --rm \
     --cap-add NET_ADMIN \
     innernet-server)
 
+info "server started as $SERVER_CONTAINER"
 info "Waiting for server to initialize."
 cmd sleep 10
 
@@ -49,6 +50,7 @@ PEER1_CONTAINER=$(cmd docker create --rm -it \
     --env INTERFACE=evilcorp \
     --cap-add NET_ADMIN \
     innernet)
+info "peer1 started as $PEER1_CONTAINER"
 cmd docker cp "$tmp_dir/peer1.toml" "$PEER1_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER1_CONTAINER"
 sleep 5
@@ -75,6 +77,7 @@ cmd docker exec "$PEER1_CONTAINER" innernet \
     --admin false \
     --auto-ip \
     --save-config "/app/peer2.toml" \
+    --invite-expires "30s" \
     --yes
 cmd docker cp "$PEER1_CONTAINER:/app/peer2.toml" "$tmp_dir"
 
@@ -85,11 +88,40 @@ PEER2_CONTAINER=$(docker create --rm -it \
     --cap-add NET_ADMIN \
     --env INTERFACE=evilcorp \
     innernet)
+info "peer2 started as $PEER2_CONTAINER"
 cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER2_CONTAINER"
 sleep 10
 
-# read -p "Press enter to continue. " -n 1 -r
+info "Creating short-lived invitation for third peer."
+cmd docker exec "$PEER1_CONTAINER" innernet \
+    add-peer evilcorp \
+    --name "peer3" \
+    --cidr "robots" \
+    --admin false \
+    --ip "10.66.2.100" \
+    --save-config "/app/peer3.toml" \
+    --invite-expires "5s" \
+    --yes
+
+info "waiting 15 seconds to see if the server clears out the IP address."
+sleep 15
+
+info "Re-requesting invite after expiration with the same parameters."
+cmd docker exec "$PEER1_CONTAINER" innernet \
+    add-peer evilcorp \
+    --name "peer3" \
+    --cidr "robots" \
+    --admin false \
+    --ip "10.66.2.100" \
+    --save-config "/app/peer3_2.toml" \
+    --invite-expires "30m" \
+    --yes
+
+info "peer2 started as $PEER2_CONTAINER"
+cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
+cmd docker start "$PEER2_CONTAINER"
+sleep 10
 
 info "Checking connectivity betweeen peers."
 cmd docker exec "$PEER2_CONTAINER" ping -c3 10.66.0.1

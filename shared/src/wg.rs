@@ -54,10 +54,10 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
         "ip",
         &["address", "replace", &addr.to_string(), "dev", &interface],
     )?;
-    let _ = cmd(
+    cmd(
         "ip",
         &["link", "set", "mtu", "1420", "up", "dev", &interface],
-    );
+    )?;
     Ok(())
 }
 

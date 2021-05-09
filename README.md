@@ -150,7 +150,7 @@ If you're running a service on innernet, there are some important security consi
 
 ### Enable strict Reverse Path Filtering ([RFC 3704](https://tools.ietf.org/html/rfc3704))
 
-Strict RPF prevents packets from *other* interfaces from having internal source IP addresses. This is *not* the default on Linux, even though it is the right choice for 99.99% of situations. You can enable it by adding the following to a `/etc/sysctl.d/60-network-security.conf`:
+Strict RPF prevents packets from _other_ interfaces from having internal source IP addresses. This is _not_ the default on Linux, even though it is the right choice for 99.99% of situations. You can enable it by adding the following to a `/etc/sysctl.d/60-network-security.conf`:
 
 ```
 net.ipv4.conf.all.rp_filter=1
@@ -159,7 +159,7 @@ net.ipv4.conf.default.rp_filter=1
 
 ### Bind to the WireGuard device
 
-If possible, to *ensure* that packets are only ever transmitted over the WireGuard interface, it's recommended that you use `SO_BINDTODEVICE` on Linux or `IP_BOUND_IF` on macOS/BSDs. If you have strict reverse path filtering, though, this is less of a concern.
+If possible, to _ensure_ that packets are only ever transmitted over the WireGuard interface, it's recommended that you use `SO_BINDTODEVICE` on Linux or `IP_BOUND_IF` on macOS/BSDs. If you have strict reverse path filtering, though, this is less of a concern.
 
 ### IP addresses alone often aren't enough authentication
 
@@ -201,19 +201,22 @@ brew install tonarino/innernet/innernet
 ### Cargo
 
 ```sh
-git clone https://github.com/tonarino/innernet
-cd innernet
-cargo install --path client
-cargo install --path server
+# to install innernet:
+cargo install --git https://github.com/tonarino/innernet --tag v1.3.0-beta.3 client
+
+# to install innernet-server:
+cargo install --git https://github.com/tonarino/innernet --tag v1.3.0-beta.3 server
 ```
+
+Note that you'll be responsible for updating manually.
 
 ## Development
 
 ### `innernet-server` Build dependencies
 
-* `rustc` / `cargo` (version 1.50.0 or higher)
-* `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
-* `libsqlite3`
+- `rustc` / `cargo` (version 1.50.0 or higher)
+- `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
+- `libsqlite3`
 
 Build:
 
@@ -225,8 +228,8 @@ The resulting binary will be located at `./target/release/innernet-server`
 
 ### `innernet` Client CLI Build dependencies
 
-* `rustc` / `cargo` (version 1.50.0 or higher)
-* `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
+- `rustc` / `cargo` (version 1.50.0 or higher)
+- `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
 
 Build:
 
