@@ -357,13 +357,18 @@ pub fn set_listen_port(
 pub fn ask_endpoint() -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
-    let external_ip = publicip::get_any(Preference::Ipv4);
+    let external_ip = if Confirm::with_theme(&*THEME)
+        .with_prompt("Auto-fill public IP address (using a DNS query to 1.1.1.1)?")
+        .interact()?
+    {
+        publicip::get_any(Preference::Ipv4)
+    } else {
+        None
+    };
 
     let mut endpoint_builder = Input::with_theme(&*THEME);
     if let Some(ip) = external_ip {
-        endpoint_builder.default(SocketAddr::new(ip, 51820).into());
-    } else {
-        println!("failed to get external IP.");
+        endpoint_builder.with_initial_text(SocketAddr::new(ip, 51820).to_string());
     }
     endpoint_builder
         .with_prompt("External endpoint")

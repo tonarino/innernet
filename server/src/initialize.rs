@@ -4,9 +4,7 @@ use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use publicip::Preference;
 use rusqlite::{params, Connection};
-use shared::{
-    prompts, CidrContents, Endpoint, Hostname, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
-};
+use shared::{prompts, CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use wgctrl::KeyPair;
 
 fn create_database<P: AsRef<Path>>(
@@ -26,7 +24,7 @@ fn create_database<P: AsRef<Path>>(
 pub struct InitializeOpts {
     /// The network name (ex: evilcorp)
     #[structopt(long)]
-    pub network_name: Option<Hostname>,
+    pub network_name: Option<InterfaceName>,
 
     /// The network CIDR (ex: 10.42.0.0/16)
     #[structopt(long)]
@@ -121,7 +119,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         \n"
     );
 
-    let name: Hostname = if let Some(name) = opts.network_name {
+    let name: InterfaceName = if let Some(name) = opts.network_name {
         name
     } else {
         Input::with_theme(&theme)
@@ -137,9 +135,6 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .with_initial_text("10.42.0.0/16")
             .interact()?
     };
-
-    // This probably won't error because of the `hostname_validator` regex.
-    let name = name.parse()?;
 
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
