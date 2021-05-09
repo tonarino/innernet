@@ -31,10 +31,11 @@ for binary in "innernet" "innernet-server"; do
     gzip -fk "doc/$binary.8"
 done
 
-git add doc
-perl -pi -e "s/$OLD_VERSION/$VERSION/g" README.md
-
 VERSION="v$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
+perl -pi -e "s/$OLD_VERSION/$VERSION/g" README.md
+
+git add doc
+git add README.md
 git commit -m "meta: release $VERSION"
-git tag -a "$VERSION" -m "release $VERSION"
+git tag -f -a "$VERSION" -m "release $VERSION"
