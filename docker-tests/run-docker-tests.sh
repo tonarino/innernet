@@ -38,11 +38,11 @@ SERVER_CONTAINER=$(cmd docker run -itd --rm \
     --env RUST_LOG=trace \
     --cap-add NET_ADMIN \
     innernet-server)
+cmd docker logs "$SERVER_CONTAINER" -f &
 
 info "server started as $SERVER_CONTAINER"
 info "Waiting 10 seconds for server to initialize."
 sleep 10
-cmd docker logs "$SERVER_CONTAINER"
 
 info "Starting first peer."
 cmd docker cp "$SERVER_CONTAINER:/app/peer1.toml" "$tmp_dir"
