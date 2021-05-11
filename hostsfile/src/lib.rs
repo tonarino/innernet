@@ -70,6 +70,14 @@ impl std::error::Error for Error {
 /// 1.1.1.1 cloudflare-dns apnic-dns
 /// # DO NOT EDIT dns END
 /// ```
+///
+/// On Windows the host file format is slightly different in this case:
+/// ```text
+/// # DO NOT EDIT dns BEGIN
+/// 1.1.1.1 cloudflare-dns
+/// 1.1.1.1 apnic-dns
+/// # DO NOT EDIT dns END
+/// ```
 pub struct HostsBuilder {
     tag: String,
     hostname_map: HashMap<IpAddr, Vec<String>>,
@@ -106,11 +114,19 @@ impl HostsBuilder {
     }
 
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
-    /// same tag name already, it will be replaced with the new list instead. Only Unix systems are
-    /// supported now.
+    /// same tag name already, it will be replaced with the new list instead.
     pub fn write(&self) -> Result<()> {
         let hosts_file = if cfg!(unix) {
             PathBuf::from("/etc/hosts")
+        } else if cfg!(windows) {
+            PathBuf::from(
+                // according to https://support.microsoft.com/en-us/topic/how-to-reset-the-hosts-file-back-to-the-default-c2a43f9d-e176-c6f3-e4ef-3500277a6dae
+                // the location depends on the environment variable %WinDir%.
+                format!(
+                    "{}\\System32\\Drivers\\Etc\\hosts",
+                    std::env::var("WinDir").expect("missing environment variable %WinDir%")
+                ),
+            )
         } else {
             return Err(Box::new(Error("unsupported operating system.".to_owned())));
         };
@@ -127,6 +143,9 @@ impl HostsBuilder {
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
     /// name already, it will be replaced with the new list instead.
+    ///
+    /// On Windows, the format of one hostname per line will be used, all other systems will use
+    /// the same format as Unix and Unix-like systems (i.e. allow multiple hostnames per line).
     pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> Result<()> {
         let hosts_path = hosts_path.as_ref();
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
@@ -185,7 +204,15 @@ impl HostsBuilder {
         if !self.hostname_map.is_empty() {
             writeln!(&mut file, "{}", begin_marker)?;
             for (ip, hostnames) in &self.hostname_map {
-                writeln!(&mut file, "{} {}", ip, hostnames.join(" "))?;
+                if cfg!(windows) {
+                    // windows only allows one hostname per line
+                    for hostname in hostnames {
+                        writeln!(&mut file, "{} {}", ip, hostname)?;
+                    }
+                } else {
+                    // assume the same format as Unix
+                    writeln!(&mut file, "{} {}", ip, hostnames.join(" "))?;
+                }
             }
             writeln!(&mut file, "{}", end_marker)?;
         }
