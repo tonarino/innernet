@@ -223,14 +223,14 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
         },
         Some(SocketAddr::V6(s)) => {
             let mut peer = wgctrl_sys::wg_peer__bindgen_ty_1::default();
+            let in6_addr = wgctrl_sys::in6_addr__bindgen_ty_1{__u6_addr8: s.ip().octets()};
             peer.addr6 = wgctrl_sys::sockaddr_in6 {
                 sin6_family: libc::AF_INET6 as u16,
-                sin6_addr: Default::default(),
+                sin6_addr: wgctrl_sys::in6_addr{__in6_u: in6_addr},
                 sin6_port: u16::to_be(s.port()),
                 sin6_flowinfo: 0,
                 sin6_scope_id: 0,
             };
-            unsafe { peer.addr6 }.sin6_addr.__in6_u.__u6_addr8 = s.ip().octets();
             peer
         },
         None => wgctrl_sys::wg_peer__bindgen_ty_1::default(),
@@ -522,5 +522,21 @@ impl Key {
     pub fn from_hex(hex_str: &str) -> Result<Self, InvalidKey> {
         let bytes = hex::decode(hex_str).map_err(|_| InvalidKey)?;
         Self::from_base64(&base64::encode(&bytes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encode_endpoint() -> Result<(), Box<dyn std::error::Error>> {
+        let endpoint = Some("1.2.3.4:51820".parse()?);
+        let endpoint6: Option<SocketAddr> = Some("[2001:db8:1::1]:51820".parse()?);
+        let encoded = encode_endpoint(endpoint);
+        let encoded6 = encode_endpoint(endpoint6);
+        assert_eq!(endpoint, parse_endpoint(&encoded));
+        assert_eq!(endpoint6, parse_endpoint(&encoded6));
+        Ok(())
     }
 }
