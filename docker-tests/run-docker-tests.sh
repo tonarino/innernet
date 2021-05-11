@@ -32,13 +32,13 @@ info "Creating network."
 NETWORK=$(cmd docker network create -d bridge --subnet=172.18.0.0/16 innernet)
 
 info "Starting server."
-SERVER_CONTAINER=$(cmd docker run -itd --rm \
+SERVER_CONTAINER=$(cmd docker create -it --rm \
     --network "$NETWORK" \
     --ip 172.18.1.1 \
     --env RUST_LOG=trace \
     --cap-add NET_ADMIN \
     innernet-server)
-cmd docker logs "$SERVER_CONTAINER" -f &
+cmd docker start -a "$SERVER_CONTAINER" &
 
 info "server started as $SERVER_CONTAINER"
 info "Waiting 10 seconds for server to initialize."
