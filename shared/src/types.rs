@@ -346,6 +346,14 @@ pub struct AddAssociationOpts {
     pub cidr2: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, StructOpt)]
+pub struct RoutingOpt {
+    #[structopt(long)]
+    /// Whether the routing should be done by innernet or is done by an
+    /// external tool like e.g. babeld.
+    pub no_routing: bool,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct PeerContents {
     pub name: Hostname,

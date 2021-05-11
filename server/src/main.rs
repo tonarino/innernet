@@ -6,7 +6,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, INNERNET_PUBKEY_HEADER};
+use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, RoutingOpt, INNERNET_PUBKEY_HEADER};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -60,7 +60,12 @@ enum Command {
     Uninstall { interface: Interface },
 
     /// Serve the coordinating server for an existing network.
-    Serve { interface: Interface },
+    Serve {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        routing: RoutingOpt,
+    },
 
     /// Add a peer to an existing network.
     AddPeer {
@@ -206,7 +211,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
-        Command::Serve { interface } => serve(*interface, &conf).await?,
+        Command::Serve { interface, routing } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
     }
@@ -370,7 +375,11 @@ fn spawn_expired_invite_sweeper(db: Db) {
     });
 }
 
-async fn serve(interface: InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+async fn serve(
+    interface: InterfaceName,
+    conf: &ServerConfig,
+    routing: RoutingOpt,
+) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
     let conn = open_database_connection(&interface, conf)?;
 
@@ -387,6 +396,7 @@ async fn serve(interface: InterfaceName, conf: &ServerConfig) -> Result<(), Erro
         IpNetwork::new(config.address, config.network_cidr_prefix)?,
         Some(config.listen_port),
         None,
+        !routing.no_routing,
     )?;
 
     DeviceConfigBuilder::new()
