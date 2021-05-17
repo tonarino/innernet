@@ -6,7 +6,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, RoutingOpt, INNERNET_PUBKEY_HEADER};
+use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -64,7 +64,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        routing: RoutingOpt,
+        routing: NetworkOpt,
     },
 
     /// Add a peer to an existing network.
@@ -378,7 +378,7 @@ fn spawn_expired_invite_sweeper(db: Db) {
 async fn serve(
     interface: InterfaceName,
     conf: &ServerConfig,
-    routing: RoutingOpt,
+    routing: NetworkOpt,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
     let conn = open_database_connection(&interface, conf)?;

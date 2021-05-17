@@ -347,11 +347,34 @@ pub struct AddAssociationOpts {
 }
 
 #[derive(Debug, Clone, Copy, StructOpt)]
-pub struct RoutingOpt {
+pub struct NetworkOpt {
     #[structopt(long)]
     /// Whether the routing should be done by innernet or is done by an
     /// external tool like e.g. babeld.
     pub no_routing: bool,
+
+    #[structopt(long)]
+    /// Force a WireGuard backend to use, either "kernel" or "userspace".
+    /// If not set, innernet will auto-select based on availability.
+    pub backend: Option<Backend>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Backend {
+    Kernel,
+    Userspace,
+}
+
+impl FromStr for Backend {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "kernel" => Ok(Self::Kernel),
+            "userspace" => Ok(Self::Userspace),
+            _ => Err("Not a valid backend. Must be either 'kernel' or 'wireguard'.")
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

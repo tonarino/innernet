@@ -16,8 +16,8 @@ pub mod wg;
 pub use types::*;
 
 lazy_static! {
-    pub static ref CLIENT_CONFIG_PATH: &'static Path = Path::new("/etc/innernet");
-    pub static ref CLIENT_DATA_PATH: &'static Path = Path::new("/var/lib/innernet");
+    pub static ref CLIENT_CONFIG_DIR: &'static Path = Path::new("/etc/innernet");
+    pub static ref CLIENT_DATA_DIR: &'static Path = Path::new("/var/lib/innernet");
     pub static ref SERVER_CONFIG_DIR: &'static Path = Path::new("/etc/innernet-server");
     pub static ref SERVER_DATABASE_DIR: &'static Path = Path::new("/var/lib/innernet-server");
     pub static ref REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
@@ -27,9 +27,6 @@ pub const PERSISTENT_KEEPALIVE_INTERVAL_SECS: u16 = 25;
 pub const INNERNET_PUBKEY_HEADER: &str = "X-Innernet-Server-Key";
 
 pub type Error = Box<dyn std::error::Error>;
-
-pub static WG_MANAGE_DIR: &str = "/etc/innernet";
-pub static WG_DIR: &str = "/etc/wireguard";
 
 pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
     for dir in dirs {

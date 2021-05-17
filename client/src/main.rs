@@ -5,7 +5,7 @@ use indoc::printdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
-    IoErrorContext, Peer, RedeemContents, RoutingOpt, State, CLIENT_CONFIG_PATH,
+    IoErrorContext, Peer, RedeemContents, NetworkOpt, State, CLIENT_CONFIG_DIR,
     REDEEM_TRANSITION_WAIT,
 };
 use std::{
@@ -75,7 +75,7 @@ enum Command {
         opts: InstallOpts,
 
         #[structopt(flatten)]
-        routing: RoutingOpt,
+        routing: NetworkOpt,
     },
 
     /// Enumerate all innernet connections.
@@ -108,7 +108,7 @@ enum Command {
         hosts: HostsOpt,
 
         #[structopt(flatten)]
-        routing: RoutingOpt,
+        routing: NetworkOpt,
 
         interface: Interface,
     },
@@ -121,7 +121,7 @@ enum Command {
         hosts: HostsOpt,
 
         #[structopt(flatten)]
-        routing: RoutingOpt,
+        routing: NetworkOpt,
     },
 
     /// Uninstall an innernet network.
@@ -233,9 +233,9 @@ fn install(
     invite: &Path,
     hosts_file: Option<PathBuf>,
     opts: InstallOpts,
-    routing: RoutingOpt,
+    routing: NetworkOpt,
 ) -> Result<(), Error> {
-    shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
+    shared::ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
     let config = InterfaceConfig::from_file(invite)?;
 
     let iface = if opts.default_name {
@@ -249,7 +249,7 @@ fn install(
             .interact()?
     };
 
-    let target_conf = CLIENT_CONFIG_PATH.join(&iface).with_extension("conf");
+    let target_conf = CLIENT_CONFIG_DIR.join(&iface).with_extension("conf");
     if target_conf.exists() {
         return Err("An interface with this name already exists in innernet.".into());
     }
@@ -320,7 +320,7 @@ fn redeem_invite(
     iface: &InterfaceName,
     mut config: InterfaceConfig,
     target_conf: PathBuf,
-    routing: RoutingOpt,
+    routing: NetworkOpt,
 ) -> Result<(), Error> {
     println!("{} bringing up the interface.", "[*]".dimmed());
     let resolved_endpoint = config.server.external_endpoint.resolve()?;
@@ -377,7 +377,7 @@ fn up(
     interface: &InterfaceName,
     loop_interval: Option<Duration>,
     hosts_path: Option<PathBuf>,
-    routing: RoutingOpt,
+    routing: NetworkOpt,
 ) -> Result<(), Error> {
     loop {
         fetch(interface, true, hosts_path.clone(), routing)?;
@@ -394,7 +394,7 @@ fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
     hosts_path: Option<PathBuf>,
-    routing: RoutingOpt,
+    routing: NetworkOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     let interface_up = if let Ok(interfaces) = DeviceInfo::enumerate() {
