@@ -95,6 +95,12 @@ enum Command {
         #[structopt(flatten)]
         args: DeleteCidrOpts,
     },
+
+    /// Generate shell completion scripts
+    Completions {
+        #[structopt(possible_values = &structopt::clap::Shell::variants(), case_insensitive = true)]
+        shell: structopt::clap::Shell,
+    },
 }
 
 pub type Db = Arc<Mutex<Connection>>;
@@ -232,6 +238,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opt.network)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
+        Command::Completions { shell } => {
+            Opt::clap().gen_completions_to("innernet-server", shell, &mut std::io::stdout());
+            std::process::exit(0);
+        },
     }
 
     Ok(())

@@ -193,6 +193,12 @@ enum Command {
         #[structopt(short, long)]
         unset: bool,
     },
+
+    /// Generate shell completion scripts
+    Completions {
+        #[structopt(possible_values = &structopt::clap::Shell::variants(), case_insensitive = true)]
+        shell: structopt::clap::Shell,
+    },
 }
 
 /// Application-level error.
@@ -994,6 +1000,10 @@ fn run(opt: Opts) -> Result<(), Error> {
         },
         Command::OverrideEndpoint { interface, unset } => {
             override_endpoint(&interface, unset, opt.network)?
+        },
+        Command::Completions { shell } => {
+            Opts::clap().gen_completions_to("innernet", shell, &mut std::io::stdout());
+            std::process::exit(0);
         },
     }
 
