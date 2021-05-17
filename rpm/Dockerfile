@@ -14,7 +14,7 @@ RUN rm -rf target
 
 RUN source $HOME/.cargo/env && \
 	cargo install cargo-rpm && \
-	cargo build --release --verbose&& \
+	cargo build --release --verbose && \
 	# device::tests::test_add_peers will fail due to restricted docker env
 	cargo test --release --verbose -- --skip test_add_peers && \
 	cd server && cargo rpm build && \
