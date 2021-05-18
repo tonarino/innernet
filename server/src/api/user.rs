@@ -8,7 +8,7 @@ use crate::{
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::{EndpointContents, PeerContents, RedeemContents, State, REDEEM_TRANSITION_WAIT};
-use wgctrl::DeviceConfigBuilder;
+use wgctrl::DeviceUpdate;
 
 pub async fn routes(
     req: Request<Body>,
@@ -102,7 +102,7 @@ mod handlers {
                     &*selected_peer,
                     old_public_key.to_base64()
                 );
-                DeviceConfigBuilder::new()
+                DeviceUpdate::new()
                     .remove_peer_by_key(&old_public_key)
                     .add_peer((&*selected_peer).into())
                     .apply(&interface)

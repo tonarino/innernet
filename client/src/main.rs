@@ -5,7 +5,7 @@ use indoc::printdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
-    IoErrorContext, Peer, RedeemContents, NetworkOpt, State, CLIENT_CONFIG_DIR,
+    IoErrorContext, NetworkOpt, Peer, RedeemContents, State, CLIENT_CONFIG_DIR,
     REDEEM_TRANSITION_WAIT,
 };
 use std::{
@@ -15,7 +15,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 use structopt::StructOpt;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfigBuilder, PeerInfo};
+use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
 mod util;
@@ -365,7 +365,7 @@ fn redeem_invite(
         "{} Changing keys and waiting for server's WireGuard interface to transition.",
         "[*]".dimmed(),
     );
-    DeviceConfigBuilder::new()
+    DeviceUpdate::new()
         .set_private_key(keypair.private)
         .apply(&iface)?;
     thread::sleep(*REDEEM_TRANSITION_WAIT);
@@ -397,7 +397,7 @@ fn fetch(
     routing: NetworkOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
-    let interface_up = if let Ok(interfaces) = DeviceInfo::enumerate() {
+    let interface_up = if let Ok(interfaces) = Device::enumerate() {
         interfaces.iter().any(|name| name == interface)
     } else {
         false
@@ -432,7 +432,7 @@ fn fetch(
     let mut store = DataStore::open_or_create(&interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = DeviceInfo::get_by_name(&interface).with_str(interface.as_str_lossy())?;
+    let device_info = Device::get_by_name(&interface).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -467,7 +467,7 @@ fn fetch(
         })
         .collect::<Vec<PeerConfigBuilder>>();
 
-    let mut device_config_builder = DeviceConfigBuilder::new();
+    let mut device_config_builder = DeviceUpdate::new();
     let mut device_config_changed = false;
 
     if !peer_configs_diff.is_empty() {
@@ -743,8 +743,7 @@ fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error
 }
 
 fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
-    let interfaces =
-        interface.map_or_else(DeviceInfo::enumerate, |interface| Ok(vec![*interface]))?;
+    let interfaces = interface.map_or_else(Device::enumerate, |interface| Ok(vec![*interface]))?;
 
     let devices = interfaces
         .into_iter()
@@ -752,7 +751,7 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
             DataStore::open(&name)
                 .and_then(|store| {
                     Ok((
-                        DeviceInfo::get_by_name(&name).with_str(name.as_str_lossy())?,
+                        Device::get_by_name(&name).with_str(name.as_str_lossy())?,
                         store,
                     ))
                 })
@@ -826,7 +825,7 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     }
 }
 
-fn print_interface(device_info: &DeviceInfo, short: bool) -> Result<(), Error> {
+fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     if short {
         let listen_port_str = device_info
             .listen_port

@@ -4,7 +4,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     process::{self, Command},
 };
-use wgctrl::{DeviceConfigBuilder, InterfaceName, PeerConfigBuilder};
+use wgctrl::{DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     let output = Command::new(bin).args(args).output()?;
@@ -69,7 +69,7 @@ pub fn up(
     peer: Option<(&str, IpAddr, SocketAddr)>,
     do_routing: bool,
 ) -> Result<(), Error> {
-    let mut device = DeviceConfigBuilder::new();
+    let mut device = DeviceUpdate::new();
     if let Some((public_key, address, endpoint)) = peer {
         let prefix = if address.is_ipv4() { 32 } else { 128 };
         let peer_config = PeerConfigBuilder::new(&wgctrl::Key::from_base64(&public_key)?)
@@ -91,7 +91,7 @@ pub fn up(
 }
 
 pub fn set_listen_port(interface: &InterfaceName, listen_port: Option<u16>) -> Result<(), Error> {
-    let mut device = DeviceConfigBuilder::new();
+    let mut device = DeviceUpdate::new();
     if let Some(listen_port) = listen_port {
         device = device.set_listen_port(listen_port);
     } else {

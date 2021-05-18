@@ -9,6 +9,10 @@ publish = false
 readme = "../README.md"
 version = "1.3.0-beta.4"
 
+[[bin]]
+name = "boop"
+path = "src/main.rs"
+
 [dependencies]
 base64 = "0.13"
 hex = "0.4"

@@ -21,7 +21,7 @@ use std::{
 };
 use structopt::StructOpt;
 use subtle::ConstantTimeEq;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, Key, PeerConfigBuilder};
+use wgctrl::{Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
 pub mod api;
 pub mod db;
@@ -209,7 +209,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(e) = initialize::init_wizard(&conf, opts) {
                 println!("{}: {}.", "creation failed".red(), e);
             }
-        }
+        },
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
         Command::Serve { interface, routing } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,
@@ -255,9 +255,9 @@ fn add_peer(
 
     if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
         let peer = DatabasePeer::create(&conn, peer_request)?;
-        if cfg!(not(test)) && DeviceInfo::get_by_name(interface).is_ok() {
+        if cfg!(not(test)) && Device::get_by_name(interface).is_ok() {
             // Update the current WireGuard interface with the new peers.
-            DeviceConfigBuilder::new()
+            DeviceUpdate::new()
                 .add_peer((&*peer).into())
                 .apply(interface)
                 .map_err(|_| ServerError::WireGuard)?;
@@ -347,7 +347,7 @@ fn spawn_endpoint_refresher(interface: InterfaceName) -> Endpoints {
             let mut interval = tokio::time::interval(Duration::from_secs(10));
             loop {
                 interval.tick().await;
-                if let Ok(info) = DeviceInfo::get_by_name(&interface) {
+                if let Ok(info) = Device::get_by_name(&interface) {
                     for peer in info.peers {
                         if let Some(endpoint) = peer.config.endpoint {
                             endpoints
@@ -399,7 +399,7 @@ async fn serve(
         !routing.no_routing,
     )?;
 
-    DeviceConfigBuilder::new()
+    DeviceUpdate::new()
         .add_peers(&peer_configs)
         .apply(&interface)?;
 

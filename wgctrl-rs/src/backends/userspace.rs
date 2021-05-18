@@ -1,4 +1,4 @@
-use crate::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfig, PeerInfo, PeerStats};
+use crate::{Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
 
 #[cfg(target_os = "linux")]
 use crate::Key;
@@ -89,11 +89,11 @@ fn new_peer_info(public_key: Key) -> PeerInfo {
 }
 
 struct ConfigParser {
-    device_info: DeviceInfo,
+    device_info: Device,
     current_peer: Option<PeerInfo>,
 }
 
-impl From<ConfigParser> for DeviceInfo {
+impl From<ConfigParser> for Device {
     fn from(parser: ConfigParser) -> Self {
         parser.device_info
     }
@@ -102,7 +102,7 @@ impl From<ConfigParser> for DeviceInfo {
 impl ConfigParser {
     /// Returns `None` if an invalid device name was provided.
     fn new(name: &InterfaceName) -> Self {
-        let device_info = DeviceInfo {
+        let device_info = Device {
             name: *name,
             public_key: None,
             private_key: None,
@@ -229,7 +229,7 @@ impl ConfigParser {
     }
 }
 
-pub fn get_by_name(name: &InterfaceName) -> Result<DeviceInfo, io::Error> {
+pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
     let mut sock = open_socket(name)?;
     sock.write_all(b"get=1\n\n")?;
     let mut reader = BufReader::new(sock);
@@ -263,7 +263,7 @@ fn get_userspace_implementation() -> String {
         .unwrap_or_else(|_| "wireguard-go".to_string())
 }
 
-pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<()> {
+pub fn apply(builder: DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
         Err(_) => {
