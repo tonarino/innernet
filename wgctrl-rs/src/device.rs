@@ -12,10 +12,6 @@ use std::{
 };
 
 /// Represents an IP address a peer is allowed to have, in CIDR notation.
-///
-/// This may have unexpected semantics - refer to the
-/// [WireGuard documentation](https://www.wireguard.com/#cryptokey-routing)
-/// for more information on how routing is implemented.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AllowedIp {
     /// The IP address.
