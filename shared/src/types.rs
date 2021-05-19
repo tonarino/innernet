@@ -13,7 +13,7 @@ use std::{
 };
 use structopt::StructOpt;
 use url::Host;
-use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
+use wgctrl::{Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 #[derive(Debug, Clone)]
 pub struct Interface {
@@ -73,7 +73,7 @@ impl FromStr for Endpoint {
                 let port = port.parse().map_err(|_| "couldn't parse port")?;
                 let host = Host::parse(host).map_err(|_| "couldn't parse host")?;
                 Ok(Endpoint { host, port })
-            }
+            },
             _ => Err("couldn't parse in form of 'host:port'"),
         }
     }
@@ -347,11 +347,16 @@ pub struct AddAssociationOpts {
 }
 
 #[derive(Debug, Clone, Copy, StructOpt)]
-pub struct RoutingOpt {
+pub struct NetworkOpt {
     #[structopt(long)]
     /// Whether the routing should be done by innernet or is done by an
     /// external tool like e.g. babeld.
     pub no_routing: bool,
+
+    #[structopt(long, default_value, possible_values = Backend::variants())]
+    /// Specify a WireGuard backend to use.
+    /// If not set, innernet will auto-select based on availability.
+    pub backend: Backend,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

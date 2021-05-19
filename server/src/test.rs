@@ -12,7 +12,7 @@ use serde::Serialize;
 use shared::{Cidr, CidrContents, Error, PeerContents};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
-use wgctrl::{InterfaceName, Key, KeyPair};
+use wgctrl::{Backend, InterfaceName, Key, KeyPair};
 
 pub const ROOT_CIDR: &str = "10.80.0.0/15";
 pub const SERVER_CIDR: &str = "10.80.0.1/32";
@@ -137,6 +137,10 @@ impl Server {
             interface: self.interface.clone(),
             endpoints: self.endpoints.clone(),
             public_key: self.public_key.clone(),
+            #[cfg(target_os = "linux")]
+            backend: Backend::Kernel,
+            #[cfg(not(target_os = "linux"))]
+            backend: Backend::Userspace,
         }
     }
 

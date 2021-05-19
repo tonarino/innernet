@@ -1,5 +1,5 @@
 use crate::{
-    device::AllowedIp, DeviceConfigBuilder, DeviceInfo, InterfaceName, InvalidInterfaceName,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName,
     InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
@@ -9,14 +9,9 @@ use std::{
     io,
     net::{IpAddr, SocketAddr},
     os::raw::c_char,
-    path::Path,
-    process::Command,
     ptr, str,
-    sync::Once,
     time::{Duration, SystemTime},
 };
-
-static MODPROBE: Once = Once::new();
 
 impl<'a> From<&'a wgctrl_sys::wg_allowedip> for AllowedIp {
     fn from(raw: &wgctrl_sys::wg_allowedip) -> AllowedIp {
@@ -69,11 +64,11 @@ impl<'a> From<&'a wgctrl_sys::wg_peer> for PeerInfo {
     }
 }
 
-impl<'a> From<&'a wgctrl_sys::wg_device> for DeviceInfo {
-    fn from(raw: &wgctrl_sys::wg_device) -> DeviceInfo {
+impl<'a> From<&'a wgctrl_sys::wg_device> for Device {
+    fn from(raw: &wgctrl_sys::wg_device) -> Device {
         // SAFETY: The name string buffer came directly from wgctrl so its NUL terminated.
         let name = unsafe { InterfaceName::from_wg(raw.name) };
-        DeviceInfo {
+        Device {
             name,
             public_key: if (raw.flags & wgdf::WGDEVICE_HAS_PUBLIC_KEY).0 > 0 {
                 Some(Key::from_raw(raw.public_key))
@@ -95,6 +90,7 @@ impl<'a> From<&'a wgctrl_sys::wg_device> for DeviceInfo {
             },
             peers: parse_peers(&raw),
             linked_name: None,
+            backend: Backend::Kernel,
             __cant_construct_me: (),
         }
     }
@@ -214,7 +210,7 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
             peer.addr4 = wgctrl_sys::sockaddr_in {
                 sin_family: libc::AF_INET as u16,
                 sin_addr: wgctrl_sys::in_addr {
-                    s_addr: u32::from_be(s.ip().clone().into()),
+                    s_addr: u32::from_be((*s.ip()).into()),
                 },
                 sin_port: u16::to_be(s.port()),
                 sin_zero: [0; 8],
@@ -223,10 +219,12 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
         },
         Some(SocketAddr::V6(s)) => {
             let mut peer = wgctrl_sys::wg_peer__bindgen_ty_1::default();
-            let in6_addr = wgctrl_sys::in6_addr__bindgen_ty_1{__u6_addr8: s.ip().octets()};
+            let in6_addr = wgctrl_sys::in6_addr__bindgen_ty_1 {
+                __u6_addr8: s.ip().octets(),
+            };
             peer.addr6 = wgctrl_sys::sockaddr_in6 {
                 sin6_family: libc::AF_INET6 as u16,
-                sin6_addr: wgctrl_sys::in6_addr{__in6_u: in6_addr},
+                sin6_addr: wgctrl_sys::in6_addr { __in6_u: in6_addr },
                 sin6_port: u16::to_be(s.port()),
                 sin6_flowinfo: 0,
                 sin6_scope_id: 0,
@@ -238,7 +236,7 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
 }
 
 fn encode_peers(
-    peers: Vec<PeerConfigBuilder>,
+    peers: &[PeerConfigBuilder],
 ) -> (*mut wgctrl_sys::wg_peer, *mut wgctrl_sys::wg_peer) {
     let mut first_peer = ptr::null_mut();
     let mut last_peer: *mut wgctrl_sys::wg_peer = ptr::null_mut();
@@ -290,20 +288,6 @@ fn encode_peers(
     (first_peer, last_peer)
 }
 
-pub fn exists() -> bool {
-    // Try to load the wireguard module if it isn't already.
-    // This is only called once per lifetime of the process.
-    MODPROBE.call_once(|| {
-        Command::new("/sbin/modprobe")
-            .arg("wireguard")
-            .output()
-            .ok();
-    });
-
-    // Check that the wireguard module is loaded.
-    Path::new("/sys/module/wireguard").is_dir()
-}
-
 pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     let base = unsafe { wgctrl_sys::wg_list_device_names() };
 
@@ -337,8 +321,8 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     Ok(result)
 }
 
-pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<()> {
-    let (first_peer, last_peer) = encode_peers(builder.peers);
+pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
+    let (first_peer, last_peer) = encode_peers(&builder.peers);
 
     let result = unsafe { wgctrl_sys::wg_add_device(iface.as_ptr()) };
     match result {
@@ -394,7 +378,7 @@ pub fn apply(builder: DeviceConfigBuilder, iface: &InterfaceName) -> io::Result<
     }
 }
 
-pub fn get_by_name(name: &InterfaceName) -> Result<DeviceInfo, io::Error> {
+pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
     let mut device: *mut wgctrl_sys::wg_device = ptr::null_mut();
 
     let result = unsafe {
@@ -405,7 +389,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<DeviceInfo, io::Error> {
     };
 
     let result = if result == 0 {
-        Ok(DeviceInfo::from(unsafe { &*device }))
+        Ok(Device::from(unsafe { &*device }))
     } else {
         Err(io::Error::last_os_error())
     };

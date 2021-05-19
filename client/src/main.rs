@@ -5,7 +5,7 @@ use indoc::printdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
-    IoErrorContext, Peer, RedeemContents, RoutingOpt, State, CLIENT_CONFIG_PATH,
+    IoErrorContext, NetworkOpt, Peer, RedeemContents, State, CLIENT_CONFIG_DIR,
     REDEEM_TRANSITION_WAIT,
 };
 use std::{
@@ -15,7 +15,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 use structopt::StructOpt;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, PeerConfigBuilder, PeerInfo};
+use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
 mod util;
@@ -41,6 +41,9 @@ macro_rules! println_pad {
 struct Opts {
     #[structopt(subcommand)]
     command: Option<Command>,
+
+    #[structopt(flatten)]
+    network: NetworkOpt,
 }
 
 #[derive(Debug, StructOpt)]
@@ -73,9 +76,6 @@ enum Command {
 
         #[structopt(flatten)]
         opts: InstallOpts,
-
-        #[structopt(flatten)]
-        routing: RoutingOpt,
     },
 
     /// Enumerate all innernet connections.
@@ -107,9 +107,6 @@ enum Command {
         #[structopt(flatten)]
         hosts: HostsOpt,
 
-        #[structopt(flatten)]
-        routing: RoutingOpt,
-
         interface: Interface,
     },
 
@@ -119,9 +116,6 @@ enum Command {
 
         #[structopt(flatten)]
         hosts: HostsOpt,
-
-        #[structopt(flatten)]
-        routing: RoutingOpt,
     },
 
     /// Uninstall an innernet network.
@@ -233,9 +227,9 @@ fn install(
     invite: &Path,
     hosts_file: Option<PathBuf>,
     opts: InstallOpts,
-    routing: RoutingOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
-    shared::ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
+    shared::ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
     let config = InterfaceConfig::from_file(invite)?;
 
     let iface = if opts.default_name {
@@ -249,15 +243,15 @@ fn install(
             .interact()?
     };
 
-    let target_conf = CLIENT_CONFIG_PATH.join(&iface).with_extension("conf");
+    let target_conf = CLIENT_CONFIG_DIR.join(&iface).with_extension("conf");
     if target_conf.exists() {
         return Err("An interface with this name already exists in innernet.".into());
     }
 
     let iface = iface.parse()?;
-    redeem_invite(&iface, config, target_conf, routing).map_err(|e| {
+    redeem_invite(&iface, config, target_conf, network).map_err(|e| {
         println!("{} bringing down the interface.", "[*]".dimmed());
-        if let Err(e) = wg::down(&iface) {
+        if let Err(e) = wg::down(&iface, network.backend) {
             println!("{} failed to bring down interface: {}.", "[*]".yellow(), e.to_string());
         };
         println!("{} Failed to redeem invite. Now's a good time to make sure the server is started and accessible!", "[!]".red());
@@ -266,7 +260,7 @@ fn install(
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, false, hosts_file.clone(), routing).is_ok() {
+        if fetch(&iface, false, hosts_file.clone(), network).is_ok() {
             fetch_success = true;
             break;
         }
@@ -320,7 +314,7 @@ fn redeem_invite(
     iface: &InterfaceName,
     mut config: InterfaceConfig,
     target_conf: PathBuf,
-    routing: RoutingOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     println!("{} bringing up the interface.", "[*]".dimmed());
     let resolved_endpoint = config.server.external_endpoint.resolve()?;
@@ -334,7 +328,7 @@ fn redeem_invite(
             config.server.internal_endpoint.ip(),
             resolved_endpoint,
         )),
-        !routing.no_routing,
+        network,
     )?;
 
     println!("{} Generating new keypair.", "[*]".dimmed());
@@ -365,9 +359,9 @@ fn redeem_invite(
         "{} Changing keys and waiting for server's WireGuard interface to transition.",
         "[*]".dimmed(),
     );
-    DeviceConfigBuilder::new()
+    DeviceUpdate::new()
         .set_private_key(keypair.private)
-        .apply(&iface)?;
+        .apply(&iface, network.backend)?;
     thread::sleep(*REDEEM_TRANSITION_WAIT);
 
     Ok(())
@@ -377,7 +371,7 @@ fn up(
     interface: &InterfaceName,
     loop_interval: Option<Duration>,
     hosts_path: Option<PathBuf>,
-    routing: RoutingOpt,
+    routing: NetworkOpt,
 ) -> Result<(), Error> {
     loop {
         fetch(interface, true, hosts_path.clone(), routing)?;
@@ -394,10 +388,10 @@ fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
     hosts_path: Option<PathBuf>,
-    routing: RoutingOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
-    let interface_up = if let Ok(interfaces) = DeviceInfo::enumerate() {
+    let interface_up = if let Ok(interfaces) = Device::list(network.backend) {
         interfaces.iter().any(|name| name == interface)
     } else {
         false
@@ -424,7 +418,7 @@ fn fetch(
                 config.server.internal_endpoint.ip(),
                 resolved_endpoint,
             )),
-            !routing.no_routing,
+            network,
         )?
     }
 
@@ -432,7 +426,8 @@ fn fetch(
     let mut store = DataStore::open_or_create(&interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = DeviceInfo::get_by_name(&interface).with_str(interface.as_str_lossy())?;
+    let device_info =
+        Device::get(&interface, network.backend).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -467,7 +462,7 @@ fn fetch(
         })
         .collect::<Vec<PeerConfigBuilder>>();
 
-    let mut device_config_builder = DeviceConfigBuilder::new();
+    let mut device_config_builder = DeviceUpdate::new();
     let mut device_config_changed = false;
 
     if !peer_configs_diff.is_empty() {
@@ -491,7 +486,7 @@ fn fetch(
     }
 
     if device_config_changed {
-        device_config_builder.apply(&interface)?;
+        device_config_builder.apply(&interface, network.backend)?;
 
         if let Some(path) = hosts_path {
             update_hosts_file(interface, path, &peers)?;
@@ -512,7 +507,7 @@ fn fetch(
     Ok(())
 }
 
-fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
+fn uninstall(interface: &InterfaceName, network: NetworkOpt) -> Result<(), Error> {
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
@@ -522,7 +517,7 @@ fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
         .interact()?
     {
         println!("{} bringing down interface (if up).", "[*]".dimmed());
-        wg::down(interface).ok();
+        wg::down(interface, network.backend).ok();
         let config = InterfaceConfig::get_path(interface);
         let data = DataStore::get_path(interface);
         std::fs::remove_file(&config)
@@ -701,11 +696,15 @@ fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
     Ok(())
 }
 
-fn set_listen_port(interface: &InterfaceName, unset: bool) -> Result<(), Error> {
+fn set_listen_port(
+    interface: &InterfaceName,
+    unset: bool,
+    network: NetworkOpt,
+) -> Result<(), Error> {
     let mut config = InterfaceConfig::from_interface(interface)?;
 
     if let Some(listen_port) = prompts::set_listen_port(&config.interface, unset)? {
-        wg::set_listen_port(interface, listen_port)?;
+        wg::set_listen_port(interface, listen_port, network.backend)?;
         println!("{} the interface is updated", "[*]".dimmed(),);
 
         config.interface.listen_port = listen_port;
@@ -718,14 +717,18 @@ fn set_listen_port(interface: &InterfaceName, unset: bool) -> Result<(), Error> 
     Ok(())
 }
 
-fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error> {
+fn override_endpoint(
+    interface: &InterfaceName,
+    unset: bool,
+    network: NetworkOpt,
+) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     if !unset && config.interface.listen_port.is_none() {
         println!(
             "{}: you need to set a listen port for your interface first.",
             "note".bold().yellow()
         );
-        set_listen_port(interface, unset)?;
+        set_listen_port(interface, unset, network)?;
     }
 
     if let Some(endpoint) = prompts::override_endpoint(unset)? {
@@ -742,9 +745,16 @@ fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error
     Ok(())
 }
 
-fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
-    let interfaces =
-        interface.map_or_else(DeviceInfo::enumerate, |interface| Ok(vec![*interface]))?;
+fn show(
+    short: bool,
+    tree: bool,
+    interface: Option<Interface>,
+    network: NetworkOpt,
+) -> Result<(), Error> {
+    let interfaces = interface.map_or_else(
+        || Device::list(network.backend),
+        |interface| Ok(vec![*interface]),
+    )?;
 
     let devices = interfaces
         .into_iter()
@@ -752,7 +762,7 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
             DataStore::open(&name)
                 .and_then(|store| {
                     Ok((
-                        DeviceInfo::get_by_name(&name).with_str(name.as_str_lossy())?,
+                        Device::get(&name, network.backend).with_str(name.as_str_lossy())?,
                         store,
                     ))
                 })
@@ -826,7 +836,7 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     }
 }
 
-fn print_interface(device_info: &DeviceInfo, short: bool) -> Result<(), Error> {
+fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     if short {
         let listen_port_str = device_info
             .listen_port
@@ -930,32 +940,26 @@ fn run(opt: Opts) -> Result<(), Error> {
             invite,
             hosts,
             opts,
-            routing,
-        } => install(&invite, hosts.into(), opts, routing)?,
+        } => install(&invite, hosts.into(), opts, opt.network)?,
         Command::Show {
             short,
             tree,
             interface,
-        } => show(short, tree, interface)?,
-        Command::Fetch {
-            interface,
-            hosts,
-            routing,
-        } => fetch(&interface, false, hosts.into(), routing)?,
+        } => show(short, tree, interface, opt.network)?,
+        Command::Fetch { interface, hosts } => fetch(&interface, false, hosts.into(), opt.network)?,
         Command::Up {
             interface,
             daemon,
             hosts,
-            routing,
             interval,
         } => up(
             &interface,
             daemon.then(|| Duration::from_secs(interval)),
             hosts.into(),
-            routing,
+            opt.network,
         )?,
-        Command::Down { interface } => wg::down(&interface)?,
-        Command::Uninstall { interface } => uninstall(&interface)?,
+        Command::Down { interface } => wg::down(&interface, opt.network.backend)?,
+        Command::Uninstall { interface } => uninstall(&interface, opt.network)?,
         Command::AddPeer { interface, opts } => add_peer(&interface, opts)?,
         Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
@@ -963,8 +967,12 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::AddAssociation { interface, opts } => add_association(&interface, opts)?,
         Command::DeleteAssociation { interface } => delete_association(&interface)?,
         Command::ListAssociations { interface } => list_associations(&interface)?,
-        Command::SetListenPort { interface, unset } => set_listen_port(&interface, unset)?,
-        Command::OverrideEndpoint { interface, unset } => override_endpoint(&interface, unset)?,
+        Command::SetListenPort { interface, unset } => {
+            set_listen_port(&interface, unset, opt.network)?
+        },
+        Command::OverrideEndpoint { interface, unset } => {
+            override_endpoint(&interface, unset, opt.network)?
+        },
     }
 
     Ok(())

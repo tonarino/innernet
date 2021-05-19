@@ -1,4 +1,4 @@
-use crate::{ensure_dirs_exist, Endpoint, Error, IoErrorContext, CLIENT_CONFIG_PATH};
+use crate::{ensure_dirs_exist, Endpoint, Error, IoErrorContext, CLIENT_CONFIG_DIR};
 use colored::*;
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
@@ -128,13 +128,13 @@ impl InterfaceConfig {
     }
 
     pub fn get_path(interface: &InterfaceName) -> PathBuf {
-        CLIENT_CONFIG_PATH
+        CLIENT_CONFIG_DIR
             .join(interface.to_string())
             .with_extension("conf")
     }
 
     fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, Error> {
-        ensure_dirs_exist(&[*CLIENT_CONFIG_PATH])?;
+        ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
         Ok(Self::get_path(interface))
     }
 }

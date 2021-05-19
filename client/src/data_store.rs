@@ -1,7 +1,7 @@
 use crate::Error;
 use colored::*;
 use serde::{Deserialize, Serialize};
-use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_PATH};
+use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_DIR};
 use std::{
     fs::{File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
@@ -54,13 +54,13 @@ impl DataStore {
     }
 
     pub fn get_path(interface: &InterfaceName) -> PathBuf {
-        CLIENT_DATA_PATH
+        CLIENT_DATA_DIR
             .join(interface.to_string())
             .with_extension("json")
     }
 
     fn _open(interface: &InterfaceName, create: bool) -> Result<Self, WrappedIoError> {
-        ensure_dirs_exist(&[*CLIENT_DATA_PATH])?;
+        ensure_dirs_exist(&[*CLIENT_DATA_DIR])?;
         Self::open_with_path(Self::get_path(interface), create)
     }
 

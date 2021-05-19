@@ -1,21 +1,17 @@
 use libc::c_char;
 
-use crate::{backends, key::Key};
+use crate::{backends, key::Key, Backend, KeyPair, PeerConfigBuilder};
 
 use std::{
     borrow::Cow,
     ffi::CStr,
-    fmt,
+    fmt, io,
     net::{IpAddr, SocketAddr},
     str::FromStr,
     time::SystemTime,
 };
 
 /// Represents an IP address a peer is allowed to have, in CIDR notation.
-///
-/// This may have unexpected semantics - refer to the
-/// [WireGuard documentation](https://www.wireguard.com/#cryptokey-routing)
-/// for more information on how routing is implemented.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AllowedIp {
     /// The IP address.
@@ -90,7 +86,7 @@ pub struct PeerInfo {
 /// The peer statistics are retrieved once at construction time,
 /// and need to be updated manually by calling [`get_by_name`](DeviceInfo::get_by_name).
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct DeviceInfo {
+pub struct Device {
     /// The interface name of this device
     pub name: InterfaceName,
     /// The public encryption key of this interface (if present)
@@ -105,6 +101,8 @@ pub struct DeviceInfo {
     pub peers: Vec<PeerInfo>,
     /// The associated "real name" of the interface (ex. "utun8" on macOS).
     pub linked_name: Option<String>,
+    /// The backend the device exists on (userspace or kernel).
+    pub backend: Backend,
 
     pub(crate) __cant_construct_me: (),
 }
@@ -227,57 +225,216 @@ impl From<InvalidInterfaceName> for std::io::Error {
 
 impl std::error::Error for InvalidInterfaceName {}
 
-impl DeviceInfo {
-    /// Enumerates all WireGuard interfaces currently present in the system
-    /// and returns their names.
+impl Device {
+    /// Enumerates all WireGuard interfaces currently present in the system,
+    /// both with kernel and userspace backends.
     ///
     /// You can use [`get_by_name`](DeviceInfo::get_by_name) to retrieve more
     /// detailed information on each interface.
-    #[cfg(target_os = "linux")]
-    pub fn enumerate() -> Result<Vec<InterfaceName>, std::io::Error> {
-        if backends::kernel::exists() {
-            backends::kernel::enumerate()
-        } else {
-            backends::userspace::enumerate()
+    pub fn list(backend: Backend) -> Result<Vec<InterfaceName>, std::io::Error> {
+        match backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::enumerate(),
+            Backend::Userspace => backends::userspace::enumerate(),
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn enumerate() -> Result<Vec<InterfaceName>, std::io::Error> {
-        crate::backends::userspace::enumerate()
-    }
-
-    #[cfg(target_os = "linux")]
-    pub fn get_by_name(name: &InterfaceName) -> Result<Self, std::io::Error> {
-        if backends::kernel::exists() {
-            backends::kernel::get_by_name(name)
-        } else {
-            println!("kernel module not detected. falling back to userspace backend.");
-            backends::userspace::get_by_name(name)
+    pub fn get(name: &InterfaceName, backend: Backend) -> Result<Self, std::io::Error> {
+        match backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::get_by_name(name),
+            Backend::Userspace => backends::userspace::get_by_name(name),
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn get_by_name(name: &InterfaceName) -> Result<Self, std::io::Error> {
-        backends::userspace::get_by_name(name)
+    pub fn delete(self) -> Result<(), std::io::Error> {
+        match self.backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::delete_interface(&self.name),
+            Backend::Userspace => backends::userspace::delete_interface(&self.name),
+        }
+    }
+}
+
+/// Builds and represents a configuration that can be applied to a WireGuard interface.
+///
+/// This is the primary way of changing the settings of an interface.
+///
+/// Note that if an interface exists, the configuration is applied _on top_ of the existing
+/// settings, and missing parts are not overwritten or set to defaults.
+///
+/// If this is not what you want, use [`delete_interface`](delete_interface)
+/// to remove the interface entirely before applying the new configuration.
+///
+/// # Example
+/// ```rust
+/// # use wgctrl::*;
+/// # use std::net::AddrParseError;
+/// # fn try_main() -> Result<(), AddrParseError> {
+/// let our_keypair = KeyPair::generate();
+/// let peer_keypair = KeyPair::generate();
+/// let server_addr = "192.168.1.1:51820".parse()?;
+///
+/// DeviceUpdate::new()
+///     .set_keypair(our_keypair)
+///     .replace_peers()
+///     .add_peer_with(&peer_keypair.public, |peer| {
+///         peer.set_endpoint(server_addr)
+///             .replace_allowed_ips()
+///             .allow_all_ips()
+///     }).apply(&"wg-example".parse().unwrap(), Backend::Userspace);
+///
+/// println!("Send these keys to your peer: {:#?}", peer_keypair);
+///
+/// # Ok(())
+/// # }
+/// # fn main() { try_main(); }
+/// ```
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct DeviceUpdate {
+    pub(crate) public_key: Option<Key>,
+    pub(crate) private_key: Option<Key>,
+    pub(crate) fwmark: Option<u32>,
+    pub(crate) listen_port: Option<u16>,
+    pub(crate) peers: Vec<PeerConfigBuilder>,
+    pub(crate) replace_peers: bool,
+}
+
+impl DeviceUpdate {
+    /// Creates a new `DeviceConfigBuilder` that does nothing when applied.
+    pub fn new() -> Self {
+        DeviceUpdate {
+            public_key: None,
+            private_key: None,
+            fwmark: None,
+            listen_port: None,
+            peers: vec![],
+            replace_peers: false,
+        }
     }
 
-    #[cfg(target_os = "linux")]
-    pub fn delete(self) -> Result<(), std::io::Error> {
-        backends::kernel::delete_interface(&self.name)
+    /// Sets a new keypair to be applied to the interface.
+    ///
+    /// This is a convenience method that simply wraps
+    /// [`set_public_key`](DeviceConfigBuilder::set_public_key)
+    /// and [`set_private_key`](DeviceConfigBuilder::set_private_key).
+    pub fn set_keypair(self, keypair: KeyPair) -> Self {
+        self.set_public_key(keypair.public)
+            .set_private_key(keypair.private)
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn delete(self) -> Result<(), std::io::Error> {
-        backends::userspace::delete_interface(&self.name)
+    /// Specifies a new public key to be applied to the interface.
+    pub fn set_public_key(mut self, key: Key) -> Self {
+        self.public_key = Some(key);
+        self
+    }
+
+    /// Specifies that the public key for this interface should be unset.
+    pub fn unset_public_key(self) -> Self {
+        self.set_public_key(Key::zero())
+    }
+
+    /// Sets a new private key to be applied to the interface.
+    pub fn set_private_key(mut self, key: Key) -> Self {
+        self.private_key = Some(key);
+        self
+    }
+
+    /// Specifies that the private key for this interface should be unset.
+    pub fn unset_private_key(self) -> Self {
+        self.set_private_key(Key::zero())
+    }
+
+    /// Specifies the fwmark value that should be applied to packets coming from the interface.
+    pub fn set_fwmark(mut self, fwmark: u32) -> Self {
+        self.fwmark = Some(fwmark);
+        self
+    }
+
+    /// Specifies that fwmark should not be set on packets from the interface.
+    pub fn unset_fwmark(self) -> Self {
+        self.set_fwmark(0)
+    }
+
+    /// Specifies the port to listen for incoming packets on.
+    ///
+    /// This is useful for a server configuration that listens on a fixed endpoint.
+    pub fn set_listen_port(mut self, port: u16) -> Self {
+        self.listen_port = Some(port);
+        self
+    }
+
+    /// Specifies that a random port should be used for incoming packets.
+    ///
+    /// This is probably what you want in client configurations.
+    pub fn randomize_listen_port(self) -> Self {
+        self.set_listen_port(0)
+    }
+
+    /// Specifies a new peer configuration to be added to the interface.
+    ///
+    /// See [`PeerConfigBuilder`](PeerConfigBuilder) for details on building
+    /// peer configurations. This method can be called more than once, and all
+    /// peers will be added to the configuration.
+    pub fn add_peer(mut self, peer: PeerConfigBuilder) -> Self {
+        self.peers.push(peer);
+        self
+    }
+
+    /// Specifies a new peer configuration using a builder function.
+    ///
+    /// This is simply a convenience method to make adding peers more fluent.
+    /// This method can be called more than once, and all peers will be added
+    /// to the configuration.
+    pub fn add_peer_with(
+        self,
+        pubkey: &Key,
+        builder: impl Fn(PeerConfigBuilder) -> PeerConfigBuilder,
+    ) -> Self {
+        self.add_peer(builder(PeerConfigBuilder::new(pubkey)))
+    }
+
+    /// Specifies multiple peer configurations to be added to the interface.
+    pub fn add_peers(mut self, peers: &[PeerConfigBuilder]) -> Self {
+        self.peers.extend_from_slice(peers);
+        self
+    }
+
+    /// Specifies that the peer configurations in this `DeviceConfigBuilder` should
+    /// replace the existing configurations on the interface, not modify or append to them.
+    pub fn replace_peers(mut self) -> Self {
+        self.replace_peers = true;
+        self
+    }
+
+    /// Specifies that the peer with this public key should be removed from the interface.
+    pub fn remove_peer_by_key(self, public_key: &Key) -> Self {
+        let mut peer = PeerConfigBuilder::new(public_key);
+        peer.remove_me = true;
+        self.add_peer(peer)
+    }
+
+    /// Build and apply the configuration to a WireGuard interface by name.
+    ///
+    /// An interface with the provided name will be created if one does not exist already.
+    pub fn apply(self, iface: &InterfaceName, backend: Backend) -> io::Result<()> {
+        match backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::apply(&self, &iface),
+            Backend::Userspace => backends::userspace::apply(&self, &iface),
+        }
+    }
+}
+
+impl Default for DeviceUpdate {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        DeviceConfigBuilder, InterfaceName, InvalidInterfaceName, KeyPair, PeerConfigBuilder,
-    };
+    use crate::{DeviceUpdate, InterfaceName, InvalidInterfaceName, KeyPair, PeerConfigBuilder};
 
     const TEST_INTERFACE: &str = "wgctrl-test";
     use super::*;
@@ -289,14 +446,14 @@ mod tests {
         }
 
         let keypairs: Vec<_> = (0..10).map(|_| KeyPair::generate()).collect();
-        let mut builder = DeviceConfigBuilder::new();
+        let mut builder = DeviceUpdate::new();
         for keypair in &keypairs {
             builder = builder.add_peer(PeerConfigBuilder::new(&keypair.public))
         }
         let interface = TEST_INTERFACE.parse().unwrap();
-        builder.apply(&interface).unwrap();
+        builder.apply(&interface, Backend::Userspace).unwrap();
 
-        let device = DeviceInfo::get_by_name(&interface).unwrap();
+        let device = Device::get(&interface, Backend::Userspace).unwrap();
 
         for keypair in &keypairs {
             assert!(device

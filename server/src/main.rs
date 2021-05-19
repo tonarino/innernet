@@ -6,7 +6,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, RoutingOpt, INNERNET_PUBKEY_HEADER};
+use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -21,7 +21,7 @@ use std::{
 };
 use structopt::StructOpt;
 use subtle::ConstantTimeEq;
-use wgctrl::{DeviceConfigBuilder, DeviceInfo, InterfaceName, Key, PeerConfigBuilder};
+use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
 pub mod api;
 pub mod db;
@@ -45,6 +45,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 struct Opt {
     #[structopt(subcommand)]
     command: Command,
+
+    #[structopt(flatten)]
+    network: NetworkOpt,
 }
 
 #[derive(Debug, StructOpt)]
@@ -64,7 +67,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        routing: RoutingOpt,
+        network: NetworkOpt,
     },
 
     /// Add a peer to an existing network.
@@ -92,6 +95,7 @@ pub struct Context {
     pub db: Db,
     pub endpoints: Arc<RwLock<HashMap<String, SocketAddr>>>,
     pub interface: InterfaceName,
+    pub backend: Backend,
     pub public_key: Key,
 }
 
@@ -209,10 +213,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(e) = initialize::init_wizard(&conf, opts) {
                 println!("{}: {}.", "creation failed".red(), e);
             }
-        }
-        Command::Uninstall { interface } => uninstall(&interface, &conf)?,
-        Command::Serve { interface, routing } => serve(*interface, &conf, routing).await?,
-        Command::AddPeer { interface, args } => add_peer(&interface, &conf, args)?,
+        },
+        Command::Uninstall { interface } => uninstall(&interface, &conf, opt.network)?,
+        Command::Serve {
+            interface,
+            network: routing,
+        } => serve(*interface, &conf, routing).await?,
+        Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opt.network)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
     }
 
@@ -243,6 +250,7 @@ fn add_peer(
     interface: &InterfaceName,
     conf: &ServerConfig,
     opts: AddPeerOpts,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
@@ -255,11 +263,11 @@ fn add_peer(
 
     if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
         let peer = DatabasePeer::create(&conn, peer_request)?;
-        if cfg!(not(test)) && DeviceInfo::get_by_name(interface).is_ok() {
+        if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
-            DeviceConfigBuilder::new()
+            DeviceUpdate::new()
                 .add_peer((&*peer).into())
-                .apply(interface)
+                .apply(interface, network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
 
             println!("adding to WireGuard interface: {}", &*peer);
@@ -309,7 +317,11 @@ fn add_cidr(
     Ok(())
 }
 
-fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+fn uninstall(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    network: NetworkOpt,
+) -> Result<(), Error> {
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
@@ -319,7 +331,7 @@ fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error
         .interact()?
     {
         println!("{} bringing down interface (if up).", "[*]".dimmed());
-        wg::down(interface).ok();
+        wg::down(interface, network.backend).ok();
         let config = conf.config_path(interface);
         let data = conf.database_path(interface);
         std::fs::remove_file(&config)
@@ -339,7 +351,7 @@ fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error
     Ok(())
 }
 
-fn spawn_endpoint_refresher(interface: InterfaceName) -> Endpoints {
+fn spawn_endpoint_refresher(interface: InterfaceName, network: NetworkOpt) -> Endpoints {
     let endpoints = Arc::new(RwLock::new(HashMap::new()));
     tokio::task::spawn({
         let endpoints = endpoints.clone();
@@ -347,7 +359,7 @@ fn spawn_endpoint_refresher(interface: InterfaceName) -> Endpoints {
             let mut interval = tokio::time::interval(Duration::from_secs(10));
             loop {
                 interval.tick().await;
-                if let Ok(info) = DeviceInfo::get_by_name(&interface) {
+                if let Ok(info) = Device::get(&interface, network.backend) {
                     for peer in info.peers {
                         if let Some(endpoint) = peer.config.endpoint {
                             endpoints
@@ -378,7 +390,7 @@ fn spawn_expired_invite_sweeper(db: Db) {
 async fn serve(
     interface: InterfaceName,
     conf: &ServerConfig,
-    routing: RoutingOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
     let conn = open_database_connection(&interface, conf)?;
@@ -396,18 +408,18 @@ async fn serve(
         IpNetwork::new(config.address, config.network_cidr_prefix)?,
         Some(config.listen_port),
         None,
-        !routing.no_routing,
+        network,
     )?;
 
-    DeviceConfigBuilder::new()
+    DeviceUpdate::new()
         .add_peers(&peer_configs)
-        .apply(&interface)?;
+        .apply(&interface, network.backend)?;
 
     log::info!("{} peers added to wireguard interface.", peers.len());
 
     let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));
-    let endpoints = spawn_endpoint_refresher(interface);
+    let endpoints = spawn_endpoint_refresher(interface, network);
     spawn_expired_invite_sweeper(db.clone());
 
     let context = Context {
@@ -415,6 +427,7 @@ async fn serve(
         endpoints,
         interface,
         public_key,
+        backend: network.backend,
     };
 
     log::info!("innernet-server {} starting.", VERSION);
