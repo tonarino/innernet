@@ -354,7 +354,7 @@ pub struct NetworkOpt {
     pub no_routing: bool,
 
     #[structopt(long, default_value)]
-    /// Force a WireGuard backend to use, either "kernel" or "userspace".
+    /// Specify a WireGuard backend to use.
     /// If not set, innernet will auto-select based on availability.
     pub backend: Backend,
 }

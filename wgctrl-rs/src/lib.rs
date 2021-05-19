@@ -45,11 +45,14 @@ impl FromStr for Backend {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_ascii_lowercase().as_str() {
             #[cfg(target_os = "linux")]
             "kernel" => Ok(Self::Kernel),
             "userspace" => Ok(Self::Userspace),
-            _ => Err("Not a valid backend. Must be either 'kernel' or 'wireguard'."),
+            #[cfg(target_os = "linux")]
+            _ => Err("valid values: \"kernel\", \"userspace\"."),
+            #[cfg(not(target_os = "linux"))]
+            _ => Err("valid values: \"userspace\"."),
         }
     }
 }
