@@ -29,7 +29,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 ///     .add_allowed_ip("192.168.1.2".parse()?, 32);
 ///
 /// // update our existing configuration with the new peer
-/// DeviceConfigBuilder::new().add_peer(peer).apply(&"wg-example".parse().unwrap());
+/// DeviceUpdate::new().add_peer(peer).apply(&"wg-example".parse().unwrap(), Backend::Userspace);
 ///
 /// println!("Send these keys to your peer: {:#?}", peer_keypair);
 ///

@@ -275,14 +275,14 @@ impl Device {
 /// let peer_keypair = KeyPair::generate();
 /// let server_addr = "192.168.1.1:51820".parse()?;
 ///
-/// DeviceConfigBuilder::new()
+/// DeviceUpdate::new()
 ///     .set_keypair(our_keypair)
 ///     .replace_peers()
 ///     .add_peer_with(&peer_keypair.public, |peer| {
 ///         peer.set_endpoint(server_addr)
 ///             .replace_allowed_ips()
 ///             .allow_all_ips()
-///     }).apply(&"wg-example".parse().unwrap());
+///     }).apply(&"wg-example".parse().unwrap(), Backend::Userspace);
 ///
 /// println!("Send these keys to your peer: {:#?}", peer_keypair);
 ///
