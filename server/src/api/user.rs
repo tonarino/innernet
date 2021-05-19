@@ -83,7 +83,9 @@ mod handlers {
         selected_peer.redeem(&conn, &form.public_key)?;
 
         if cfg!(not(test)) {
-            let Context { interface, backend, .. } = session.context;
+            let Context {
+                interface, backend, ..
+            } = session.context;
 
             // If we were to modify the WireGuard interface immediately, the HTTP response wouldn't
             // get through. Instead, we need to wait a reasonable amount for the HTTP response to

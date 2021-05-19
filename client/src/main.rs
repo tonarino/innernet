@@ -435,7 +435,8 @@ fn fetch(
     let mut store = DataStore::open_or_create(&interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = Device::get(&interface, network.backend).with_str(interface.as_str_lossy())?;
+    let device_info =
+        Device::get(&interface, network.backend).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -704,7 +705,11 @@ fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
     Ok(())
 }
 
-fn set_listen_port(interface: &InterfaceName, unset: bool, network: NetworkOpt) -> Result<(), Error> {
+fn set_listen_port(
+    interface: &InterfaceName,
+    unset: bool,
+    network: NetworkOpt,
+) -> Result<(), Error> {
     let mut config = InterfaceConfig::from_interface(interface)?;
 
     if let Some(listen_port) = prompts::set_listen_port(&config.interface, unset)? {
@@ -721,7 +726,11 @@ fn set_listen_port(interface: &InterfaceName, unset: bool, network: NetworkOpt) 
     Ok(())
 }
 
-fn override_endpoint(interface: &InterfaceName, unset: bool, network: NetworkOpt) -> Result<(), Error> {
+fn override_endpoint(
+    interface: &InterfaceName,
+    unset: bool,
+    network: NetworkOpt,
+) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     if !unset && config.interface.listen_port.is_none() {
         println!(
@@ -745,8 +754,16 @@ fn override_endpoint(interface: &InterfaceName, unset: bool, network: NetworkOpt
     Ok(())
 }
 
-fn show(short: bool, tree: bool, interface: Option<Interface>, network: NetworkOpt) -> Result<(), Error> {
-    let interfaces = interface.map_or_else(|| Device::list(network.backend), |interface| Ok(vec![*interface]))?;
+fn show(
+    short: bool,
+    tree: bool,
+    interface: Option<Interface>,
+    network: NetworkOpt,
+) -> Result<(), Error> {
+    let interfaces = interface.map_or_else(
+        || Device::list(network.backend),
+        |interface| Ok(vec![*interface]),
+    )?;
 
     let devices = interfaces
         .into_iter()
@@ -965,8 +982,12 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::AddAssociation { interface, opts } => add_association(&interface, opts)?,
         Command::DeleteAssociation { interface } => delete_association(&interface)?,
         Command::ListAssociations { interface } => list_associations(&interface)?,
-        Command::SetListenPort { interface, unset } => set_listen_port(&interface, unset, opt.network)?,
-        Command::OverrideEndpoint { interface, unset } => override_endpoint(&interface, unset, opt.network)?,
+        Command::SetListenPort { interface, unset } => {
+            set_listen_port(&interface, unset, opt.network)?
+        },
+        Command::OverrideEndpoint { interface, unset } => {
+            override_endpoint(&interface, unset, opt.network)?
+        },
     }
 
     Ok(())

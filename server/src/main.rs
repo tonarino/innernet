@@ -215,7 +215,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         Command::Uninstall { interface } => uninstall(&interface, &conf)?,
-        Command::Serve { interface, network: routing } => serve(*interface, &conf, routing).await?,
+        Command::Serve {
+            interface,
+            network: routing,
+        } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opt.network)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
     }

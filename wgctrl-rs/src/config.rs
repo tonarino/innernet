@@ -3,9 +3,7 @@ use crate::{
     key::Key,
 };
 
-use std::{
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 /// Builds and represents a single peer in a WireGuard interface configuration.
 ///

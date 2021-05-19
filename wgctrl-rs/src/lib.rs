@@ -3,7 +3,10 @@ mod config;
 mod device;
 mod key;
 
-use std::{fmt::{self, Display, Formatter}, str::FromStr};
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 
 pub use crate::{config::*, device::*, key::*};
 
@@ -17,10 +20,14 @@ pub enum Backend {
 impl Default for Backend {
     fn default() -> Self {
         #[cfg(target_os = "linux")]
-        { Self::Kernel }
+        {
+            Self::Kernel
+        }
 
         #[cfg(not(target_os = "linux"))]
-        { Self::Userspace }
+        {
+            Self::Userspace
+        }
     }
 }
 
@@ -42,7 +49,7 @@ impl FromStr for Backend {
             #[cfg(target_os = "linux")]
             "kernel" => Ok(Self::Kernel),
             "userspace" => Ok(Self::Userspace),
-            _ => Err("Not a valid backend. Must be either 'kernel' or 'wireguard'.")
+            _ => Err("Not a valid backend. Must be either 'kernel' or 'wireguard'."),
         }
     }
 }

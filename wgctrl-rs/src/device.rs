@@ -1,6 +1,6 @@
 use libc::c_char;
 
-use crate::{Backend, KeyPair, PeerConfigBuilder, backends, key::Key};
+use crate::{backends, key::Key, Backend, KeyPair, PeerConfigBuilder};
 
 use std::{
     borrow::Cow,
@@ -253,7 +253,6 @@ impl Device {
             Backend::Kernel => backends::kernel::delete_interface(&self.name),
             Backend::Userspace => backends::userspace::delete_interface(&self.name),
         }
-        
     }
 }
 

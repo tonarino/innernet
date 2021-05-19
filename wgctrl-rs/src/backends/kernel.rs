@@ -1,6 +1,6 @@
 use crate::{
-    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName, InvalidKey,
-    PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName,
+    InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
 

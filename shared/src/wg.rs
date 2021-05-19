@@ -90,7 +90,11 @@ pub fn up(
     Ok(())
 }
 
-pub fn set_listen_port(interface: &InterfaceName, listen_port: Option<u16>, backend: Backend) -> Result<(), Error> {
+pub fn set_listen_port(
+    interface: &InterfaceName,
+    listen_port: Option<u16>,
+    backend: Backend,
+) -> Result<(), Error> {
     let mut device = DeviceUpdate::new();
     if let Some(listen_port) = listen_port {
         device = device.set_listen_port(listen_port);

@@ -73,7 +73,7 @@ impl FromStr for Endpoint {
                 let port = port.parse().map_err(|_| "couldn't parse port")?;
                 let host = Host::parse(host).map_err(|_| "couldn't parse host")?;
                 Ok(Endpoint { host, port })
-            }
+            },
             _ => Err("couldn't parse in form of 'host:port'"),
         }
     }
