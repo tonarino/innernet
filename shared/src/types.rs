@@ -353,7 +353,7 @@ pub struct NetworkOpt {
     /// external tool like e.g. babeld.
     pub no_routing: bool,
 
-    #[structopt(long, default_value)]
+    #[structopt(long, default_value, possible_values = Backend::variants())]
     /// Specify a WireGuard backend to use.
     /// If not set, innernet will auto-select based on availability.
     pub backend: Backend,

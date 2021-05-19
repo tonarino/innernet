@@ -42,17 +42,24 @@ impl Display for Backend {
 }
 
 impl FromStr for Backend {
-    type Err = &'static str;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             #[cfg(target_os = "linux")]
             "kernel" => Ok(Self::Kernel),
             "userspace" => Ok(Self::Userspace),
-            #[cfg(target_os = "linux")]
-            _ => Err("valid values: \"kernel\", \"userspace\"."),
-            #[cfg(not(target_os = "linux"))]
-            _ => Err("valid values: \"userspace\"."),
+            _ => Err(format!("valid values: {}.", Self::variants().join(", "))),
         }
+    }
+}
+
+impl Backend {
+    pub fn variants() -> &'static [&'static str] {
+        #[cfg(target_os = "linux")]
+        { &["kernel", "userspace"] }
+
+        #[cfg(not(target_os = "linux"))]
+        { &["userspace"] }
     }
 }
