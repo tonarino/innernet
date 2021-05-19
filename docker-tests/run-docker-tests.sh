@@ -32,11 +32,14 @@ info "Creating network."
 NETWORK=$(cmd docker network create -d bridge --subnet=172.18.0.0/16 innernet)
 
 info "Starting server."
-SERVER_CONTAINER=$(cmd docker run -itd --rm \
+SERVER_CONTAINER=$(cmd docker create -it --rm \
     --network "$NETWORK" \
     --ip 172.18.1.1 \
+    --volume /dev/net/tun:/dev/net/tun \
+    --env RUST_LOG=debug \
     --cap-add NET_ADMIN \
     innernet-server)
+cmd docker start -a "$SERVER_CONTAINER" &
 
 info "server started as $SERVER_CONTAINER"
 info "Waiting for server to initialize."
@@ -47,13 +50,14 @@ cmd docker cp "$SERVER_CONTAINER:/app/peer1.toml" "$tmp_dir"
 PEER1_CONTAINER=$(cmd docker create --rm -it \
     --network "$NETWORK" \
     --ip 172.18.1.2 \
+    --volume /dev/net/tun:/dev/net/tun \
     --env INTERFACE=evilcorp \
     --cap-add NET_ADMIN \
     innernet)
 info "peer1 started as $PEER1_CONTAINER"
 cmd docker cp "$tmp_dir/peer1.toml" "$PEER1_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER1_CONTAINER"
-sleep 5
+sleep 10
 
 info "Creating a new CIDR from first peer."
 cmd docker exec "$PEER1_CONTAINER" innernet \
@@ -85,6 +89,7 @@ info "Starting second peer."
 PEER2_CONTAINER=$(docker create --rm -it \
     --network "$NETWORK" \
     --ip 172.18.1.3 \
+    --volume /dev/net/tun:/dev/net/tun \
     --cap-add NET_ADMIN \
     --env INTERFACE=evilcorp \
     innernet)

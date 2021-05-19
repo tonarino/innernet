@@ -1,41 +1,56 @@
 ####################################################################################################
 ## Builder
 ####################################################################################################
-FROM rust as planner
-RUN apt-get update && apt-get install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
-RUN update-ca-certificates
+FROM rust:slim as planner
+RUN apt-get update && apt-get install -y build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
 RUN cargo install cargo-chef 
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM rust as cacher
-RUN apt-get update && apt-get install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
-RUN update-ca-certificates
+FROM rust:slim as cacher
+RUN apt-get update && apt-get install -y build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
 RUN cargo install cargo-chef
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
-FROM rust as builder
-RUN apt-get update && apt-get install -y build-essential musl-tools musl-dev clang libclang-dev libsqlite3-dev
-RUN update-ca-certificates
+FROM rust:slim as builder
+RUN apt-get update && apt-get install -y build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
+
 COPY . .
 COPY --from=cacher /app/target target
 RUN cargo build --release --bin innernet
 RUN strip /app/target/release/innernet
 
+FROM golang:latest as wireguard
+ARG wg_go_tag=0.0.20210323
+ARG wg_tools_tag=v1.0.20210315
+RUN apt-get update && apt-get install -y git
+
+RUN git clone -b $wg_go_tag --depth 1 https://git.zx2c4.com/wireguard-go && \
+    cd wireguard-go && \
+    make && \
+    make install
+
+ENV WITH_WGQUICK=yes
+RUN git clone -b $wg_tools_tag --depth 1 https://git.zx2c4.com/wireguard-tools && \
+    cd wireguard-tools && \
+    cd src && \
+    make && \
+    make install
+
 ####################################################################################################
 ## Final image
 ####################################################################################################
-FROM ubuntu:latest
+FROM debian:buster-slim
 RUN apt-get update && apt-get install -y libsqlite3-dev iproute2 iputils-ping && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-
 COPY ./docker-tests/start-client.sh ./
+COPY --from=wireguard /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
 COPY --from=builder /app/target/release/innernet /usr/bin/
 
 CMD ["/app/start-client.sh"]
