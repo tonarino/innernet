@@ -124,7 +124,7 @@ impl HostsBuilder {
                 // the location depends on the environment variable %WinDir%.
                 format!(
                     "{}\\System32\\Drivers\\Etc\\hosts",
-                    std::env::var("WinDir").expect("missing environment variable %WinDir%")
+                    std::env::var("WinDir")?
                 ),
             )
         } else {
