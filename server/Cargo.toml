@@ -23,8 +23,8 @@ libc = "0.2"
 libsqlite3-sys = "0.22"
 log = "0.4"
 parking_lot = "0.11"
-publicip = { path = "../publicip" }
 pretty_env_logger = "0.4"
+publicip = { path = "../publicip" }
 regex = { version = "1", default-features = false, features = ["std"] }
 rusqlite = "0.25"
 serde = { version = "1", features = ["derive"] }
@@ -64,8 +64,8 @@ package = "innernet-server"
 buildflags = ["--release"]
 
 [package.metadata.rpm.files]
-"../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
 "../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet-server.8.gz" }
+"../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
 
 [package.metadata.rpm.targets]
 innernet-server = { path = "/usr/bin/innernet-server" }

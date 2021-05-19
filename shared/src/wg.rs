@@ -10,14 +10,8 @@ fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     let output = Command::new(bin).args(args).output()?;
     log::debug!("{} {}", bin, args.join(" "));
     log::debug!("status code {:?}", output.status.code());
-    log::trace!(
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    log::trace!(
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    log::trace!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    log::trace!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     if output.status.success() {
         Ok(output)
     } else {

@@ -57,9 +57,13 @@ impl FromStr for Backend {
 impl Backend {
     pub fn variants() -> &'static [&'static str] {
         #[cfg(target_os = "linux")]
-        { &["kernel", "userspace"] }
+        {
+            &["kernel", "userspace"]
+        }
 
         #[cfg(not(target_os = "linux"))]
-        { &["userspace"] }
+        {
+            &["userspace"]
+        }
     }
 }

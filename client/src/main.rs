@@ -498,10 +498,7 @@ fn fetch(
         }
 
         println!();
-        log::info!(
-            "updated interface {}\n",
-            interface.as_str_lossy().yellow()
-        );
+        log::info!("updated interface {}\n", interface.as_str_lossy().yellow());
     } else {
         log::info!("{}", "peers are already up to date.".green());
     }

@@ -54,8 +54,8 @@ package = "innernet"
 buildflags = ["--release"]
 
 [package.metadata.rpm.files]
-"../innernet@.service" = { path = "/usr/lib/systemd/system/innernet@.service" }
 "../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet.8.gz" }
+"../innernet@.service" = { path = "/usr/lib/systemd/system/innernet@.service" }
 
 [package.metadata.rpm.targets]
 innernet = { path = "/usr/bin/innernet" }

@@ -1,7 +1,7 @@
 [package]
-name = "publicip"
-version = "0.1.0"
 authors = ["Jake McGinty <me@jake.su>"]
 edition = "2018"
+name = "publicip"
+version = "0.1.0"
 
 [dependencies]

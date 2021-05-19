@@ -22,12 +22,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    info "Loading wireguard kernel module in Docker VM."
-    # ensure the wireguard kernel module is loaded in the macOS docker VM.
-    cmd docker run --rm --pid=host --privileged justincormack/nsenter1 /sbin/modprobe wireguard
-fi
-
 info "Creating network."
 NETWORK=$(cmd docker network create -d bridge --subnet=172.18.0.0/16 innernet)
 

@@ -10,9 +10,10 @@ static LOGGER: Logger = Logger;
 struct Logger;
 impl log::Log for Logger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::max_level() && (log::max_level() == LevelFilter::Trace
-            || metadata.target().starts_with("shared::")
-            || metadata.target() == "innernet")
+        metadata.level() <= log::max_level()
+            && (log::max_level() == LevelFilter::Trace
+                || metadata.target().starts_with("shared::")
+                || metadata.target() == "innernet")
     }
 
     fn log(&self, record: &log::Record) {
@@ -25,7 +26,12 @@ impl log::Log for Logger {
                 Level::Trace => "[T]".purple(),
             };
             if record.level() <= LevelFilter::Debug && record.target() != "innernet" {
-                println!("{} {} {}", level_str, format!("[{}]", record.target()).dimmed(), record.args());
+                println!(
+                    "{} {} {}",
+                    level_str,
+                    format!("[{}]", record.target()).dimmed(),
+                    record.args()
+                );
             } else {
                 println!("{} {}", level_str, record.args());
             }
