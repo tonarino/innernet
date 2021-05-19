@@ -1,9 +1,49 @@
 use crate::{ClientError, Error};
 use colored::*;
+use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
 use shared::{interface_config::ServerInfo, INNERNET_PUBKEY_HEADER};
 use std::time::Duration;
 use ureq::{Agent, AgentBuilder};
+
+static LOGGER: Logger = Logger;
+struct Logger;
+impl log::Log for Logger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.level() <= log::max_level() && (log::max_level() == LevelFilter::Trace
+            || metadata.target().starts_with("shared::")
+            || metadata.target() == "innernet")
+    }
+
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            let level_str = match record.level() {
+                Level::Error => "[E]".red(),
+                Level::Warn => "[!]".yellow(),
+                Level::Info => "[*]".dimmed(),
+                Level::Debug => "[D]".blue(),
+                Level::Trace => "[T]".purple(),
+            };
+            if record.level() <= LevelFilter::Debug && record.target() != "innernet" {
+                println!("{} {} {}", level_str, format!("[{}]", record.target()).dimmed(), record.args());
+            } else {
+                println!("{} {}", level_str, record.args());
+            }
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+pub fn init_logger(verbosity: u64) {
+    let level = match verbosity {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+    log::set_max_level(level);
+    log::set_logger(&LOGGER).unwrap();
+}
 
 pub fn human_duration(duration: Duration) -> String {
     match duration.as_secs() {

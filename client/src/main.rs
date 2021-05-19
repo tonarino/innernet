@@ -42,6 +42,9 @@ struct Opts {
     #[structopt(subcommand)]
     command: Option<Command>,
 
+    #[structopt(short, parse(from_occurrences))]
+    verbosity: u64,
+
     #[structopt(flatten)]
     network: NetworkOpt,
 }
@@ -406,7 +409,7 @@ fn fetch(
             .into());
         }
 
-        println!("{} bringing up the interface.", "[*]".dimmed());
+        log::info!("bringing up the interface.");
         let resolved_endpoint = config.server.external_endpoint.resolve()?;
         wg::up(
             interface,
@@ -422,7 +425,7 @@ fn fetch(
         )?
     }
 
-    println!("{} fetching state from server.", "[*]".dimmed());
+    log::info!("fetching state from server.");
     let mut store = DataStore::open_or_create(&interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
@@ -492,13 +495,13 @@ fn fetch(
             update_hosts_file(interface, path, &peers)?;
         }
 
-        println!(
-            "\n{} updated interface {}\n",
-            "[*]".dimmed(),
+        println!();
+        log::info!(
+            "updated interface {}\n",
             interface.as_str_lossy().yellow()
         );
     } else {
-        println!("{}", "    peers are already up to date.".green());
+        log::info!("{}", "peers are already up to date.".green());
     }
     store.set_cidrs(cidrs);
     store.update_peers(peers)?;
@@ -539,13 +542,13 @@ fn uninstall(interface: &InterfaceName, network: NetworkOpt) -> Result<(), Error
 
 fn add_cidr(interface: &InterfaceName, opts: AddCidrOpts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
-    println!("Fetching CIDRs");
+    log::info!("Fetching CIDRs");
     let api = Api::new(&server);
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
     let cidr_request = prompts::add_cidr(&cidrs, &opts)?;
 
-    println!("Creating CIDR...");
+    log::info!("Creating CIDR...");
     let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
 
     printdoc!(
@@ -567,9 +570,9 @@ fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
-    println!("Fetching CIDRs");
+    log::info!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    println!("Fetching peers");
+    log::info!("Fetching peers");
     let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
@@ -597,7 +600,7 @@ fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(),
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
-    println!("Fetching peers.");
+    log::info!("Fetching peers.");
     let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
 
     if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
@@ -605,7 +608,7 @@ fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(),
         contents.is_disabled = !enable;
         api.http_form("PUT", &format!("/admin/peers/{}", id), contents)?;
     } else {
-        println!("exited without disabling peer.");
+        log::info!("exiting without disabling peer.");
     }
 
     Ok(())
@@ -615,7 +618,7 @@ fn add_association(interface: &InterfaceName, opts: AddAssociationOpts) -> Resul
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
-    println!("Fetching CIDRs");
+    log::info!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
     let association = if let (Some(ref cidr1), Some(ref cidr2)) = (opts.cidr1, opts.cidr2) {
@@ -631,7 +634,7 @@ fn add_association(interface: &InterfaceName, opts: AddAssociationOpts) -> Resul
     } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
         (cidr1, cidr2)
     } else {
-        println!("exited without adding association.");
+        log::info!("exiting without adding association.");
         return Ok(());
     };
 
@@ -651,15 +654,15 @@ fn delete_association(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
-    println!("Fetching CIDRs");
+    log::info!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    println!("Fetching associations");
+    log::info!("Fetching associations");
     let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
 
     if let Some(association) = prompts::delete_association(&associations[..], &cidrs[..])? {
         api.http("DELETE", &format!("/admin/associations/{}", association.id))?;
     } else {
-        println!("exited without adding association.");
+        log::info!("exiting without adding association.");
     }
 
     Ok(())
@@ -669,9 +672,9 @@ fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
 
-    println!("Fetching CIDRs");
+    log::info!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    println!("Fetching associations");
+    log::info!("Fetching associations");
     let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
 
     for association in associations {
@@ -705,13 +708,13 @@ fn set_listen_port(
 
     if let Some(listen_port) = prompts::set_listen_port(&config.interface, unset)? {
         wg::set_listen_port(interface, listen_port, network.backend)?;
-        println!("{} the interface is updated", "[*]".dimmed(),);
+        log::info!("the interface is updated");
 
         config.interface.listen_port = listen_port;
         config.write_to_interface(interface)?;
-        println!("{} the config file is updated", "[*]".dimmed(),);
+        log::info!("the config file is updated");
     } else {
-        println!("exited without updating listen port.");
+        log::info!("exiting without updating the listen port.");
     }
 
     Ok(())
@@ -739,7 +742,7 @@ fn override_endpoint(
             EndpointContents::from(endpoint),
         )?;
     } else {
-        println!("exited without overriding endpoint.");
+        log::info!("exiting without overriding endpoint.");
     }
 
     Ok(())
@@ -771,7 +774,7 @@ fn show(
         .collect::<Vec<_>>();
 
     if devices.is_empty() {
-        println!("No innernet networks currently running.");
+        log::info!("No innernet networks currently running.");
         return Ok(());
     }
 
@@ -917,6 +920,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 
 fn main() {
     let opt = Opts::from_args();
+    util::init_logger(opt.verbosity);
 
     if let Err(e) = run(opt) {
         eprintln!("\n{} {}\n", "[ERROR]".red(), e);
