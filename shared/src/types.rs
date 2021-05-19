@@ -13,7 +13,7 @@ use std::{
 };
 use structopt::StructOpt;
 use url::Host;
-use wgctrl::{InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
+use wgctrl::{Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
 
 #[derive(Debug, Clone)]
 pub struct Interface {
@@ -353,28 +353,10 @@ pub struct NetworkOpt {
     /// external tool like e.g. babeld.
     pub no_routing: bool,
 
-    #[structopt(long)]
+    #[structopt(long, default_value)]
     /// Force a WireGuard backend to use, either "kernel" or "userspace".
     /// If not set, innernet will auto-select based on availability.
-    pub backend: Option<Backend>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Backend {
-    Kernel,
-    Userspace,
-}
-
-impl FromStr for Backend {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "kernel" => Ok(Self::Kernel),
-            "userspace" => Ok(Self::Userspace),
-            _ => Err("Not a valid backend. Must be either 'kernel' or 'wireguard'.")
-        }
-    }
+    pub backend: Backend,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

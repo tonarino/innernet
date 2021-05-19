@@ -1,4 +1,4 @@
-use crate::{Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
+use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
 
 #[cfg(target_os = "linux")]
 use crate::Key;
@@ -110,6 +110,7 @@ impl ConfigParser {
             listen_port: None,
             peers: vec![],
             linked_name: resolve_tun(name).ok(),
+            backend: Backend::Userspace,
             __cant_construct_me: (),
         };
 
@@ -263,7 +264,7 @@ fn get_userspace_implementation() -> String {
         .unwrap_or_else(|_| "wireguard-go".to_string())
 }
 
-pub fn apply(builder: DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
+pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
         Err(_) => {
@@ -302,7 +303,7 @@ pub fn apply(builder: DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
         request.push_str("replace_peers=true\n");
     }
 
-    for peer in builder.peers {
+    for peer in &builder.peers {
         request.push_str(&format!("public_key={}\n", hex::encode(peer.public_key.0)));
 
         if peer.replace_allowed_ips {
@@ -328,7 +329,7 @@ pub fn apply(builder: DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
             ));
         }
 
-        for allowed_ip in peer.allowed_ips {
+        for allowed_ip in &peer.allowed_ips {
             request.push_str(&format!(
                 "allowed_ip={}/{}\n",
                 allowed_ip.address, allowed_ip.cidr

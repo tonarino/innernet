@@ -1,6 +1,6 @@
 use libc::c_char;
 
-use crate::{backends, key::Key, KeyPair, PeerConfigBuilder};
+use crate::{Backend, KeyPair, PeerConfigBuilder, backends, key::Key};
 
 use std::{
     borrow::Cow,
@@ -101,6 +101,8 @@ pub struct Device {
     pub peers: Vec<PeerInfo>,
     /// The associated "real name" of the interface (ex. "utun8" on macOS).
     pub linked_name: Option<String>,
+    /// The backend the device exists on (userspace or kernel).
+    pub backend: Backend,
 
     pub(crate) __cant_construct_me: (),
 }
@@ -224,42 +226,34 @@ impl From<InvalidInterfaceName> for std::io::Error {
 impl std::error::Error for InvalidInterfaceName {}
 
 impl Device {
-    /// Enumerates all WireGuard interfaces currently present in the system
-    /// and returns their names.
+    /// Enumerates all WireGuard interfaces currently present in the system,
+    /// both with kernel and userspace backends.
     ///
     /// You can use [`get_by_name`](DeviceInfo::get_by_name) to retrieve more
     /// detailed information on each interface.
-    #[cfg(target_os = "linux")]
-    pub fn enumerate() -> Result<Vec<InterfaceName>, std::io::Error> {
-        backends::kernel::enumerate()
-        // } else {
-        //     backends::userspace::enumerate()
-        // }
+    pub fn list(backend: Backend) -> Result<Vec<InterfaceName>, std::io::Error> {
+        match backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::enumerate(),
+            Backend::Userspace => backends::userspace::enumerate(),
+        }
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn enumerate() -> Result<Vec<InterfaceName>, std::io::Error> {
-        crate::backends::userspace::enumerate()
+    pub fn get(name: &InterfaceName, backend: Backend) -> Result<Self, std::io::Error> {
+        match backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::get_by_name(name),
+            Backend::Userspace => backends::userspace::get_by_name(name),
+        }
     }
 
-    #[cfg(target_os = "linux")]
-    pub fn get_by_name(name: &InterfaceName) -> Result<Self, std::io::Error> {
-        backends::kernel::get_by_name(name).or_else(|_| backends::userspace::get_by_name(name))
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    pub fn get_by_name(name: &InterfaceName) -> Result<Self, std::io::Error> {
-        backends::userspace::get_by_name(name)
-    }
-
-    #[cfg(target_os = "linux")]
     pub fn delete(self) -> Result<(), std::io::Error> {
-        backends::kernel::delete_interface(&self.name)
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    pub fn delete(self) -> Result<(), std::io::Error> {
-        backends::userspace::delete_interface(&self.name)
+        match self.backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::delete_interface(&self.name),
+            Backend::Userspace => backends::userspace::delete_interface(&self.name),
+        }
+        
     }
 }
 
@@ -424,17 +418,12 @@ impl DeviceUpdate {
     /// Build and apply the configuration to a WireGuard interface by name.
     ///
     /// An interface with the provided name will be created if one does not exist already.
-    #[cfg(target_os = "linux")]
-    pub fn apply(self, iface: &InterfaceName) -> io::Result<()> {
-        backends::kernel::apply(self, &iface)
-        // } else {
-        //     backends::userspace::apply(self, iface)
-        // }
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    pub fn apply(self, iface: &InterfaceName) -> io::Result<()> {
-        backends::userspace::apply(self, iface)
+    pub fn apply(self, iface: &InterfaceName, backend: Backend) -> io::Result<()> {
+        match backend {
+            #[cfg(target_os = "linux")]
+            Backend::Kernel => backends::kernel::apply(&self, &iface),
+            Backend::Userspace => backends::userspace::apply(&self, &iface),
+        }
     }
 }
 
@@ -463,9 +452,9 @@ mod tests {
             builder = builder.add_peer(PeerConfigBuilder::new(&keypair.public))
         }
         let interface = TEST_INTERFACE.parse().unwrap();
-        builder.apply(&interface).unwrap();
+        builder.apply(&interface, Backend::Userspace).unwrap();
 
-        let device = Device::get_by_name(&interface).unwrap();
+        let device = Device::get(&interface, Backend::Userspace).unwrap();
 
         for keypair in &keypairs {
             assert!(device

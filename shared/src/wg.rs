@@ -1,10 +1,10 @@
-use crate::{Error, IoErrorContext};
+use crate::{Error, IoErrorContext, NetworkOpt};
 use ipnetwork::IpNetwork;
 use std::{
     net::{IpAddr, SocketAddr},
     process::{self, Command},
 };
-use wgctrl::{DeviceUpdate, InterfaceName, PeerConfigBuilder};
+use wgctrl::{Backend, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     let output = Command::new(bin).args(args).output()?;
@@ -67,7 +67,7 @@ pub fn up(
     address: IpNetwork,
     listen_port: Option<u16>,
     peer: Option<(&str, IpAddr, SocketAddr)>,
-    do_routing: bool,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     let mut device = DeviceUpdate::new();
     if let Some((public_key, address, endpoint)) = peer {
@@ -82,22 +82,22 @@ pub fn up(
     }
     device
         .set_private_key(wgctrl::Key::from_base64(&private_key).unwrap())
-        .apply(interface)?;
+        .apply(interface, network.backend)?;
     set_addr(interface, address)?;
-    if do_routing {
+    if !network.no_routing {
         add_route(interface, address)?;
     }
     Ok(())
 }
 
-pub fn set_listen_port(interface: &InterfaceName, listen_port: Option<u16>) -> Result<(), Error> {
+pub fn set_listen_port(interface: &InterfaceName, listen_port: Option<u16>, backend: Backend) -> Result<(), Error> {
     let mut device = DeviceUpdate::new();
     if let Some(listen_port) = listen_port {
         device = device.set_listen_port(listen_port);
     } else {
         device = device.randomize_listen_port();
     }
-    device.apply(interface)?;
+    device.apply(interface, backend)?;
 
     Ok(())
 }

@@ -1,11 +1,9 @@
 use crate::{
-    backends,
-    device::{AllowedIp, InterfaceName, PeerConfig},
+    device::{AllowedIp, PeerConfig},
     key::Key,
 };
 
 use std::{
-    io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 };
 

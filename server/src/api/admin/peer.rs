@@ -51,7 +51,7 @@ mod handlers {
             // Update the current WireGuard interface with the new peers.
             DeviceUpdate::new()
                 .add_peer((&*peer).into())
-                .apply(&session.context.interface)
+                .apply(&session.context.interface, session.context.backend)
                 .map_err(|_| ServerError::WireGuard)?;
             log::info!("updated WireGuard interface, adding {}", &*peer);
         }

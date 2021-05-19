@@ -4,7 +4,7 @@ use crate::{
     api::inject_endpoints,
     db::{DatabaseCidr, DatabasePeer},
     util::{form_body, json_response, status_response},
-    ServerError, Session,
+    Context, ServerError, Session,
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::{EndpointContents, PeerContents, RedeemContents, State, REDEEM_TRANSITION_WAIT};
@@ -83,7 +83,7 @@ mod handlers {
         selected_peer.redeem(&conn, &form.public_key)?;
 
         if cfg!(not(test)) {
-            let interface = session.context.interface;
+            let Context { interface, backend, .. } = session.context;
 
             // If we were to modify the WireGuard interface immediately, the HTTP response wouldn't
             // get through. Instead, we need to wait a reasonable amount for the HTTP response to
@@ -105,7 +105,7 @@ mod handlers {
                 DeviceUpdate::new()
                     .remove_peer_by_key(&old_public_key)
                     .add_peer((&*selected_peer).into())
-                    .apply(&interface)
+                    .apply(&interface, backend)
                     .map_err(|e| log::error!("{:?}", e))
                     .ok();
             });

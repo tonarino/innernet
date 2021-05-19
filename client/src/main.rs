@@ -41,6 +41,9 @@ macro_rules! println_pad {
 struct Opts {
     #[structopt(subcommand)]
     command: Option<Command>,
+
+    #[structopt(flatten)]
+    network: NetworkOpt,
 }
 
 #[derive(Debug, StructOpt)]
@@ -320,7 +323,7 @@ fn redeem_invite(
     iface: &InterfaceName,
     mut config: InterfaceConfig,
     target_conf: PathBuf,
-    routing: NetworkOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     println!("{} bringing up the interface.", "[*]".dimmed());
     let resolved_endpoint = config.server.external_endpoint.resolve()?;
@@ -334,7 +337,7 @@ fn redeem_invite(
             config.server.internal_endpoint.ip(),
             resolved_endpoint,
         )),
-        !routing.no_routing,
+        network,
     )?;
 
     println!("{} Generating new keypair.", "[*]".dimmed());
@@ -367,7 +370,7 @@ fn redeem_invite(
     );
     DeviceUpdate::new()
         .set_private_key(keypair.private)
-        .apply(&iface)?;
+        .apply(&iface, network.backend)?;
     thread::sleep(*REDEEM_TRANSITION_WAIT);
 
     Ok(())
@@ -394,10 +397,10 @@ fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
     hosts_path: Option<PathBuf>,
-    routing: NetworkOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
-    let interface_up = if let Ok(interfaces) = Device::enumerate() {
+    let interface_up = if let Ok(interfaces) = Device::list(network.backend) {
         interfaces.iter().any(|name| name == interface)
     } else {
         false
@@ -424,7 +427,7 @@ fn fetch(
                 config.server.internal_endpoint.ip(),
                 resolved_endpoint,
             )),
-            !routing.no_routing,
+            network,
         )?
     }
 
@@ -432,7 +435,7 @@ fn fetch(
     let mut store = DataStore::open_or_create(&interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = Device::get_by_name(&interface).with_str(interface.as_str_lossy())?;
+    let device_info = Device::get(&interface, network.backend).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -491,7 +494,7 @@ fn fetch(
     }
 
     if device_config_changed {
-        device_config_builder.apply(&interface)?;
+        device_config_builder.apply(&interface, network.backend)?;
 
         if let Some(path) = hosts_path {
             update_hosts_file(interface, path, &peers)?;
@@ -701,11 +704,11 @@ fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
     Ok(())
 }
 
-fn set_listen_port(interface: &InterfaceName, unset: bool) -> Result<(), Error> {
+fn set_listen_port(interface: &InterfaceName, unset: bool, network: NetworkOpt) -> Result<(), Error> {
     let mut config = InterfaceConfig::from_interface(interface)?;
 
     if let Some(listen_port) = prompts::set_listen_port(&config.interface, unset)? {
-        wg::set_listen_port(interface, listen_port)?;
+        wg::set_listen_port(interface, listen_port, network.backend)?;
         println!("{} the interface is updated", "[*]".dimmed(),);
 
         config.interface.listen_port = listen_port;
@@ -718,14 +721,14 @@ fn set_listen_port(interface: &InterfaceName, unset: bool) -> Result<(), Error> 
     Ok(())
 }
 
-fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error> {
+fn override_endpoint(interface: &InterfaceName, unset: bool, network: NetworkOpt) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     if !unset && config.interface.listen_port.is_none() {
         println!(
             "{}: you need to set a listen port for your interface first.",
             "note".bold().yellow()
         );
-        set_listen_port(interface, unset)?;
+        set_listen_port(interface, unset, network)?;
     }
 
     if let Some(endpoint) = prompts::override_endpoint(unset)? {
@@ -742,8 +745,8 @@ fn override_endpoint(interface: &InterfaceName, unset: bool) -> Result<(), Error
     Ok(())
 }
 
-fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
-    let interfaces = interface.map_or_else(Device::enumerate, |interface| Ok(vec![*interface]))?;
+fn show(short: bool, tree: bool, interface: Option<Interface>, network: NetworkOpt) -> Result<(), Error> {
+    let interfaces = interface.map_or_else(|| Device::list(network.backend), |interface| Ok(vec![*interface]))?;
 
     let devices = interfaces
         .into_iter()
@@ -751,7 +754,7 @@ fn show(short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Err
             DataStore::open(&name)
                 .and_then(|store| {
                     Ok((
-                        Device::get_by_name(&name).with_str(name.as_str_lossy())?,
+                        Device::get(&name, network.backend).with_str(name.as_str_lossy())?,
                         store,
                     ))
                 })
@@ -935,7 +938,7 @@ fn run(opt: Opts) -> Result<(), Error> {
             short,
             tree,
             interface,
-        } => show(short, tree, interface)?,
+        } => show(short, tree, interface, opt.network)?,
         Command::Fetch {
             interface,
             hosts,
@@ -962,8 +965,8 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::AddAssociation { interface, opts } => add_association(&interface, opts)?,
         Command::DeleteAssociation { interface } => delete_association(&interface)?,
         Command::ListAssociations { interface } => list_associations(&interface)?,
-        Command::SetListenPort { interface, unset } => set_listen_port(&interface, unset)?,
-        Command::OverrideEndpoint { interface, unset } => override_endpoint(&interface, unset)?,
+        Command::SetListenPort { interface, unset } => set_listen_port(&interface, unset, opt.network)?,
+        Command::OverrideEndpoint { interface, unset } => override_endpoint(&interface, unset, opt.network)?,
     }
 
     Ok(())

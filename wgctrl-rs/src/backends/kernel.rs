@@ -1,5 +1,5 @@
 use crate::{
-    device::AllowedIp, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName, InvalidKey,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName, InvalidKey,
     PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
@@ -90,6 +90,7 @@ impl<'a> From<&'a wgctrl_sys::wg_device> for Device {
             },
             peers: parse_peers(&raw),
             linked_name: None,
+            backend: Backend::Kernel,
             __cant_construct_me: (),
         }
     }
@@ -235,7 +236,7 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
 }
 
 fn encode_peers(
-    peers: Vec<PeerConfigBuilder>,
+    peers: &[PeerConfigBuilder],
 ) -> (*mut wgctrl_sys::wg_peer, *mut wgctrl_sys::wg_peer) {
     let mut first_peer = ptr::null_mut();
     let mut last_peer: *mut wgctrl_sys::wg_peer = ptr::null_mut();
@@ -320,8 +321,8 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     Ok(result)
 }
 
-pub fn apply(builder: DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
-    let (first_peer, last_peer) = encode_peers(builder.peers);
+pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
+    let (first_peer, last_peer) = encode_peers(&builder.peers);
 
     let result = unsafe { wgctrl_sys::wg_add_device(iface.as_ptr()) };
     match result {
