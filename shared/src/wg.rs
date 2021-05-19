@@ -106,14 +106,8 @@ pub fn set_listen_port(
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
     Ok(Device::get(interface, backend)?.delete()?)
-}
-
-#[cfg(not(target_os = "linux"))]
-pub fn down(interface: &InterfaceName) -> Result<(), Error> {
-    Ok(wgctrl::backends::userspace::delete_interface(interface).with_str(interface.to_string())?)
 }
 
 /// Add a route in the OS's routing table to get traffic flowing through this interface.
