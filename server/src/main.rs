@@ -214,7 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("{}: {}.", "creation failed".red(), e);
             }
         },
-        Command::Uninstall { interface } => uninstall(&interface, &conf)?,
+        Command::Uninstall { interface } => uninstall(&interface, &conf, opt.network)?,
         Command::Serve {
             interface,
             network: routing,
@@ -317,7 +317,11 @@ fn add_cidr(
     Ok(())
 }
 
-fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error> {
+fn uninstall(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    network: NetworkOpt,
+) -> Result<(), Error> {
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
@@ -327,7 +331,7 @@ fn uninstall(interface: &InterfaceName, conf: &ServerConfig) -> Result<(), Error
         .interact()?
     {
         println!("{} bringing down interface (if up).", "[*]".dimmed());
-        wg::down(interface).ok();
+        wg::down(interface, network.backend).ok();
         let config = conf.config_path(interface);
         let data = conf.database_path(interface);
         std::fs::remove_file(&config)

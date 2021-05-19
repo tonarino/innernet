@@ -4,7 +4,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     process::{self, Command},
 };
-use wgctrl::{Backend, DeviceUpdate, InterfaceName, PeerConfigBuilder};
+use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     let output = Command::new(bin).args(args).output()?;
@@ -107,15 +107,13 @@ pub fn set_listen_port(
 }
 
 #[cfg(target_os = "linux")]
-pub fn down(interface: &InterfaceName) -> Result<(), Error> {
-    Ok(wgctrl::delete_interface(&interface).with_str(interface.to_string())?)
+pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
+    Ok(Device::get(interface, backend)?.delete()?)
 }
 
 #[cfg(not(target_os = "linux"))]
 pub fn down(interface: &InterfaceName) -> Result<(), Error> {
-    wgctrl::backends::userspace::delete_interface(interface)
-        .with_str(interface.to_string())
-        .map_err(Error::from)
+    Ok(wgctrl::backends::userspace::delete_interface(interface).with_str(interface.to_string())?)
 }
 
 /// Add a route in the OS's routing table to get traffic flowing through this interface.

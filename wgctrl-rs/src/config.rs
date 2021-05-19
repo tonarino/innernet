@@ -164,9 +164,3 @@ impl PeerConfigBuilder {
         self
     }
 }
-
-/// Deletes an existing WireGuard interface by name.
-#[cfg(target_os = "linux")]
-pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
-    backends::kernel::delete_interface(iface)
-}

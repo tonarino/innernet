@@ -76,9 +76,6 @@ enum Command {
 
         #[structopt(flatten)]
         opts: InstallOpts,
-
-        #[structopt(flatten)]
-        routing: NetworkOpt,
     },
 
     /// Enumerate all innernet connections.
@@ -110,9 +107,6 @@ enum Command {
         #[structopt(flatten)]
         hosts: HostsOpt,
 
-        #[structopt(flatten)]
-        routing: NetworkOpt,
-
         interface: Interface,
     },
 
@@ -122,9 +116,6 @@ enum Command {
 
         #[structopt(flatten)]
         hosts: HostsOpt,
-
-        #[structopt(flatten)]
-        routing: NetworkOpt,
     },
 
     /// Uninstall an innernet network.
@@ -236,7 +227,7 @@ fn install(
     invite: &Path,
     hosts_file: Option<PathBuf>,
     opts: InstallOpts,
-    routing: NetworkOpt,
+    network: NetworkOpt,
 ) -> Result<(), Error> {
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
     let config = InterfaceConfig::from_file(invite)?;
@@ -258,9 +249,9 @@ fn install(
     }
 
     let iface = iface.parse()?;
-    redeem_invite(&iface, config, target_conf, routing).map_err(|e| {
+    redeem_invite(&iface, config, target_conf, network).map_err(|e| {
         println!("{} bringing down the interface.", "[*]".dimmed());
-        if let Err(e) = wg::down(&iface) {
+        if let Err(e) = wg::down(&iface, network.backend) {
             println!("{} failed to bring down interface: {}.", "[*]".yellow(), e.to_string());
         };
         println!("{} Failed to redeem invite. Now's a good time to make sure the server is started and accessible!", "[!]".red());
@@ -269,7 +260,7 @@ fn install(
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, false, hosts_file.clone(), routing).is_ok() {
+        if fetch(&iface, false, hosts_file.clone(), network).is_ok() {
             fetch_success = true;
             break;
         }
@@ -516,7 +507,7 @@ fn fetch(
     Ok(())
 }
 
-fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
+fn uninstall(interface: &InterfaceName, network: NetworkOpt) -> Result<(), Error> {
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
@@ -526,7 +517,7 @@ fn uninstall(interface: &InterfaceName) -> Result<(), Error> {
         .interact()?
     {
         println!("{} bringing down interface (if up).", "[*]".dimmed());
-        wg::down(interface).ok();
+        wg::down(interface, network.backend).ok();
         let config = InterfaceConfig::get_path(interface);
         let data = DataStore::get_path(interface);
         std::fs::remove_file(&config)
@@ -949,32 +940,26 @@ fn run(opt: Opts) -> Result<(), Error> {
             invite,
             hosts,
             opts,
-            routing,
-        } => install(&invite, hosts.into(), opts, routing)?,
+        } => install(&invite, hosts.into(), opts, opt.network)?,
         Command::Show {
             short,
             tree,
             interface,
         } => show(short, tree, interface, opt.network)?,
-        Command::Fetch {
-            interface,
-            hosts,
-            routing,
-        } => fetch(&interface, false, hosts.into(), routing)?,
+        Command::Fetch { interface, hosts } => fetch(&interface, false, hosts.into(), opt.network)?,
         Command::Up {
             interface,
             daemon,
             hosts,
-            routing,
             interval,
         } => up(
             &interface,
             daemon.then(|| Duration::from_secs(interval)),
             hosts.into(),
-            routing,
+            opt.network,
         )?,
-        Command::Down { interface } => wg::down(&interface)?,
-        Command::Uninstall { interface } => uninstall(&interface)?,
+        Command::Down { interface } => wg::down(&interface, opt.network.backend)?,
+        Command::Uninstall { interface } => uninstall(&interface, opt.network)?,
         Command::AddPeer { interface, opts } => add_peer(&interface, opts)?,
         Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
