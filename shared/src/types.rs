@@ -338,6 +338,17 @@ pub struct AddCidrOpts {
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct DeleteCidrOpts {
+    /// The CIDR name (eg. "engineers")
+    #[structopt(long)]
+    pub name: Option<String>,
+
+    /// Bypass confirmation
+    #[structopt(long)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct AddAssociationOpts {
     /// The first cidr to associate
     pub cidr1: Option<String>,

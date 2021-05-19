@@ -1,7 +1,7 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, Endpoint, Error, Peer,
-    PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, Endpoint,
+    Error, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -56,6 +56,43 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
             None
         },
     )
+}
+
+/// Bring up a prompt to delete a CIDR. Returns the peer request.
+pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> Result<i64, Error> {
+    let eligible_cidrs: Vec<_> = cidrs
+        .iter()
+        .filter(|cidr| {
+            cidr.name != "innernet-server" &&
+            !peers.iter().any(|peer| peer.contents.cidr_id == cidr.id) &&
+            !cidrs.iter().any(
+                |cidr2| matches!(cidr2.contents.parent, Some(parent_id) if parent_id == cidr.id)
+            )
+        })
+        .collect();
+    let cidr = if let Some(ref name) = request.name {
+        cidrs
+            .iter()
+            .find(|cidr| &cidr.name == name)
+            .ok_or_else(|| format!("CIDR {} does not exist", name))?
+    } else {
+        let cidr_index = Select::with_theme(&*THEME)
+            .with_prompt("Delete CIDR")
+            .items(&eligible_cidrs)
+            .interact()?;
+        &eligible_cidrs[cidr_index]
+    };
+
+    if request.yes
+        || Confirm::with_theme(&*THEME)
+            .with_prompt(&format!("Delete CIDR \"{}\"?", cidr.name))
+            .default(false)
+            .interact()?
+    {
+        Ok(cidr.id)
+    } else {
+        Err("Canceled".into())
+    }
 }
 
 pub fn choose_cidr<'a>(cidrs: &'a [Cidr], text: &'static str) -> Result<&'a Cidr, Error> {
