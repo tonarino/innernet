@@ -253,6 +253,7 @@ fn install(
 
     let iface = iface.parse()?;
     redeem_invite(&iface, config, target_conf, network).map_err(|e| {
+        println!("{} failed to start the interface: {}.", "[!]".red(), e);
         println!("{} bringing down the interface.", "[*]".dimmed());
         if let Err(e) = wg::down(&iface, network.backend) {
             println!("{} failed to bring down interface: {}.", "[*]".yellow(), e.to_string());
@@ -263,10 +264,11 @@ fn install(
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, false, hosts_file.clone(), network).is_ok() {
+        if fetch(&iface, true, hosts_file.clone(), network).is_ok() {
             fetch_success = true;
             break;
         }
+        thread::sleep(Duration::from_secs(1));
     }
     if !fetch_success {
         println!(

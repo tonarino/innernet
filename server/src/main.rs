@@ -380,8 +380,11 @@ fn spawn_expired_invite_sweeper(db: Db) {
         loop {
             interval.tick().await;
             match DatabasePeer::delete_expired_invites(&db.lock()) {
-                Ok(deleted) => log::info!("Deleted {} expired peer invitations.", deleted),
+                Ok(deleted) if deleted > 0 => {
+                    log::info!("Deleted {} expired peer invitations.", deleted)
+                },
                 Err(e) => log::error!("Failed to delete expired peer invitations: {}", e),
+                _ => {},
             }
         }
     });
@@ -439,6 +442,7 @@ async fn serve(
         let context = context.clone();
         async move {
             Ok::<_, http::Error>(hyper::service::service_fn(move |req: Request<Body>| {
+                log::debug!("{} - {} {}", &remote_addr, req.method(), req.uri());
                 hyper_service(req, context.clone(), remote_addr)
             }))
         }

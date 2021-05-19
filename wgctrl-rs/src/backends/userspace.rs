@@ -33,7 +33,11 @@ fn get_namefile(name: &InterfaceName) -> io::Result<PathBuf> {
 }
 
 fn get_socketfile(name: &InterfaceName) -> io::Result<PathBuf> {
-    Ok(get_base_folder()?.join(&format!("{}.sock", resolve_tun(name)?)))
+    if cfg!(target_os = "linux") {
+        Ok(get_base_folder()?.join(&format!("{}.sock", name)))
+    } else {
+        Ok(get_base_folder()?.join(&format!("{}.sock", resolve_tun(name)?)))
+    }
 }
 
 fn open_socket(name: &InterfaceName) -> io::Result<UnixStream> {
@@ -42,7 +46,10 @@ fn open_socket(name: &InterfaceName) -> io::Result<UnixStream> {
 
 pub fn resolve_tun(name: &InterfaceName) -> io::Result<String> {
     let namefile = get_namefile(name)?;
-    Ok(fs::read_to_string(namefile)?.trim().to_string())
+    Ok(fs::read_to_string(namefile)
+        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, "WireGuard name file can't be read"))?
+        .trim()
+        .to_string())
 }
 
 pub fn delete_interface(name: &InterfaceName) -> io::Result<()> {
@@ -269,18 +276,24 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     let mut sock = match open_socket(iface) {
         Err(_) => {
             fs::create_dir_all(VAR_RUN_PATH)?;
-            let output = Command::new(&get_userspace_implementation())
-                .env(
-                    "WG_TUN_NAME_FILE",
-                    &format!("{}/{}.name", VAR_RUN_PATH, iface),
-                )
-                .args(&["utun"])
-                .output()?;
+            let mut command = Command::new(&get_userspace_implementation());
+            let output = if cfg!(target_os = "linux") {
+                command.args(&[iface.to_string()]).output()?
+            } else {
+                command
+                    .env(
+                        "WG_TUN_NAME_FILE",
+                        &format!("{}/{}.name", VAR_RUN_PATH, iface),
+                    )
+                    .args(&["utun"])
+                    .output()?
+            };
             if !output.status.success() {
                 return Err(io::ErrorKind::AddrNotAvailable.into());
             }
             std::thread::sleep(Duration::from_millis(100));
-            open_socket(iface)?
+            open_socket(iface)
+                .map_err(|e| io::Error::new(e.kind(), format!("failed to open socket ({})", e)))?
         },
         Ok(sock) => sock,
     };

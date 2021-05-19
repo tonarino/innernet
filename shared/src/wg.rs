@@ -8,6 +8,16 @@ use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     let output = Command::new(bin).args(args).output()?;
+    log::debug!("{} {}", bin, args.join(" "));
+    log::debug!("status code {:?}", output.status.code());
+    log::trace!(
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    log::trace!(
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     if output.status.success() {
         Ok(output)
     } else {
@@ -87,6 +97,7 @@ pub fn up(
     if !network.no_routing {
         add_route(interface, address)?;
     }
+    cmd("ip", &["link"])?;
     Ok(())
 }
 
@@ -107,7 +118,10 @@ pub fn set_listen_port(
 }
 
 pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
-    Ok(Device::get(interface, backend)?.delete()?)
+    Ok(Device::get(interface, backend)
+        .with_str(interface.as_str_lossy())?
+        .delete()
+        .with_str(interface.as_str_lossy())?)
 }
 
 /// Add a route in the OS's routing table to get traffic flowing through this interface.
@@ -145,7 +159,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
             &[
                 "route",
                 "add",
-                &cidr.to_string(),
+                &IpNetwork::new(cidr.network(), cidr.prefix())?.to_string(),
                 "dev",
                 &interface.to_string(),
             ],
