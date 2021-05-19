@@ -210,7 +210,7 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
             peer.addr4 = wgctrl_sys::sockaddr_in {
                 sin_family: libc::AF_INET as u16,
                 sin_addr: wgctrl_sys::in_addr {
-                    s_addr: u32::from_be(s.ip().clone().into()),
+                    s_addr: u32::from_be((*s.ip()).into()),
                 },
                 sin_port: u16::to_be(s.port()),
                 sin_zero: [0; 8],
