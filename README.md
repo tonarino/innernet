@@ -204,10 +204,10 @@ brew install tonarino/innernet/innernet
 
 ```sh
 # to install innernet:
-cargo install --git https://github.com/tonarino/innernet --tag v1.3.0-beta.6 client
+cargo install --git https://github.com/tonarino/innernet --tag v1.3.0-beta.7 client
 
 # to install innernet-server:
-cargo install --git https://github.com/tonarino/innernet --tag v1.3.0-beta.6 server
+cargo install --git https://github.com/tonarino/innernet --tag v1.3.0-beta.7 server
 ```
 
 Note that you'll be responsible for updating manually.
