@@ -862,7 +862,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             .and_then(|t| t.elapsed().ok())
             .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
 
-        let online = last_handshake <= Duration::from_secs(150) || info.is_none();
+        let online = last_handshake <= Duration::from_secs(180) || info.is_none();
 
         println_pad!(
             pad,
