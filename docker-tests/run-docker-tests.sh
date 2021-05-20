@@ -10,7 +10,7 @@ cmd() {
 }
 
 info() {
-  TERM=${TERM:-dumb} echo -e "$(tput setaf 4)- $@$(tput sgr0)" 1>&2
+  echo -e "\033[0;34m- $@\033[0m" 1>&2
 }
 
 tmp_dir=$(mktemp -d -t innernet-tests-XXXXXXXXXX)
