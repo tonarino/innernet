@@ -1,7 +1,7 @@
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
-use indoc::printdoc;
+use indoc::eprintdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
@@ -208,11 +208,7 @@ fn update_hosts_file(
     hosts_path: PathBuf,
     peers: &[Peer],
 ) -> Result<(), Error> {
-    println!(
-        "{} updating {} with the latest peers.",
-        "[*]".dimmed(),
-        "/etc/hosts".yellow()
-    );
+    log::info!("updating {} with the latest peers.", "/etc/hosts".yellow());
 
     let mut hosts_builder = HostsBuilder::new(format!("innernet {}", interface));
     for peer in peers {
@@ -253,12 +249,12 @@ fn install(
 
     let iface = iface.parse()?;
     redeem_invite(&iface, config, target_conf, network).map_err(|e| {
-        println!("{} failed to start the interface: {}.", "[!]".red(), e);
-        println!("{} bringing down the interface.", "[*]".dimmed());
+        log::error!("failed to start the interface: {}.", e);
+        log::info!("bringing down the interface.");
         if let Err(e) = wg::down(&iface, network.backend) {
-            println!("{} failed to bring down interface: {}.", "[*]".yellow(), e.to_string());
+            log::warn!("failed to bring down interface: {}.", e.to_string());
         };
-        println!("{} Failed to redeem invite. Now's a good time to make sure the server is started and accessible!", "[!]".red());
+        log::error!("Failed to redeem invite. Now's a good time to make sure the server is started and accessible!");
         e
     })?;
 
@@ -271,9 +267,8 @@ fn install(
         thread::sleep(Duration::from_secs(1));
     }
     if !fetch_success {
-        println!(
-            "{} Failed to fetch peers from server, you will need to manually run the 'up' command.",
-            "[!]".red()
+        log::warn!(
+            "Failed to fetch peers from server, you will need to manually run the 'up' command.",
         );
     }
 
@@ -289,7 +284,7 @@ fn install(
         std::fs::remove_file(invite).with_path(invite)?;
     }
 
-    printdoc!(
+    eprintdoc!(
         "
         {star} Done!
 
@@ -321,7 +316,7 @@ fn redeem_invite(
     target_conf: PathBuf,
     network: NetworkOpt,
 ) -> Result<(), Error> {
-    println!("{} bringing up the interface.", "[*]".dimmed());
+    log::info!("bringing up the interface.");
     let resolved_endpoint = config.server.external_endpoint.resolve()?;
     wg::up(
         &iface,
@@ -336,12 +331,11 @@ fn redeem_invite(
         network,
     )?;
 
-    println!("{} Generating new keypair.", "[*]".dimmed());
+    log::info!("Generating new keypair.");
     let keypair = wgctrl::KeyPair::generate();
 
-    println!(
-        "{} Registering keypair with server (at {}).",
-        "[*]".dimmed(),
+    log::info!(
+        "Registering keypair with server (at {}).",
         &config.server.internal_endpoint
     );
     Api::new(&config.server).http_form(
@@ -354,15 +348,13 @@ fn redeem_invite(
 
     config.interface.private_key = keypair.private.to_base64();
     config.write_to_path(&target_conf, false, Some(0o600))?;
-    println!(
-        "{} New keypair registered. Copied config to {}.\n",
-        "[*]".dimmed(),
+    log::info!(
+        "New keypair registered. Copied config to {}.\n",
         target_conf.to_string_lossy().yellow()
     );
 
-    println!(
-        "{} Changing keys and waiting for server's WireGuard interface to transition.",
-        "[*]".dimmed(),
+    log::info!(
+        "Changing keys and waiting for server's WireGuard interface to transition.",
     );
     DeviceUpdate::new()
         .set_private_key(keypair.private)
@@ -518,21 +510,20 @@ fn uninstall(interface: &InterfaceName, network: NetworkOpt) -> Result<(), Error
         .default(false)
         .interact()?
     {
-        println!("{} bringing down interface (if up).", "[*]".dimmed());
+        log::info!("bringing down interface (if up).");
         wg::down(interface, network.backend).ok();
         let config = InterfaceConfig::get_path(interface);
         let data = DataStore::get_path(interface);
         std::fs::remove_file(&config)
             .with_path(&config)
-            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .map_err(|e| log::warn!("{}", e.to_string().yellow()))
             .ok();
         std::fs::remove_file(&data)
             .with_path(&data)
-            .map_err(|e| println!("[!] {}", e.to_string().yellow()))
+            .map_err(|e| log::warn!("{}", e.to_string().yellow()))
             .ok();
-        println!(
-            "{} network {} is uninstalled.",
-            "[*]".dimmed(),
+        log::info!(
+            "network {} is uninstalled.",
             interface.as_str_lossy().yellow()
         );
     }
@@ -550,7 +541,7 @@ fn add_cidr(interface: &InterfaceName, opts: AddCidrOpts) -> Result<(), Error> {
     log::info!("Creating CIDR...");
     let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
 
-    printdoc!(
+    eprintdoc!(
         "
         CIDR \"{cidr_name}\" added.
 
@@ -576,7 +567,7 @@ fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
     if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree, &opts)? {
-        println!("Creating peer...");
+        log::info!("Creating peer...");
         let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
         prompts::save_peer_invitation(
@@ -589,7 +580,7 @@ fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
             &opts.save_config,
         )?;
     } else {
-        println!("exited without creating peer.");
+        log::info!("exited without creating peer.");
     }
 
     Ok(())
@@ -734,7 +725,7 @@ fn override_endpoint(
     }
 
     if let Some(endpoint) = prompts::override_endpoint(unset)? {
-        println!("Updating endpoint.");
+        log::info!("Updating endpoint.");
         Api::new(&config.server).http_form(
             "PUT",
             "/user/endpoint",
@@ -922,7 +913,8 @@ fn main() {
     util::init_logger(opt.verbosity);
 
     if let Err(e) = run(opt) {
-        eprintln!("\n{} {}\n", "[ERROR]".red(), e);
+        println!();
+        log::error!("{}\n", e);
         std::process::exit(1);
     }
 }
