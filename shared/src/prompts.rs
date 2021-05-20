@@ -74,7 +74,7 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
         cidrs
             .iter()
             .find(|cidr| &cidr.name == name)
-            .ok_or_else(|| format!("CIDR {} does not exist", name))?
+            .ok_or_else(|| format!("CIDR {} doesn't exist or isn't eligible for deletion", name))?
     } else {
         let cidr_index = Select::with_theme(&*THEME)
             .with_prompt("Delete CIDR")
