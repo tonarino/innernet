@@ -63,7 +63,6 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
     let eligible_cidrs: Vec<_> = cidrs
         .iter()
         .filter(|cidr| {
-            cidr.name != "innernet-server" &&
             !peers.iter().any(|peer| peer.contents.cidr_id == cidr.id) &&
             !cidrs.iter().any(
                 |cidr2| matches!(cidr2.contents.parent, Some(parent_id) if parent_id == cidr.id)
