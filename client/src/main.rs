@@ -362,9 +362,7 @@ fn redeem_invite(
         target_conf.to_string_lossy().yellow()
     );
 
-    log::info!(
-        "Changing keys and waiting for server's WireGuard interface to transition.",
-    );
+    log::info!("Changing keys and waiting for server's WireGuard interface to transition.",);
     DeviceUpdate::new()
         .set_private_key(keypair.private)
         .apply(&iface, network.backend)?;

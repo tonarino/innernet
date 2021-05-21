@@ -6,7 +6,9 @@ use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use shared::{AddCidrOpts, DeleteCidrOpts, AddPeerOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER};
+use shared::{
+    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER,
+};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -93,7 +95,6 @@ enum Command {
         #[structopt(flatten)]
         args: DeleteCidrOpts,
     },
-
 }
 
 pub type Db = Arc<Mutex<Connection>>;
@@ -327,7 +328,11 @@ fn add_cidr(
     Ok(())
 }
 
-fn delete_cidr(interface: &InterfaceName, conf: &ServerConfig, args: DeleteCidrOpts) -> Result<(), Error> {
+fn delete_cidr(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    args: DeleteCidrOpts,
+) -> Result<(), Error> {
     println!("Fetching eligible CIDRs");
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
