@@ -6,7 +6,7 @@ use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use shared::{AddCidrOpts, AddPeerOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER};
+use shared::{AddCidrOpts, DeleteCidrOpts, AddPeerOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -85,6 +85,15 @@ enum Command {
         #[structopt(flatten)]
         args: AddCidrOpts,
     },
+
+    /// Delete a CIDR.
+    DeleteCidr {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        args: DeleteCidrOpts,
+    },
+
 }
 
 pub type Db = Arc<Mutex<Connection>>;
@@ -221,6 +230,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opt.network)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
+        Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
     }
 
     Ok(())
@@ -313,6 +323,25 @@ fn add_cidr(
     } else {
         println!("exited without creating CIDR.");
     }
+
+    Ok(())
+}
+
+fn delete_cidr(interface: &InterfaceName, conf: &ServerConfig, args: DeleteCidrOpts) -> Result<(), Error> {
+    println!("Fetching eligible CIDRs");
+    let conn = open_database_connection(interface, conf)?;
+    let cidrs = DatabaseCidr::list(&conn)?;
+    let peers = DatabasePeer::list(&conn)?
+        .into_iter()
+        .map(|dp| dp.inner)
+        .collect::<Vec<_>>();
+
+    let cidr_id = prompts::delete_cidr(&cidrs, &peers, &args)?;
+
+    println!("Deleting CIDR...");
+    let _ = DatabaseCidr::delete(&conn, cidr_id)?;
+
+    println!("CIDR deleted.");
 
     Ok(())
 }

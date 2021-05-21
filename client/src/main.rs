@@ -4,9 +4,9 @@ use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
-    Association, AssociationContents, Cidr, CidrTree, EndpointContents, InstallOpts, Interface,
-    IoErrorContext, NetworkOpt, Peer, RedeemContents, State, CLIENT_CONFIG_DIR,
-    REDEEM_TRANSITION_WAIT,
+    Association, AssociationContents, Cidr, CidrTree, DeleteCidrOpts, EndpointContents,
+    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, RedeemContents, State,
+    CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt,
@@ -146,6 +146,14 @@ enum Command {
 
         #[structopt(flatten)]
         opts: AddCidrOpts,
+    },
+
+    /// Delete a CIDR.
+    DeleteCidr {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        opts: DeleteCidrOpts,
     },
 
     /// Disable an enabled peer.
@@ -556,6 +564,23 @@ fn add_cidr(interface: &InterfaceName, opts: AddCidrOpts) -> Result<(), Error> {
     Ok(())
 }
 
+fn delete_cidr(interface: &InterfaceName, opts: DeleteCidrOpts) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    println!("Fetching eligible CIDRs");
+    let api = Api::new(&server);
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
+    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
+
+    let cidr_id = prompts::delete_cidr(&cidrs, &peers, &opts)?;
+
+    println!("Deleting CIDR...");
+    let _ = api.http("DELETE", &*format!("/admin/cidrs/{}", cidr_id))?;
+
+    println!("CIDR deleted.");
+
+    Ok(())
+}
+
 fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
@@ -957,6 +982,7 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::Uninstall { interface } => uninstall(&interface, opt.network)?,
         Command::AddPeer { interface, opts } => add_peer(&interface, opts)?,
         Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
+        Command::DeleteCidr { interface, opts } => delete_cidr(&interface, opts)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
         Command::EnablePeer { interface } => enable_or_disable_peer(&interface, true)?,
         Command::AddAssociation { interface, opts } => add_association(&interface, opts)?,
