@@ -544,22 +544,24 @@ fn add_cidr(interface: &InterfaceName, opts: AddCidrOpts) -> Result<(), Error> {
     let api = Api::new(&server);
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
-    let cidr_request = prompts::add_cidr(&cidrs, &opts)?;
+    if let Some(cidr_request) = prompts::add_cidr(&cidrs, &opts)? {
+        log::info!("Creating CIDR...");
+        let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
 
-    log::info!("Creating CIDR...");
-    let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
+        eprintdoc!(
+            "
+            CIDR \"{cidr_name}\" added.
 
-    eprintdoc!(
-        "
-        CIDR \"{cidr_name}\" added.
+            Right now, peers within {cidr_name} can only see peers in the same CIDR
+            , and in the special \"infra\" CIDR that includes the innernet server peer.
 
-        Right now, peers within {cidr_name} can only see peers in the same CIDR
-        , and in the special \"infra\" CIDR that includes the innernet server peer.
-
-        You'll need to add more associations for peers in diffent CIDRs to communicate.
-        ",
-        cidr_name = cidr.name.bold()
-    );
+            You'll need to add more associations for peers in diffent CIDRs to communicate.
+            ",
+            cidr_name = cidr.name.bold()
+        );
+    } else {
+        log::info!("exited without creating CIDR.");
+    }
 
     Ok(())
 }
