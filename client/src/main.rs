@@ -282,6 +282,7 @@ fn install(
 
     if opts.delete_invite
         || Confirm::with_theme(&*prompts::THEME)
+            .wait_for_newline(true)
             .with_prompt(&format!(
                 "Delete invitation file \"{}\" now? (It's no longer needed)",
                 invite.to_string_lossy().yellow()

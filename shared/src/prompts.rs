@@ -47,6 +47,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
     Ok(
         if request.yes
             || Confirm::with_theme(&*THEME)
+                .wait_for_newline(true)
                 .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
                 .default(false)
                 .interact()?
@@ -84,6 +85,7 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
 
     if request.yes
         || Confirm::with_theme(&*THEME)
+            .wait_for_newline(true)
             .with_prompt(&format!("Delete CIDR \"{}\"?", cidr.name))
             .default(false)
             .interact()?
@@ -143,6 +145,7 @@ pub fn add_association(cidrs: &[Cidr]) -> Result<Option<(&Cidr, &Cidr)>, Error> 
 
     Ok(
         if Confirm::with_theme(&*THEME)
+            .wait_for_newline(true)
             .with_prompt(&format!(
                 "Add association: {} <=> {}?",
                 cidr1.name.yellow().bold(),
@@ -166,6 +169,7 @@ pub fn delete_association<'a>(
 
     Ok(
         if Confirm::with_theme(&*THEME)
+            .wait_for_newline(true)
             .with_prompt(&format!("Delete association #{}?", association.id))
             .default(false)
             .interact()?
@@ -226,6 +230,7 @@ pub fn add_peer(
         is_admin
     } else {
         Confirm::with_theme(&*THEME)
+            .wait_for_newline(true)
             .with_prompt(&format!("Make {} an admin?", name))
             .default(false)
             .interact()?
@@ -257,6 +262,7 @@ pub fn add_peer(
     Ok(
         if args.yes
             || Confirm::with_theme(&*THEME)
+                .wait_for_newline(true)
                 .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
                 .default(false)
                 .interact()?
@@ -291,6 +297,7 @@ pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Pee
 
     Ok(
         if Confirm::with_theme(&*THEME)
+            .wait_for_newline(true)
             .with_prompt(&format!(
                 "{}able peer {}?",
                 if enable { "En" } else { "Dis" },
@@ -371,6 +378,7 @@ pub fn set_listen_port(
 
     let mut confirmation = Confirm::with_theme(&*THEME);
     confirmation
+        .wait_for_newline(true)
         .with_prompt(
             &(if let Some(port) = &listen_port {
                 format!("Set listen port to {}?", port)
@@ -394,6 +402,7 @@ pub fn ask_endpoint() -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
     let external_ip = if Confirm::with_theme(&*THEME)
+        .wait_for_newline(true)
         .with_prompt("Auto-fill public IP address (using a DNS query to 1.1.1.1)?")
         .interact()?
     {
@@ -417,6 +426,7 @@ pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error>
 
     Ok(
         if Confirm::with_theme(&*THEME)
+            .wait_for_newline(true)
             .with_prompt(
                 &(if let Some(endpoint) = &endpoint {
                     format!("Set external endpoint to {}?", endpoint)
