@@ -322,7 +322,7 @@ pub struct AddPeerOpts {
 pub struct AddCidrOpts {
     /// The CIDR name (eg. "engineers")
     #[structopt(long)]
-    pub name: Option<String>,
+    pub name: Option<Hostname>,
 
     /// The CIDR network (eg. "10.42.5.0/24")
     #[structopt(long)]
@@ -581,7 +581,7 @@ impl FromStr for Hostname {
         if Self::is_valid(name) {
             Ok(Self(name.to_string()))
         } else {
-            Err("invalid hostname")
+            Err("invalid hostname string (only alphanumeric with dashes)")
         }
     }
 }

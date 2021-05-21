@@ -39,7 +39,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
     };
 
     let cidr_request = CidrContents {
-        name,
+        name: name.to_string(),
         cidr,
         parent: Some(parent_cidr.id),
     };
