@@ -319,6 +319,21 @@ pub struct AddPeerOpts {
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct RenamePeerOpts {
+    /// Name of peer to rename
+    #[structopt(long)]
+    pub name: Option<Hostname>,
+
+    /// The new name of the peer
+    #[structopt(long)]
+    pub new_name: Option<Hostname>,
+
+    /// Bypass confirmation
+    #[structopt(long)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct AddCidrOpts {
     /// The CIDR name (eg. "engineers")
     #[structopt(long)]

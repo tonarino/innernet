@@ -5,8 +5,8 @@ use indoc::eprintdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, DeleteCidrOpts, EndpointContents,
-    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, RedeemContents, State,
-    CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
+    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, RedeemContents, RenamePeerOpts,
+    State, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt,
@@ -138,6 +138,19 @@ enum Command {
 
         #[structopt(flatten)]
         opts: AddPeerOpts,
+    },
+
+    /// Rename a peer.
+    ///
+    /// By default, you'll be prompted interactively to select a peer, but you can
+    /// also specify all the options in the command, eg:
+    ///
+    /// --name "person" --new-name "human"
+    RenamePeer {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        opts: RenamePeerOpts,
     },
 
     /// Add a new CIDR.
@@ -612,6 +625,32 @@ fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
     Ok(())
 }
 
+fn rename_peer(interface: &InterfaceName, opts: RenamePeerOpts) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
+    let api = Api::new(&server);
+
+    log::info!("Fetching peers");
+    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
+
+    if let Some((peer_request, old_name)) = prompts::rename_peer(&peers, &opts)? {
+        log::info!("Renaming peer...");
+
+        let id = peers
+            .iter()
+            .filter(|p| p.name == old_name)
+            .map(|p| p.id)
+            .next()
+            .ok_or_else(|| "Peer not found.")?;
+
+        let _ = api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
+        log::info!("Peer renamed.");
+    } else {
+        log::info!("exited without renaming peer.");
+    }
+
+    Ok(())
+}
+
 fn enable_or_disable_peer(interface: &InterfaceName, enable: bool) -> Result<(), Error> {
     let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(interface)?;
     let api = Api::new(&server);
@@ -982,6 +1021,7 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::Down { interface } => wg::down(&interface, opt.network.backend)?,
         Command::Uninstall { interface } => uninstall(&interface, opt.network)?,
         Command::AddPeer { interface, opts } => add_peer(&interface, opts)?,
+        Command::RenamePeer { interface, opts } => rename_peer(&interface, opts)?,
         Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
         Command::DeleteCidr { interface, opts } => delete_cidr(&interface, opts)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
