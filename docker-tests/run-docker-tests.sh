@@ -1,8 +1,30 @@
 #!/usr/bin/env bash
 set -e
+shopt -s nocasematch
 
 SELF_DIR="$(dirname "$0")"
 cd "$SELF_DIR/.."
+
+if [[ $# -eq 1 ]]; then
+    case "$1" in
+        kernel)
+            INNERNET_ARGS=""
+            ;;
+        userspace)
+            INNERNET_ARGS="--backend userspace"
+            ;;
+        *)
+            echo "invalid backend (must be kernel or userspace)"
+            exit 1
+    esac
+else
+    cat >&2 <<-_EOF
+    Usage: "${0##*/}" <BACKEND>
+
+    BACKEND: "kernel" or "userspace"
+_EOF
+    exit
+fi
 
 cmd() {
 	echo "[#] $*" >&2
@@ -31,6 +53,7 @@ SERVER_CONTAINER=$(cmd docker create -it --rm \
     --ip 172.18.1.1 \
     --volume /dev/net/tun:/dev/net/tun \
     --env RUST_LOG=debug \
+    --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
     innernet-server)
 cmd docker start -a "$SERVER_CONTAINER" &
@@ -46,6 +69,7 @@ PEER1_CONTAINER=$(cmd docker create --rm -it \
     --ip 172.18.1.2 \
     --volume /dev/net/tun:/dev/net/tun \
     --env INTERFACE=evilcorp \
+    --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
     innernet)
 info "peer1 started as $PEER1_CONTAINER"
@@ -86,6 +110,7 @@ PEER2_CONTAINER=$(docker create --rm -it \
     --volume /dev/net/tun:/dev/net/tun \
     --cap-add NET_ADMIN \
     --env INTERFACE=evilcorp \
+    --env INNERNET_ARGS="$INNERNET_ARGS" \
     innernet)
 info "peer2 started as $PEER2_CONTAINER"
 cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"

@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-DEFAULT_ARGS="--backend userspace"
+INNERNET_ARGS="--backend userspace"
 
 innernet-server \
-    $DEFAULT_ARGS \
+    $INNERNET_ARGS \
     new \
     --network-name "evilcorp" \
     --network-cidr "10.66.0.0/16" \
@@ -12,7 +12,7 @@ innernet-server \
     --listen-port 51820
 
 innernet-server \
-    $DEFAULT_ARGS \
+    $INNERNET_ARGS \
     add-cidr evilcorp \
     --name "humans" \
     --cidr "10.66.1.0/24" \
@@ -20,7 +20,7 @@ innernet-server \
     --yes
 
 innernet-server \
-    $DEFAULT_ARGS \
+    $INNERNET_ARGS \
     add-peer evilcorp \
     --name "admin" \
     --cidr "humans" \
@@ -30,4 +30,4 @@ innernet-server \
     --invite-expires "30d" \
     --yes
 
-innernet-server $DEFAULT_ARGS serve evilcorp
+innernet-server $INNERNET_ARGS serve evilcorp
