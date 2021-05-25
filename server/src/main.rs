@@ -7,7 +7,8 @@ use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, IoErrorContext, NetworkOpt, INNERNET_PUBKEY_HEADER,
+    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, IoErrorContext, NetworkOpt, RenamePeerOpts,
+    INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -78,6 +79,14 @@ enum Command {
 
         #[structopt(flatten)]
         args: AddPeerOpts,
+    },
+
+    /// Rename an existing peer.
+    RenamePeer {
+        interface: Interface,
+
+        #[structopt(flatten)]
+        args: RenamePeerOpts,
     },
 
     /// Add a new CIDR to an existing network.
@@ -236,6 +245,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             network: routing,
         } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opt.network)?,
+        Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
@@ -304,6 +314,30 @@ fn add_peer(
             &SocketAddr::new(config.address, config.listen_port),
             &opts.save_config,
         )?;
+    } else {
+        println!("exited without creating peer.");
+    }
+
+    Ok(())
+}
+
+fn rename_peer(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    opts: RenamePeerOpts,
+) -> Result<(), Error> {
+    let conn = open_database_connection(interface, conf)?;
+    let peers = DatabasePeer::list(&conn)?
+        .into_iter()
+        .map(|dp| dp.inner)
+        .collect::<Vec<_>>();
+
+    if let Some((peer_request, old_name)) = shared::prompts::rename_peer(&peers, &opts)? {
+        let mut db_peer = DatabasePeer::list(&conn)?
+            .into_iter()
+            .find(|p| p.name == old_name)
+            .ok_or_else(|| "Peer not found.")?;
+        let _peer = db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");
     }

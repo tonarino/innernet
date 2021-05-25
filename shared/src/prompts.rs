@@ -1,7 +1,7 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
     AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, Endpoint,
-    Error, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    Error, Hostname, Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -268,6 +268,63 @@ pub fn add_peer(
                 .interact()?
         {
             Some((peer_request, default_keypair))
+        } else {
+            None
+        },
+    )
+}
+
+/// Bring up a prompt to create a new peer. Returns the peer request.
+pub fn rename_peer(
+    peers: &[Peer],
+    args: &RenamePeerOpts,
+) -> Result<Option<(PeerContents, Hostname)>, Error> {
+    let eligible_peers = peers
+        .iter()
+        .filter(|p| &*p.name != "innernet-server")
+        .collect::<Vec<_>>();
+    let old_peer = if let Some(ref name) = args.name {
+        eligible_peers
+            .into_iter()
+            .find(|p| &p.name == name)
+            .ok_or_else(|| format!("Peer '{}' does not exist", name))?
+            .clone()
+    } else {
+        let peer_index = Select::with_theme(&*THEME)
+            .with_prompt("Peer to rename")
+            .items(
+                &eligible_peers
+                    .iter()
+                    .map(|ep| ep.name.clone())
+                    .collect::<Vec<_>>(),
+            )
+            .interact()?;
+        eligible_peers[peer_index].clone()
+    };
+    let old_name = old_peer.name.clone();
+    let new_name = if let Some(ref name) = args.new_name {
+        name.clone()
+    } else {
+        Input::with_theme(&*THEME)
+            .with_prompt("New Name")
+            .interact()?
+    };
+
+    let mut new_peer = old_peer;
+    new_peer.contents.name = new_name.clone();
+
+    Ok(
+        if args.yes
+            || Confirm::with_theme(&*THEME)
+                .with_prompt(&format!(
+                    "Rename peer {} to {}?",
+                    old_name.yellow(),
+                    new_name.yellow()
+                ))
+                .default(false)
+                .interact()?
+        {
+            Some((new_peer.contents, old_name))
         } else {
             None
         },
