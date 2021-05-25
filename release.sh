@@ -27,6 +27,10 @@ git reset --soft @~1
 cargo build
 
 for binary in "innernet" "innernet-server"; do
+    for shell in {fish,zsh,bash,powershell,elvish}; do
+        "target/debug/$binary" completions $shell > doc/$binary.completions.$shell
+        git diff --quiet -- doc/$binary.completions.$shell || die "CLI and Completions out of sync for $shell"
+    done
     help2man --no-discard-stderr -s8 "target/debug/$binary" -N > "doc/$binary.8"
     gzip -fk "doc/$binary.8"
 done

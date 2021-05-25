@@ -1,0 +1,189 @@
+
+edit:completion:arg-completer[innernet] = [@words]{
+    fn spaces [n]{
+        repeat $n ' ' | joins ''
+    }
+    fn cand [text desc]{
+        edit:complex-candidate $text &display-suffix=' '(spaces (- 14 (wcswidth $text)))$desc
+    }
+    command = 'innernet'
+    for word $words[1:-1] {
+        if (has-prefix $word '-') {
+            break
+        }
+        command = $command';'$word
+    }
+    completions = [
+        &'innernet'= {
+            cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
+            cand -v 'v'
+            cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+            cand install 'Install a new innernet config'
+            cand show 'Enumerate all innernet connections'
+            cand up 'Bring up your local interface, and update it with latest peer list'
+            cand fetch 'Fetch and update your local interface with the latest peer list'
+            cand uninstall 'Uninstall an innernet network'
+            cand down 'Bring down the interface (equivalent to "wg-quick down <interface>")'
+            cand add-peer 'Add a new peer'
+            cand add-cidr 'Add a new CIDR'
+            cand delete-cidr 'Delete a CIDR'
+            cand disable-peer 'Disable an enabled peer'
+            cand enable-peer 'Enable a disabled peer'
+            cand add-association 'Add an association between CIDRs'
+            cand delete-association 'Delete an association between CIDRs'
+            cand list-associations 'List existing assocations between CIDRs'
+            cand set-listen-port 'Set the local listen port'
+            cand override-endpoint 'Override your external endpoint that the server sends to other peers'
+            cand completions 'Generate shell completion scripts'
+            cand help 'Prints this message or the help of the given subcommand(s)'
+        }
+        &'innernet;install'= {
+            cand --hosts-path 'The path to write hosts to'
+            cand --name 'Set a specific interface name'
+            cand --no-write-hosts 'Don''t write to any hosts files'
+            cand --default-name 'Use the network name inside the invitation as the interface name'
+            cand -d 'Delete the invitation after a successful install'
+            cand --delete-invite 'Delete the invitation after a successful install'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;show'= {
+            cand -s 'One-line peer list'
+            cand --short 'One-line peer list'
+            cand -t 'Display peers in a tree based on the CIDRs'
+            cand --tree 'Display peers in a tree based on the CIDRs'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;up'= {
+            cand --interval 'Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode'
+            cand --hosts-path 'The path to write hosts to'
+            cand -d 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically'
+            cand --daemon 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically'
+            cand --no-write-hosts 'Don''t write to any hosts files'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;fetch'= {
+            cand --hosts-path 'The path to write hosts to'
+            cand --no-write-hosts 'Don''t write to any hosts files'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;uninstall'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;down'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;add-peer'= {
+            cand --name 'Name of new peer'
+            cand --ip 'Specify desired IP of new peer (within parent CIDR)'
+            cand --cidr 'Name of CIDR to add new peer under'
+            cand --admin 'Make new peer an admin?'
+            cand --save-config 'Save the config to the given location'
+            cand --invite-expires 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")'
+            cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;add-cidr'= {
+            cand --name 'The CIDR name (eg. "engineers")'
+            cand --cidr 'The CIDR network (eg. "10.42.5.0/24")'
+            cand --parent 'The CIDR parent name'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;delete-cidr'= {
+            cand --name 'The CIDR name (eg. "engineers")'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;disable-peer'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;enable-peer'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;add-association'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;delete-association'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;list-associations'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;set-listen-port'= {
+            cand -u 'Unset the local listen port to use a randomized port'
+            cand --unset 'Unset the local listen port to use a randomized port'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;override-endpoint'= {
+            cand -u 'Unset an existing override to use the automatic endpoint discovery'
+            cand --unset 'Unset an existing override to use the automatic endpoint discovery'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;completions'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;help'= {
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+    ]
+    $completions[$command]
+}
