@@ -14,7 +14,7 @@ use std::{
     thread,
     time::{Duration, SystemTime},
 };
-use structopt::StructOpt;
+use structopt::{clap::AppSettings, StructOpt};
 use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
@@ -37,13 +37,14 @@ macro_rules! println_pad {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "innernet", about)]
+#[structopt(name = "innernet", about, global_settings(&[AppSettings::ColoredHelp, AppSettings::DeriveDisplayOrder, AppSettings::VersionlessSubcommands, AppSettings::UnifiedHelpMessage]))]
 struct Opts {
     #[structopt(subcommand)]
     command: Option<Command>,
 
-    #[structopt(short, parse(from_occurrences))]
-    verbosity: u64,
+    /// Verbose output, use -vv for even higher verbositude.
+    #[structopt(short, long, parse(from_occurrences))]
+    verbose: u64,
 
     #[structopt(flatten)]
     network: NetworkOpt,
@@ -981,7 +982,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 
 fn main() {
     let opt = Opts::from_args();
-    util::init_logger(opt.verbosity);
+    util::init_logger(opt.verbose);
 
     if let Err(e) = run(opt) {
         println!();

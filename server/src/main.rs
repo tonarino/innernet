@@ -22,7 +22,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use structopt::StructOpt;
+use structopt::{clap::AppSettings, StructOpt};
 use subtle::ConstantTimeEq;
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
@@ -44,7 +44,7 @@ pub use shared::{Association, AssociationContents};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "innernet-server", about)]
+#[structopt(name = "innernet-server", about, global_settings(&[AppSettings::ColoredHelp, AppSettings::DeriveDisplayOrder, AppSettings::VersionlessSubcommands, AppSettings::UnifiedHelpMessage]))]
 struct Opt {
     #[structopt(subcommand)]
     command: Command,
