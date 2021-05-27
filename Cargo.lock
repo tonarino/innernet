@@ -159,7 +159,6 @@ dependencies = [
  "indoc",
  "ipnetwork",
  "lazy_static",
- "libc",
  "log",
  "regex",
  "serde",
