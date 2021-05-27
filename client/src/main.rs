@@ -9,7 +9,7 @@ use shared::{
     State, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
 };
 use std::{
-    fmt,
+    fmt, io,
     path::{Path, PathBuf},
     thread,
     time::{Duration, SystemTime},
@@ -824,16 +824,46 @@ fn show(
     let devices = interfaces
         .into_iter()
         .filter_map(|name| {
-            DataStore::open(&name)
-                .and_then(|store| {
-                    Ok((
-                        Device::get(&name, network.backend).with_str(name.as_str_lossy())?,
-                        store,
-                    ))
-                })
-                .ok()
+            match DataStore::open(&name) {
+                Ok(store) => {
+                    let device = Device::get(&name, network.backend).with_str(name.as_str_lossy());
+                    Some(device.map(|device| (device, store)))
+                },
+                // Skip WireGuard interfaces that aren't managed by innernet.
+                Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+                // Error on interfaces that *are* managed by innernet but are not readable.
+                Err(e) => Some(Err(e)),
+            }
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| {
+            if e.raw_os_error() == Some(1) {
+                let current_exe = std::env::current_exe()
+                    .ok()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "<innernet path>".into());
+                eprintdoc!(
+                    "{}: innernet can't access the device info.
+
+                        You either need to run innernet as root, or give innernet CAP_NET_ADMIN capabilities:
+
+                            sudo setcap cap_net_admin+eip {}
+                    ",
+                    "ERROR".bold().red(),
+                    current_exe
+                );
+            } else if e.kind() == io::ErrorKind::PermissionDenied {
+                eprintdoc!(
+                    "{}: innernet can't access its config/data folders.
+
+                        You either need to run innernet as root, or give the user running innernet permissions
+                        to access /etc/innernet and /var/lib/innernet.
+                    ",
+                    "ERROR".bold().red(),
+                );
+            }
+            e
+        })?;
 
     if devices.is_empty() {
         log::info!("No innernet networks currently running.");
