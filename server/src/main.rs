@@ -236,7 +236,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match opt.command {
         Command::New { opts } => {
             if let Err(e) = initialize::init_wizard(&conf, opts) {
-                println!("{}: {}.", "creation failed".red(), e);
+                eprintln!("{}: {}.", "creation failed".red(), e);
                 std::process::exit(1);
             }
         },
