@@ -992,15 +992,15 @@ fn main() {
 }
 
 fn run(opt: Opts) -> Result<(), Error> {
-    if unsafe { libc::getuid() } != 0 {
-        return Err("innernet must run as root.".into());
-    }
-
     let command = opt.command.unwrap_or(Command::Show {
         short: false,
         tree: false,
         interface: None,
     });
+
+    if unsafe { libc::getuid() } != 0 && !matches!(command, Command::Completions { .. }) {
+        return Err("innernet must run as root.".into());
+    }
 
     match command {
         Command::Install {

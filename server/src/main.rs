@@ -227,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     pretty_env_logger::init();
     let opt = Opt::from_args();
 
-    if unsafe { libc::getuid() } != 0 {
+    if unsafe { libc::getuid() } != 0 && !matches!(opt.command, Command::Completions { .. }) {
         return Err("innernet-server must run as root.".into());
     }
 
