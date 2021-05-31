@@ -16,7 +16,8 @@ edit:completion:arg-completer[innernet] = [@words]{
     completions = [
         &'innernet'= {
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
-            cand -v 'v'
+            cand -v 'Verbose output, use -vv for even higher verbositude'
+            cand --verbose 'Verbose output, use -vv for even higher verbositude'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
             cand -h 'Prints help information'
             cand --help 'Prints help information'
@@ -29,6 +30,7 @@ edit:completion:arg-completer[innernet] = [@words]{
             cand uninstall 'Uninstall an innernet network'
             cand down 'Bring down the interface (equivalent to "wg-quick down <interface>")'
             cand add-peer 'Add a new peer'
+            cand rename-peer 'Rename a peer'
             cand add-cidr 'Add a new CIDR'
             cand delete-cidr 'Delete a CIDR'
             cand disable-peer 'Disable an enabled peer'
@@ -102,6 +104,15 @@ edit:completion:arg-completer[innernet] = [@words]{
             cand --save-config 'Save the config to the given location'
             cand --invite-expires 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")'
             cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;rename-peer'= {
+            cand --name 'Name of peer to rename'
+            cand --new-name 'The new name of the peer'
             cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
             cand --help 'Prints help information'

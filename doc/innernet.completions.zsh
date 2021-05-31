@@ -16,7 +16,8 @@ _innernet() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(kernel userspace)' \
-'*-v[]' \
+'*-v[Verbose output, use -vv for even higher verbositude]' \
+'*--verbose[Verbose output, use -vv for even higher verbositude]' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
@@ -175,6 +176,18 @@ _arguments "${_arguments_options[@]}" \
 ':interface:_files' \
 && ret=0
 ;;
+(rename-peer)
+_arguments "${_arguments_options[@]}" \
+'--name=[Name of peer to rename]' \
+'--new-name=[The new name of the peer]' \
+'--yes[Bypass confirmation]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+':interface:_files' \
+&& ret=0
+;;
 (add-cidr)
 _arguments "${_arguments_options[@]}" \
 '--name=[The CIDR name (eg. "engineers")]' \
@@ -300,6 +313,7 @@ _innernet_commands() {
 "uninstall:Uninstall an innernet network" \
 "down:Bring down the interface (equivalent to "wg-quick down <interface>")" \
 "add-peer:Add a new peer" \
+"rename-peer:Rename a peer" \
 "add-cidr:Add a new CIDR" \
 "delete-cidr:Delete a CIDR" \
 "disable-peer:Disable an enabled peer" \
@@ -439,6 +453,13 @@ _redeem_commands() {
         
     )
     _describe -t commands 'redeem commands' commands "$@"
+}
+(( $+functions[_innernet__rename-peer_commands] )) ||
+_innernet__rename-peer_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'innernet rename-peer commands' commands "$@"
 }
 (( $+functions[_innernet__set-listen-port_commands] )) ||
 _innernet__set-listen-port_commands() {

@@ -21,7 +21,8 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
     $completions = @(switch ($command) {
         'innernet' {
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
-            [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'v')
+            [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Verbose output, use -vv for even higher verbositude')
+            [CompletionResult]::new('--verbose', 'verbose', [CompletionResultType]::ParameterName, 'Verbose output, use -vv for even higher verbositude')
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
@@ -34,6 +35,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Uninstall an innernet network')
             [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to "wg-quick down <interface>")')
             [CompletionResult]::new('add-peer', 'add-peer', [CompletionResultType]::ParameterValue, 'Add a new peer')
+            [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename a peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR')
             [CompletionResult]::new('delete-cidr', 'delete-cidr', [CompletionResultType]::ParameterValue, 'Delete a CIDR')
             [CompletionResult]::new('disable-peer', 'disable-peer', [CompletionResultType]::ParameterValue, 'Disable an enabled peer')
@@ -114,6 +116,16 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('--save-config', 'save-config', [CompletionResultType]::ParameterName, 'Save the config to the given location')
             [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")')
             [CompletionResult]::new('--auto-ip', 'auto-ip', [CompletionResultType]::ParameterName, 'Auto-assign the peer the first available IP within the CIDR')
+            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
+            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            break
+        }
+        'innernet;rename-peer' {
+            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'Name of peer to rename')
+            [CompletionResult]::new('--new-name', 'new-name', [CompletionResultType]::ParameterName, 'The new name of the peer')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')

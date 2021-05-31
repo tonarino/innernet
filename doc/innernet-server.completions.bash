@@ -34,6 +34,9 @@ _innernet-server() {
             new)
                 cmd+="__new"
                 ;;
+            rename-peer)
+                cmd+="__rename__peer"
+                ;;
             serve)
                 cmd+="__serve"
                 ;;
@@ -47,7 +50,7 @@ _innernet-server() {
 
     case "${cmd}" in
         innernet-server)
-            opts=" -h -V  --no-routing --help --version --backend   new uninstall serve add-peer add-cidr delete-cidr completions help  init init"
+            opts=" -h -V  --no-routing --help --version --backend   new uninstall serve add-peer rename-peer add-cidr delete-cidr completions help  init init"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -233,6 +236,29 @@ _innernet-server() {
                     return 0
                     ;;
                 --listen-port)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__server__rename__peer)
+            opts=" -h -V  --yes --help --version --name --new-name  <interface> "
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --new-name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

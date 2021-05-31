@@ -25,6 +25,7 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand uninstall 'Permanently uninstall a created network, rendering it unusable. Use with care'
             cand serve 'Serve the coordinating server for an existing network'
             cand add-peer 'Add a peer to an existing network'
+            cand rename-peer 'Rename an existing peer'
             cand add-cidr 'Add a new CIDR to an existing network'
             cand delete-cidr 'Delete a CIDR'
             cand completions 'Generate shell completion scripts'
@@ -63,6 +64,15 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --save-config 'Save the config to the given location'
             cand --invite-expires 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")'
             cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet-server;rename-peer'= {
+            cand --name 'Name of peer to rename'
+            cand --new-name 'The new name of the peer'
             cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
             cand --help 'Prints help information'

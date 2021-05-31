@@ -106,6 +106,18 @@ _arguments "${_arguments_options[@]}" \
 ':interface:_files' \
 && ret=0
 ;;
+(rename-peer)
+_arguments "${_arguments_options[@]}" \
+'--name=[Name of peer to rename]' \
+'--new-name=[The new name of the peer]' \
+'--yes[Bypass confirmation]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+':interface:_files' \
+&& ret=0
+;;
 (add-cidr)
 _arguments "${_arguments_options[@]}" \
 '--name=[The CIDR name (eg. "engineers")]' \
@@ -159,6 +171,7 @@ _innernet-server_commands() {
 "uninstall:Permanently uninstall a created network, rendering it unusable. Use with care" \
 "serve:Serve the coordinating server for an existing network" \
 "add-peer:Add a peer to an existing network" \
+"rename-peer:Rename an existing peer" \
 "add-cidr:Add a new CIDR to an existing network" \
 "delete-cidr:Delete a CIDR" \
 "completions:Generate shell completion scripts" \
@@ -221,6 +234,13 @@ _innernet-server__new_commands() {
         
     )
     _describe -t commands 'innernet-server new commands' commands "$@"
+}
+(( $+functions[_innernet-server__rename-peer_commands] )) ||
+_innernet-server__rename-peer_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'innernet-server rename-peer commands' commands "$@"
 }
 (( $+functions[_innernet-server__serve_commands] )) ||
 _innernet-server__serve_commands() {

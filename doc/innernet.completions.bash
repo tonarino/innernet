@@ -61,6 +61,9 @@ _innernet() {
             redeem)
                 cmd+="__redeem"
                 ;;
+            rename-peer)
+                cmd+="__rename__peer"
+                ;;
             set-listen-port)
                 cmd+="__set__listen__port"
                 ;;
@@ -80,7 +83,7 @@ _innernet() {
 
     case "${cmd}" in
         innernet)
-            opts=" -v -h -V  --no-routing --help --version --backend   install show up fetch uninstall down add-peer add-cidr delete-cidr disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help  redeem redeem  list list"
+            opts=" -v -h -V  --verbose --no-routing --help --version --backend   install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help  redeem redeem  list list"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -389,6 +392,29 @@ _innernet() {
                     return 0
                     ;;
                 --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__rename__peer)
+            opts=" -h -V  --yes --help --version --name --new-name  <interface> "
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --new-name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

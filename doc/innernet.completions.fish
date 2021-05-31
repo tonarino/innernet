@@ -1,5 +1,5 @@
 complete -c innernet -n "__fish_use_subcommand" -l backend -d 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability' -r -f -a "kernel userspace"
-complete -c innernet -n "__fish_use_subcommand" -s v
+complete -c innernet -n "__fish_use_subcommand" -s v -l verbose -d 'Verbose output, use -vv for even higher verbositude'
 complete -c innernet -n "__fish_use_subcommand" -l no-routing -d 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
 complete -c innernet -n "__fish_use_subcommand" -s h -l help -d 'Prints help information'
 complete -c innernet -n "__fish_use_subcommand" -s V -l version -d 'Prints version information'
@@ -10,6 +10,7 @@ complete -c innernet -n "__fish_use_subcommand" -f -a "fetch" -d 'Fetch and upda
 complete -c innernet -n "__fish_use_subcommand" -f -a "uninstall" -d 'Uninstall an innernet network'
 complete -c innernet -n "__fish_use_subcommand" -f -a "down" -d 'Bring down the interface (equivalent to "wg-quick down <interface>")'
 complete -c innernet -n "__fish_use_subcommand" -f -a "add-peer" -d 'Add a new peer'
+complete -c innernet -n "__fish_use_subcommand" -f -a "rename-peer" -d 'Rename a peer'
 complete -c innernet -n "__fish_use_subcommand" -f -a "add-cidr" -d 'Add a new CIDR'
 complete -c innernet -n "__fish_use_subcommand" -f -a "delete-cidr" -d 'Delete a CIDR'
 complete -c innernet -n "__fish_use_subcommand" -f -a "disable-peer" -d 'Disable an enabled peer'
@@ -56,6 +57,11 @@ complete -c innernet -n "__fish_seen_subcommand_from add-peer" -l auto-ip -d 'Au
 complete -c innernet -n "__fish_seen_subcommand_from add-peer" -l yes -d 'Bypass confirmation'
 complete -c innernet -n "__fish_seen_subcommand_from add-peer" -s h -l help -d 'Prints help information'
 complete -c innernet -n "__fish_seen_subcommand_from add-peer" -s V -l version -d 'Prints version information'
+complete -c innernet -n "__fish_seen_subcommand_from rename-peer" -l name -d 'Name of peer to rename'
+complete -c innernet -n "__fish_seen_subcommand_from rename-peer" -l new-name -d 'The new name of the peer'
+complete -c innernet -n "__fish_seen_subcommand_from rename-peer" -l yes -d 'Bypass confirmation'
+complete -c innernet -n "__fish_seen_subcommand_from rename-peer" -s h -l help -d 'Prints help information'
+complete -c innernet -n "__fish_seen_subcommand_from rename-peer" -s V -l version -d 'Prints version information'
 complete -c innernet -n "__fish_seen_subcommand_from add-cidr" -l name -d 'The CIDR name (eg. "engineers")'
 complete -c innernet -n "__fish_seen_subcommand_from add-cidr" -l cidr -d 'The CIDR network (eg. "10.42.5.0/24")'
 complete -c innernet -n "__fish_seen_subcommand_from add-cidr" -l parent -d 'The CIDR parent name'

@@ -75,6 +75,7 @@ jobs:
 
   build-rpm:
     name: 'Build RPM packages'
+    continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
       matrix:
