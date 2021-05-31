@@ -647,7 +647,7 @@ fn rename_peer(interface: &InterfaceName, opts: RenamePeerOpts) -> Result<(), Er
             .filter(|p| p.name == old_name)
             .map(|p| p.id)
             .next()
-            .ok_or_else(|| "Peer not found.")?;
+            .ok_or("Peer not found.")?;
 
         let _ = api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
         log::info!("Peer renamed.");

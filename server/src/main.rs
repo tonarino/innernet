@@ -336,7 +336,7 @@ fn rename_peer(
         let mut db_peer = DatabasePeer::list(&conn)?
             .into_iter()
             .find(|p| p.name == old_name)
-            .ok_or_else(|| "Peer not found.")?;
+            .ok_or( "Peer not found.")?;
         let _peer = db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");
