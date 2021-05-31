@@ -57,7 +57,7 @@ package = "innernet"
 buildflags = ["--release"]
 
 [package.metadata.rpm.files]
-"../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet.8.gz" }
+"../../doc/innernet.8.gz" = { path = "/usr/share/man/man8/innernet.8.gz" }
 "../innernet@.service" = { path = "/usr/lib/systemd/system/innernet@.service" }
 "../../doc/innernet.completions.bash" = { path = "/etc/bash_completion.d/innernet" }
 "../../doc/innernet.completions.fish" =  { path = "/usr/share/fish/vendor_completions.d/innernet.fish" }

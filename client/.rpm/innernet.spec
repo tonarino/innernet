@@ -38,3 +38,6 @@ rm -rf %{buildroot}
 %{_bindir}/*
 %attr(0644, root, root) "/usr/lib/systemd/system/innernet@.service"
 %attr(0644, root, root) "/usr/share/man/man8/innernet.8.gz"
+%attr(0644, root, root) "/etc/bash_completion.d/innernet"
+%attr(0644, root, root) "/usr/share/fish/vendor_completions.d/innernet.fish"
+%attr(0644, root, root) "/usr/share/zsh/site-functions/_innernet"
