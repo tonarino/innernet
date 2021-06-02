@@ -4,9 +4,8 @@ use std::net::{IpAddr, SocketAddr};
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 #[cfg(target_os = "macos")]
-fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
-    use process::{self, Command};
-    let output = Command::new(bin).args(args).output()?;
+fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, Error> {
+    let output = std::process::Command::new(bin).args(args).output()?;
     log::debug!("cmd: {} {}", bin, args.join(" "));
     log::debug!("status: {:?}", output.status.code());
     log::trace!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -39,18 +38,20 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
                 &addr.ip().to_string(),
                 "alias",
             ],
-        )?;
+        ).map(|_output| ())
     } else {
         cmd(
             "ifconfig",
             &[&real_interface, "inet6", &addr.to_string(), "alias"],
-        )?;
+        ).map(|_output| ())
     }
 }
 
 #[cfg(target_os = "macos")]
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), Error> {
-    cmd("ifconfig", &[&real_interface, "mtu", mtu.to_string()])?;
+    let real_interface =
+        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
+    cmd("ifconfig", &[&real_interface, "mtu", &mtu.to_string()])?;
     Ok(())
 }
 
