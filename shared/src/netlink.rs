@@ -1,13 +1,14 @@
-use crate::{Error, IoErrorContext, NetworkOpt};
+use crate::Error;
 use ipnetwork::IpNetwork;
-use netlink_packet_core::{NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST, NetlinkMessage, NetlinkPayload};
-use netlink_packet_route::{constants::*, RTN_UNICAST, RTPROT_STATIC, RT_SCOPE_LINK, RT_TABLE_MAIN, RouteHeader, RouteMessage, RtnlMessage, route::Nla};
-use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
-use std::{
-    net::{IpAddr},
-    process::{self, Command},
+use netlink_packet_core::{
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
 };
-use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
+use netlink_packet_route::{
+    constants::*, route::Nla, RouteHeader, RouteMessage, RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK,
+    RT_TABLE_MAIN,
+};
+use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
+use wgctrl::InterfaceName;
 
 pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Error> {
     let if_index = unsafe { libc::if_nametoindex(interface.as_ptr()) };
@@ -15,26 +16,26 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
         return Err("add_route: couldn't find interface with that name.".into());
     }
     let mut message = RouteMessage {
-            header: RouteHeader {
-                table: RT_TABLE_MAIN,
-                protocol: RTPROT_BOOT,
-                scope: RT_SCOPE_LINK,
-                kind: RTN_UNICAST,
-                address_family: AF_INET as u8,
-                destination_prefix_length: cidr.prefix(),
-                ..Default::default()
-            },
-            nlas: vec![],
-        };
+        header: RouteHeader {
+            table: RT_TABLE_MAIN,
+            protocol: RTPROT_BOOT,
+            scope: RT_SCOPE_LINK,
+            kind: RTN_UNICAST,
+            address_family: AF_INET as u8,
+            destination_prefix_length: cidr.prefix(),
+            ..Default::default()
+        },
+        nlas: vec![],
+    };
     match cidr {
         IpNetwork::V4(network) => {
             let dst = network.ip().octets().to_vec();
             message.nlas.push(Nla::Destination(dst))
-        }
+        },
         IpNetwork::V6(network) => {
             let dst = network.ip().octets().to_vec();
             message.nlas.push(Nla::Destination(dst))
-        }
+        },
     }
     message.nlas.push(Nla::Oif(if_index));
     let mut req = NetlinkMessage::from(RtnlMessage::NewRoute(message));
@@ -58,7 +59,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
     let response = NetlinkMessage::<RtnlMessage>::deserialize(&buf[..n_received])?;
     log::debug!("response: {:?}", response);
     if let NetlinkPayload::Error(e) = response.payload {
-        return Err(format!("netlink error {}", e.code).into())
+        return Err(format!("netlink error {}", e.code).into());
     }
 
     Ok(false)

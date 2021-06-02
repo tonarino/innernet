@@ -9,11 +9,11 @@ use std::{
 };
 
 pub mod interface_config;
+#[cfg(target_os = "linux")]
+mod netlink;
 pub mod prompts;
 pub mod types;
 pub mod wg;
-#[cfg(target_os = "linux")]
-mod netlink;
 
 pub use types::*;
 

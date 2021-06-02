@@ -1028,10 +1028,6 @@ fn run(opt: Opts) -> Result<(), Error> {
         interface: None,
     });
 
-    if unsafe { libc::getuid() } != 0 && !matches!(command, Command::Completions { .. }) {
-        return Err("innernet must run as root.".into());
-    }
-
     match command {
         Command::Install {
             invite,
