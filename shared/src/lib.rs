@@ -12,6 +12,8 @@ pub mod interface_config;
 pub mod prompts;
 pub mod types;
 pub mod wg;
+#[cfg(target_os = "linux")]
+mod netlink;
 
 pub use types::*;
 

@@ -146,17 +146,6 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
             Ok(!stderr.contains("File exists"))
         }
     } else {
-        // TODO(mcginty): use the netlink interface on linux to modify routing table.
-        let _ = cmd(
-            "ip",
-            &[
-                "route",
-                "add",
-                &IpNetwork::new(cidr.network(), cidr.prefix())?.to_string(),
-                "dev",
-                &interface.to_string(),
-            ],
-        );
-        Ok(false)
+        super::netlink::add_route(interface, cidr)
     }
 }

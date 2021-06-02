@@ -165,7 +165,7 @@ impl InterfaceName {
 
     #[cfg(target_os = "linux")]
     /// Returns a pointer to the inner byte buffer for FFI calls.
-    pub(crate) fn as_ptr(&self) -> *const c_char {
+    pub fn as_ptr(&self) -> *const c_char {
         self.0.as_ptr()
     }
 

@@ -12,6 +12,7 @@ dialoguer = "0.8"
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 lazy_static = "1"
+libc = "0.2"
 log = "0.4"
 publicip = { path = "../publicip" }
 regex = "1"
@@ -20,3 +21,9 @@ structopt = "0.3"
 toml = "0.5"
 url = "2"
 wgctrl = { path = "../wgctrl-rs" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+netlink-sys = "0.6"
+netlink-packet-core = "0.2"
+netlink-packet-route = "0.7"
+wgctrl-sys = { path = "../wgctrl-sys" }
