@@ -13,13 +13,12 @@ fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, Error> {
     if output.status.success() {
         Ok(output)
     } else {
-        Err(format!(
+        Err(anyhow::anyhow!(
             "failed to run {} {} command: {}",
             bin,
             args.join(" "),
             String::from_utf8_lossy(&output.stderr)
-        )
-        .into())
+        ))
     }
 }
 
@@ -136,11 +135,10 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
     )?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        Err(format!(
+        Err(anyhow::anyhow!(
             "failed to add route for device {} ({}): {}",
             &interface, real_interface, stderr
-        )
-        .into())
+        ))
     } else {
         Ok(!stderr.contains("File exists"))
     }

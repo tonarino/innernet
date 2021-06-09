@@ -1,12 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    fs::{self, File, OpenOptions},
-    io::{self, BufRead, BufReader, ErrorKind, Write},
-    net::IpAddr,
-    path::{Path, PathBuf},
-    result,
-};
+use std::{collections::HashMap, fmt, fs::OpenOptions, io::{self, BufRead, BufReader, ErrorKind, Write}, mem, net::IpAddr, path::{Path, PathBuf}, result};
 
 pub type Result<T> = result::Result<T, Box<dyn std::error::Error>>;
 
@@ -189,17 +181,12 @@ impl HostsBuilder {
             },
         };
 
-        // The tempfile should be in the same filesystem as the hosts file.
-        let hosts_dir = hosts_path
-            .parent()
-            .expect("hosts file must be an absolute file path");
-        let temp_dir = tempfile::Builder::new().tempdir_in(hosts_dir)?;
-        let temp_path = temp_dir.path().join("hosts");
-
-        // Copy the existing hosts file to preserve permissions.
-        fs::copy(&hosts_path, &temp_path)?;
-
-        let mut file = File::create(&temp_path)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open(hosts_path)?;
 
         for line in &lines[..insert] {
             writeln!(&mut file, "{}", line)?;
@@ -222,9 +209,6 @@ impl HostsBuilder {
         for line in &lines[insert..] {
             writeln!(&mut file, "{}", line)?;
         }
-
-        // Move the file atomically to avoid a partial state.
-        fs::rename(&temp_path, &hosts_path)?;
 
         Ok(())
     }
