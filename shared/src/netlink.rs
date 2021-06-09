@@ -1,4 +1,5 @@
 use crate::Error;
+use anyhow::anyhow;
 use ipnetwork::IpNetwork;
 use netlink_packet_core::{
     NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
@@ -13,7 +14,7 @@ use wgctrl::InterfaceName;
 
 fn if_nametoindex(interface: &InterfaceName) -> Result<u32, Error> {
     match unsafe { libc::if_nametoindex(interface.as_ptr()) } {
-        0 => Err(format!("couldn't find interface '{}'.", interface).into()),
+        0 => Err(anyhow!("couldn't find interface '{}'.", interface)),
         index => Ok(index),
     }
 }
@@ -29,7 +30,7 @@ fn netlink_call(
     req.serialize(&mut buf);
     let len = req.buffer_len();
 
-    log::debug!("request: {:?}", req);
+    log::debug!("netlink request: {:?}", req);
     let socket = Socket::new(NETLINK_ROUTE).unwrap();
     let kernel_addr = SocketAddr::new(0, 0);
     socket.connect(&kernel_addr)?;

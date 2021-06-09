@@ -116,14 +116,7 @@ impl InterfaceConfig {
 
     pub fn from_interface(interface: &InterfaceName) -> Result<Self, Error> {
         let path = Self::build_config_file_path(interface)?;
-        let file = File::open(&path).with_path(&path)?;
-        if crate::chmod(&file, 0o600)? {
-            println!(
-                "{} updated permissions for {} to 0600.",
-                "[!]".yellow(),
-                path.display()
-            );
-        }
+        crate::warn_on_dangerous_mode(&path).with_path(&path)?;
         Self::from_file(path)
     }
 

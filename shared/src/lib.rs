@@ -1,4 +1,4 @@
-use colored::*;
+pub use anyhow::Error;
 use lazy_static::lazy_static;
 use std::{
     fs::{self, File},
@@ -28,8 +28,6 @@ lazy_static! {
 pub const PERSISTENT_KEEPALIVE_INTERVAL_SECS: u16 = 25;
 pub const INNERNET_PUBKEY_HEADER: &str = "X-Innernet-Server-Key";
 
-pub type Error = Box<dyn std::error::Error>;
-
 pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
     for dir in dirs {
         match fs::create_dir(dir).with_path(dir) {
@@ -37,16 +35,25 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
                 return Err(e);
             },
             _ => {
-                let target_file = File::open(dir).with_path(dir)?;
-                if chmod(&target_file, 0o700).with_path(dir)? {
-                    println!(
-                        "{} updated permissions for {} to 0700.",
-                        "[!]".yellow(),
-                        dir.display()
-                    );
-                }
+                warn_on_dangerous_mode(dir).with_path(dir)?;
             },
         }
+    }
+    Ok(())
+}
+
+pub fn warn_on_dangerous_mode(path: &Path) -> Result<(), io::Error> {
+    let file = File::open(path)?;
+    let metadata = file.metadata()?;
+    let permissions = metadata.permissions();
+    let mode = permissions.mode() & 0o777;
+
+    if mode & 0o007 != 0 {
+        log::warn!(
+            "{} is world-accessible (mode is {:#05o}). This is probably not what you want.",
+            path.to_string_lossy(),
+            mode
+        );
     }
     Ok(())
 }

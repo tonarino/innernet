@@ -4,6 +4,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display, Formatter},
+    io,
     net::{IpAddr, SocketAddr, ToSocketAddrs},
     ops::Deref,
     path::Path,
@@ -121,14 +122,14 @@ impl fmt::Display for Endpoint {
 }
 
 impl Endpoint {
-    pub fn resolve(&self) -> Result<SocketAddr, String> {
-        let mut addrs = self
-            .to_string()
-            .to_socket_addrs()
-            .map_err(|e| e.to_string())?;
-        addrs
-            .next()
-            .ok_or_else(|| "failed to resolve address".to_string())
+    pub fn resolve(&self) -> Result<SocketAddr, io::Error> {
+        let mut addrs = self.to_string().to_socket_addrs()?;
+        addrs.next().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "failed to resolve address".to_string(),
+            )
+        })
     }
 }
 

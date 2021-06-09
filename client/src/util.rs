@@ -1,19 +1,27 @@
 use crate::{ClientError, Error};
 use colored::*;
+use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
-use shared::{interface_config::ServerInfo, INNERNET_PUBKEY_HEADER};
-use std::time::Duration;
+use shared::{interface_config::ServerInfo, WrappedIoError, INNERNET_PUBKEY_HEADER};
+use std::{io, time::Duration};
 use ureq::{Agent, AgentBuilder};
 
 static LOGGER: Logger = Logger;
 struct Logger;
+
+const BASE_MODULES: &[&str] = &["innernet", "shared"];
+
+fn target_is_base(target: &str) -> bool {
+    BASE_MODULES
+        .iter()
+        .any(|module| module == &target || target.starts_with(&format!("{}::", module)))
+}
+
 impl log::Log for Logger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
         metadata.level() <= log::max_level()
-            && (log::max_level() == LevelFilter::Trace
-                || metadata.target().starts_with("shared::")
-                || metadata.target() == "innernet")
+            && (log::max_level() == LevelFilter::Trace || target_is_base(metadata.target()))
     }
 
     fn log(&self, record: &log::Record) {
@@ -25,7 +33,7 @@ impl log::Log for Logger {
                 Level::Debug => "[D]".blue(),
                 Level::Trace => "[T]".purple(),
             };
-            if record.level() <= LevelFilter::Debug && record.target() != "innernet" {
+            if record.level() <= LevelFilter::Debug && !target_is_base(record.target()) {
                 println!(
                     "{} {} {}",
                     level_str,
@@ -91,6 +99,41 @@ pub fn human_size(bytes: u64) -> String {
         n if n < 2 * GB => format!("{:.2} {}", n as f64 / MB as f64, "MiB".cyan()),
         n if n < 2 * TB => format!("{:.2} {}", n as f64 / GB as f64, "GiB".cyan()),
         n => format!("{:.2} {}", n as f64 / TB as f64, "TiB".cyan()),
+    }
+}
+
+pub fn permissions_helptext(e: &WrappedIoError) {
+    if e.raw_os_error() == Some(1) {
+        let current_exe = std::env::current_exe()
+            .ok()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "<innernet path>".into());
+        eprintdoc!(
+            "{}: innernet can't access the device info.
+
+                You either need to run innernet as root, or give innernet CAP_NET_ADMIN capabilities:
+
+                    sudo setcap cap_net_admin+eip {}
+            ",
+            "ERROR".bold().red(),
+            current_exe
+        );
+    } else if e.kind() == io::ErrorKind::PermissionDenied {
+        eprintdoc!(
+            "{}: innernet can't access its config/data folders.
+
+                You either need to run innernet as root, or give the user/group running innernet permissions
+                to access {config} and {data}.
+
+                For non-root permissions, it's recommended to create an \"innernet\" group, and run for example:
+
+                    sudo chgrp -R innernet {config} {data}
+                    sudo chmod -R g+rwX {config} {data}
+            ",
+            "ERROR".bold().red(),
+            config = shared::CLIENT_CONFIG_DIR.to_string_lossy(),
+            data = shared::CLIENT_DATA_DIR.to_string_lossy(),
+        );
     }
 }
 

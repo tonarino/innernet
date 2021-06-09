@@ -38,12 +38,14 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
                 &addr.ip().to_string(),
                 "alias",
             ],
-        ).map(|_output| ())
+        )
+        .map(|_output| ())
     } else {
         cmd(
             "ifconfig",
             &[&real_interface, "inet6", &addr.to_string(), "alias"],
-        ).map(|_output| ())
+        )
+        .map(|_output| ())
     }
 }
 

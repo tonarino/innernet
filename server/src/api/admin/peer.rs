@@ -229,7 +229,7 @@ mod tests {
         let old_peer = DatabasePeer::get(&server.db.lock(), test::DEVELOPER1_PEER_ID)?;
 
         let change = PeerContents {
-            name: "new-peer-name".parse()?,
+            name: "new-peer-name".parse().unwrap(),
             ..old_peer.contents.clone()
         };
 

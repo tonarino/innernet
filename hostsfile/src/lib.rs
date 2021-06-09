@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fmt,
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, ErrorKind, Write},
     net::IpAddr,
     path::{Path, PathBuf},
     result,
@@ -115,7 +115,7 @@ impl HostsBuilder {
 
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
     /// same tag name already, it will be replaced with the new list instead.
-    pub fn write(&self) -> Result<()> {
+    pub fn write(&self) -> io::Result<()> {
         let hosts_file = if cfg!(unix) {
             PathBuf::from("/etc/hosts")
         } else if cfg!(windows) {
@@ -124,18 +124,21 @@ impl HostsBuilder {
                 // the location depends on the environment variable %WinDir%.
                 format!(
                     "{}\\System32\\Drivers\\Etc\\hosts",
-                    std::env::var("WinDir")?
+                    std::env::var("WinDir").map_err(|_| io::Error::new(
+                        ErrorKind::Other,
+                        "WinDir environment variable missing".to_owned()
+                    ))?
                 ),
             )
         } else {
-            return Err(Box::new(Error("unsupported operating system.".to_owned())));
+            return Err(io::Error::new(
+                ErrorKind::Other,
+                "unsupported operating system.".to_owned(),
+            ));
         };
 
         if !hosts_file.exists() {
-            return Err(Box::new(Error(format!(
-                "hosts file {:?} missing",
-                &hosts_file
-            ))));
+            return Err(ErrorKind::NotFound.into());
         }
 
         self.write_to(&hosts_file)
@@ -146,7 +149,7 @@ impl HostsBuilder {
     ///
     /// On Windows, the format of one hostname per line will be used, all other systems will use
     /// the same format as Unix and Unix-like systems (i.e. allow multiple hostnames per line).
-    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> Result<()> {
+    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<()> {
         let hosts_path = hosts_path.as_ref();
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
@@ -179,10 +182,10 @@ impl HostsBuilder {
                 lines.len()
             },
             _ => {
-                return Err(Box::new(Error(format!(
-                    "start or end marker missing in {:?}",
-                    &hosts_path
-                ))));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("start or end marker missing in {:?}", &hosts_path),
+                ));
             },
         };
 

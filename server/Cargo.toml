@@ -13,6 +13,7 @@ name = "innernet-server"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = "1"
 bytes = "1"
 colored = "2"
 dialoguer = "0.8"

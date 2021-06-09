@@ -14,6 +14,7 @@ name = "innernet"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = "1"
 colored = "2"
 dialoguer = "0.8"
 hostsfile = { path = "../hostsfile" }
