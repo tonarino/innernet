@@ -2,21 +2,24 @@
 ## Builder
 ####################################################################################################
 FROM rust:slim as planner
-RUN apt-get update && apt-get install -y build-essential clang libclang-dev libsqlite3-dev
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
 RUN cargo install cargo-chef 
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM rust:slim as cacher
-RUN apt-get update && apt-get install -y build-essential clang libclang-dev libsqlite3-dev
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
 RUN cargo install cargo-chef
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 FROM rust:slim as builder
-RUN apt-get update && apt-get install -y build-essential clang libclang-dev libsqlite3-dev
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
 
 COPY . .
@@ -27,7 +30,8 @@ RUN strip /app/target/release/innernet
 FROM golang:latest as wireguard
 ARG wg_go_tag=0.0.20210323
 ARG wg_tools_tag=v1.0.20210315
-RUN apt-get update && apt-get install -y git
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git
 
 RUN git clone -b $wg_go_tag --depth 1 https://git.zx2c4.com/wireguard-go && \
     cd wireguard-go && \
@@ -45,7 +49,9 @@ RUN git clone -b $wg_tools_tag --depth 1 https://git.zx2c4.com/wireguard-tools &
 ## Final image
 ####################################################################################################
 FROM debian:buster-slim
-RUN apt-get update && apt-get install -y libsqlite3-dev iproute2 iputils-ping && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libsqlite3-dev iproute2 iputils-ping && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
