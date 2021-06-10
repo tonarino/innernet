@@ -108,6 +108,11 @@ impl HostsBuilder {
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
     /// same tag name already, it will be replaced with the new list instead.
     pub fn write(&self) -> io::Result<()> {
+        self.write_to(&Self::default_path()?)
+    }
+
+    /// Returns the default hosts path based on the current OS.
+    pub fn default_path() -> io::Result<PathBuf> {
         let hosts_file = if cfg!(unix) {
             PathBuf::from("/etc/hosts")
         } else if cfg!(windows) {
@@ -133,7 +138,7 @@ impl HostsBuilder {
             return Err(ErrorKind::NotFound.into());
         }
 
-        self.write_to(&hosts_file)
+        Ok(hosts_file)
     }
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
@@ -181,34 +186,37 @@ impl HostsBuilder {
             },
         };
 
-        let mut file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .truncate(true)
-            .open(hosts_path)?;
+        let mut s = vec![];
 
         for line in &lines[..insert] {
-            writeln!(&mut file, "{}", line)?;
+            writeln!(&mut s, "{}", line)?;
         }
         if !self.hostname_map.is_empty() {
-            writeln!(&mut file, "{}", begin_marker)?;
+            writeln!(&mut s, "{}", begin_marker)?;
             for (ip, hostnames) in &self.hostname_map {
                 if cfg!(windows) {
                     // windows only allows one hostname per line
                     for hostname in hostnames {
-                        writeln!(&mut file, "{} {}", ip, hostname)?;
+                        writeln!(&mut s, "{} {}", ip, hostname)?;
                     }
                 } else {
                     // assume the same format as Unix
-                    writeln!(&mut file, "{} {}", ip, hostnames.join(" "))?;
+                    writeln!(&mut s, "{} {}", ip, hostnames.join(" "))?;
                 }
             }
-            writeln!(&mut file, "{}", end_marker)?;
+            writeln!(&mut s, "{}", end_marker)?;
         }
         for line in &lines[insert..] {
-            writeln!(&mut file, "{}", line)?;
+            writeln!(&mut s, "{}", line)?;
         }
+
+        OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open(hosts_path)?
+            .write_all(&s)?;
 
         Ok(())
     }
