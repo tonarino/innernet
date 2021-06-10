@@ -1,4 +1,5 @@
 use crate::*;
+use anyhow::anyhow;
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
@@ -63,7 +64,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             parent: None,
         },
     )
-    .map_err(|_| "failed to create root CIDR".to_string())?;
+    .map_err(|_| anyhow!("failed to create root CIDR"))?;
 
     let server_cidr = DatabaseCidr::create(
         &conn,
@@ -73,12 +74,12 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             parent: Some(root_cidr.id),
         },
     )
-    .map_err(|_| "failed to create innernet-server CIDR".to_string())?;
+    .map_err(|_| anyhow!("failed to create innernet-server CIDR"))?;
 
     let _me = DatabasePeer::create(
         &conn,
         PeerContents {
-            name: SERVER_NAME.parse()?,
+            name: SERVER_NAME.parse().map_err(|e: &str| anyhow!(e))?,
             ip: db_init_data.our_ip,
             cidr_id: server_cidr.id,
             public_key: db_init_data.public_key_base64,
@@ -90,7 +91,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             invite_expires: None,
         },
     )
-    .map_err(|_| "failed to create innernet peer.".to_string())?;
+    .map_err(|_| anyhow!("failed to create innernet peer."))?;
 
     Ok(())
 }
@@ -99,7 +100,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let theme = ColorfulTheme::default();
 
     shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(|_| {
-        format!(
+        anyhow!(
             "Failed to create config and database directories {}",
             "(are you not running as root?)".bold()
         )
@@ -139,7 +140,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
     } else if opts.auto_external_endpoint {
-        let ip = publicip::get_any(Preference::Ipv4).ok_or("couldn't get external IP")?;
+        let ip = publicip::get_any(Preference::Ipv4).ok_or(anyhow!("couldn't get external IP"))?;
         SocketAddr::new(ip, 51820).into()
     } else {
         prompts::ask_endpoint()?
@@ -152,7 +153,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .with_prompt("Listen port")
             .default(51820)
             .interact()
-            .map_err(|_| "failed to get listen port.")?
+            .map_err(|_| anyhow!("failed to get listen port."))?
     };
 
     let our_ip = root_cidr
@@ -185,7 +186,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
 
     let database_path = conf.database_path(&name);
     let conn = create_database(&database_path).map_err(|_| {
-        format!(
+        anyhow!(
             "failed to create database {}",
             "(are you not running as root?)".bold()
         )

@@ -221,7 +221,7 @@ pub fn peer_contents(
     let public_key = KeyPair::generate().public;
 
     Ok(PeerContents {
-        name: name.parse()?,
+        name: name.parse().map_err(|e: &str| anyhow!(e))?,
         ip: ip_str.parse()?,
         cidr_id,
         public_key: public_key.to_base64(),

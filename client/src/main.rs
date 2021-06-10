@@ -1,3 +1,4 @@
+use anyhow::{anyhow, bail};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
@@ -6,10 +7,10 @@ use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, DeleteCidrOpts, EndpointContents,
     InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, RedeemContents, RenamePeerOpts,
-    State, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
+    State, WrappedIoError, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
 };
 use std::{
-    fmt,
+    fmt, io,
     path::{Path, PathBuf},
     thread,
     time::{Duration, SystemTime},
@@ -245,7 +246,9 @@ fn update_hosts_file(
             &format!("{}.{}.wg", peer.contents.name, interface),
         );
     }
-    hosts_builder.write_to(hosts_path)?;
+    if let Err(e) = hosts_builder.write_to(&hosts_path).with_path(hosts_path) {
+        log::warn!("failed to update hosts ({})", e);
+    }
 
     Ok(())
 }
@@ -272,7 +275,7 @@ fn install(
 
     let target_conf = CLIENT_CONFIG_DIR.join(&iface).with_extension("conf");
     if target_conf.exists() {
-        return Err("An interface with this name already exists in innernet.".into());
+        bail!("An interface with this name already exists in innernet.");
     }
 
     let iface = iface.parse()?;
@@ -423,11 +426,10 @@ fn fetch(
 
     if !interface_up {
         if !bring_up_interface {
-            return Err(format!(
+            bail!(
                 "Interface is not up. Use 'innernet up {}' instead",
                 interface
-            )
-            .into());
+            );
         }
 
         log::info!("bringing up the interface.");
@@ -647,7 +649,7 @@ fn rename_peer(interface: &InterfaceName, opts: RenamePeerOpts) -> Result<(), Er
             .filter(|p| p.name == old_name)
             .map(|p| p.id)
             .next()
-            .ok_or("Peer not found.")?;
+            .ok_or(anyhow!("Peer not found."))?;
 
         let _ = api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
         log::info!("Peer renamed.");
@@ -687,11 +689,11 @@ fn add_association(interface: &InterfaceName, opts: AddAssociationOpts) -> Resul
         let cidr1 = cidrs
             .iter()
             .find(|c| &c.name == cidr1)
-            .ok_or(format!("can't find cidr '{}'", cidr1))?;
+            .ok_or(anyhow!("can't find cidr '{}'", cidr1))?;
         let cidr2 = cidrs
             .iter()
             .find(|c| &c.name == cidr2)
-            .ok_or(format!("can't find cidr '{}'", cidr2))?;
+            .ok_or(anyhow!("can't find cidr '{}'", cidr2))?;
         (cidr1, cidr2)
     } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
         (cidr1, cidr2)
@@ -824,16 +826,18 @@ fn show(
     let devices = interfaces
         .into_iter()
         .filter_map(|name| {
-            DataStore::open(&name)
-                .and_then(|store| {
-                    Ok((
-                        Device::get(&name, network.backend).with_str(name.as_str_lossy())?,
-                        store,
-                    ))
-                })
-                .ok()
+            match DataStore::open(&name) {
+                Ok(store) => {
+                    let device = Device::get(&name, network.backend).with_str(name.as_str_lossy());
+                    Some(device.map(|device| (device, store)))
+                },
+                // Skip WireGuard interfaces that aren't managed by innernet.
+                Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+                // Error on interfaces that *are* managed by innernet but are not readable.
+                Err(e) => Some(Err(e)),
+            }
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
     if devices.is_empty() {
         log::info!("No innernet networks currently running.");
@@ -846,7 +850,7 @@ fn show(
         let me = peers
             .iter()
             .find(|p| p.public_key == device_info.public_key.as_ref().unwrap().to_base64())
-            .ok_or("missing peer info")?;
+            .ok_or(anyhow!("missing peer info"))?;
 
         let mut peer_states = device_info
             .peers
@@ -858,7 +862,7 @@ fn show(
                         peer,
                         info: Some(info),
                     }),
-                    None => Err(format!("peer {} isn't an innernet peer.", public_key)),
+                    None => Err(anyhow!("peer {} isn't an innernet peer.", public_key)),
                 }
             })
             .collect::<Result<Vec<PeerState>, _>>()?;
@@ -987,6 +991,9 @@ fn main() {
     if let Err(e) = run(opt) {
         println!();
         log::error!("{}\n", e);
+        if let Some(e) = e.downcast_ref::<WrappedIoError>() {
+            util::permissions_helptext(e);
+        }
         std::process::exit(1);
     }
 }
@@ -997,10 +1004,6 @@ fn run(opt: Opts) -> Result<(), Error> {
         tree: false,
         interface: None,
     });
-
-    if unsafe { libc::getuid() } != 0 && !matches!(command, Command::Completions { .. }) {
-        return Err("innernet must run as root.".into());
-    }
 
     match command {
         Command::Install {

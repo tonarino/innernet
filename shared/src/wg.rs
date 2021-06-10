@@ -1,13 +1,11 @@
 use crate::{Error, IoErrorContext, NetworkOpt};
 use ipnetwork::IpNetwork;
-use std::{
-    net::{IpAddr, SocketAddr},
-    process::{self, Command},
-};
+use std::net::{IpAddr, SocketAddr};
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
-fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
-    let output = Command::new(bin).args(args).output()?;
+#[cfg(target_os = "macos")]
+fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, Error> {
+    let output = std::process::Command::new(bin).args(args).output()?;
     log::debug!("cmd: {} {}", bin, args.join(" "));
     log::debug!("status: {:?}", output.status.code());
     log::trace!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -15,13 +13,12 @@ fn cmd(bin: &str, args: &[&str]) -> Result<process::Output, Error> {
     if output.status.success() {
         Ok(output)
     } else {
-        Err(format!(
+        Err(anyhow::anyhow!(
             "failed to run {} {} command: {}",
             bin,
             args.join(" "),
             String::from_utf8_lossy(&output.stderr)
-        )
-        .into())
+        ))
     }
 }
 
@@ -40,30 +37,30 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
                 &addr.ip().to_string(),
                 "alias",
             ],
-        )?;
+        )
+        .map(|_output| ())
     } else {
         cmd(
             "ifconfig",
             &[&real_interface, "inet6", &addr.to_string(), "alias"],
-        )?;
+        )
+        .map(|_output| ())
     }
-    cmd("ifconfig", &[&real_interface, "mtu", "1420"])?;
+}
+
+#[cfg(target_os = "macos")]
+pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), Error> {
+    let real_interface =
+        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
+    cmd("ifconfig", &[&real_interface, "mtu", &mtu.to_string()])?;
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
-pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error> {
-    let interface = interface.to_string();
-    cmd(
-        "ip",
-        &["address", "replace", &addr.to_string(), "dev", &interface],
-    )?;
-    cmd(
-        "ip",
-        &["link", "set", "mtu", "1420", "up", "dev", &interface],
-    )?;
-    Ok(())
-}
+pub use super::netlink::set_addr;
+
+#[cfg(target_os = "linux")]
+pub use super::netlink::set_up;
 
 pub fn up(
     interface: &InterfaceName,
@@ -88,6 +85,7 @@ pub fn up(
         .set_private_key(wgctrl::Key::from_base64(&private_key).unwrap())
         .apply(interface, network.backend)?;
     set_addr(interface, address)?;
+    set_up(interface, 1420)?;
     if !network.no_routing {
         add_route(interface, address)?;
     }
@@ -120,43 +118,31 @@ pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
 /// Add a route in the OS's routing table to get traffic flowing through this interface.
 /// Returns an error if the process doesn't exit successfully, otherwise returns
 /// true if the route was changed, false if the route already exists.
+#[cfg(target_os = "macos")]
 pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Error> {
-    if cfg!(target_os = "macos") {
-        let real_interface =
-            wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
-        let output = cmd(
-            "route",
-            &[
-                "-n",
-                "add",
-                if cidr.is_ipv4() { "-inet" } else { "-inet6" },
-                &cidr.to_string(),
-                "-interface",
-                &real_interface,
-            ],
-        )?;
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if !output.status.success() {
-            Err(format!(
-                "failed to add route for device {} ({}): {}",
-                &interface, real_interface, stderr
-            )
-            .into())
-        } else {
-            Ok(!stderr.contains("File exists"))
-        }
+    let real_interface =
+        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
+    let output = cmd(
+        "route",
+        &[
+            "-n",
+            "add",
+            if cidr.is_ipv4() { "-inet" } else { "-inet6" },
+            &cidr.to_string(),
+            "-interface",
+            &real_interface,
+        ],
+    )?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        Err(anyhow::anyhow!(
+            "failed to add route for device {} ({}): {}",
+            &interface, real_interface, stderr
+        ))
     } else {
-        // TODO(mcginty): use the netlink interface on linux to modify routing table.
-        let _ = cmd(
-            "ip",
-            &[
-                "route",
-                "add",
-                &IpNetwork::new(cidr.network(), cidr.prefix())?.to_string(),
-                "dev",
-                &interface.to_string(),
-            ],
-        );
-        Ok(false)
+        Ok(!stderr.contains("File exists"))
     }
 }
+
+#[cfg(target_os = "linux")]
+pub use super::netlink::add_route;

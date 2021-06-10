@@ -1,5 +1,5 @@
 use crate::Error;
-use colored::*;
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_DIR};
 use std::{
@@ -35,13 +35,7 @@ impl DataStore {
             .open(path)
             .with_path(path)?;
 
-        if shared::chmod(&file, 0o600).with_path(path)? {
-            println!(
-                "{} updated permissions for {} to 0600.",
-                "[!]".yellow(),
-                path.display()
-            );
-        }
+        shared::warn_on_dangerous_mode(path).with_path(path)?;
 
         let mut json = String::new();
         file.read_to_string(&mut json).with_path(path)?;
@@ -94,9 +88,7 @@ impl DataStore {
         for new_peer in current_peers.iter() {
             if let Some(existing_peer) = peers.iter_mut().find(|p| p.ip == new_peer.ip) {
                 if existing_peer.public_key != new_peer.public_key {
-                    return Err(
-                        "PINNING ERROR: New peer has same IP but different public key.".into(),
-                    );
+                    bail!("PINNING ERROR: New peer has same IP but different public key.");
                 } else {
                     *existing_peer = new_peer.clone();
                 }

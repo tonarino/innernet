@@ -1,12 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Write},
-    net::IpAddr,
-    path::{Path, PathBuf},
-    result,
-};
+use std::{collections::HashMap, fmt, fs::OpenOptions, io::{self, BufRead, BufReader, ErrorKind, Write}, net::IpAddr, path::{Path, PathBuf}, result};
 
 pub type Result<T> = result::Result<T, Box<dyn std::error::Error>>;
 
@@ -115,7 +107,12 @@ impl HostsBuilder {
 
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
     /// same tag name already, it will be replaced with the new list instead.
-    pub fn write(&self) -> Result<()> {
+    pub fn write(&self) -> io::Result<()> {
+        self.write_to(&Self::default_path()?)
+    }
+
+    /// Returns the default hosts path based on the current OS.
+    pub fn default_path() -> io::Result<PathBuf> {
         let hosts_file = if cfg!(unix) {
             PathBuf::from("/etc/hosts")
         } else if cfg!(windows) {
@@ -124,21 +121,24 @@ impl HostsBuilder {
                 // the location depends on the environment variable %WinDir%.
                 format!(
                     "{}\\System32\\Drivers\\Etc\\hosts",
-                    std::env::var("WinDir")?
+                    std::env::var("WinDir").map_err(|_| io::Error::new(
+                        ErrorKind::Other,
+                        "WinDir environment variable missing".to_owned()
+                    ))?
                 ),
             )
         } else {
-            return Err(Box::new(Error("unsupported operating system.".to_owned())));
+            return Err(io::Error::new(
+                ErrorKind::Other,
+                "unsupported operating system.".to_owned(),
+            ));
         };
 
         if !hosts_file.exists() {
-            return Err(Box::new(Error(format!(
-                "hosts file {:?} missing",
-                &hosts_file
-            ))));
+            return Err(ErrorKind::NotFound.into());
         }
 
-        self.write_to(&hosts_file)
+        Ok(hosts_file)
     }
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
@@ -146,7 +146,7 @@ impl HostsBuilder {
     ///
     /// On Windows, the format of one hostname per line will be used, all other systems will use
     /// the same format as Unix and Unix-like systems (i.e. allow multiple hostnames per line).
-    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> Result<()> {
+    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<()> {
         let hosts_path = hosts_path.as_ref();
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
@@ -179,49 +179,44 @@ impl HostsBuilder {
                 lines.len()
             },
             _ => {
-                return Err(Box::new(Error(format!(
-                    "start or end marker missing in {:?}",
-                    &hosts_path
-                ))));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("start or end marker missing in {:?}", &hosts_path),
+                ));
             },
         };
 
-        // The tempfile should be in the same filesystem as the hosts file.
-        let hosts_dir = hosts_path
-            .parent()
-            .expect("hosts file must be an absolute file path");
-        let temp_dir = tempfile::Builder::new().tempdir_in(hosts_dir)?;
-        let temp_path = temp_dir.path().join("hosts");
-
-        // Copy the existing hosts file to preserve permissions.
-        fs::copy(&hosts_path, &temp_path)?;
-
-        let mut file = File::create(&temp_path)?;
+        let mut s = vec![];
 
         for line in &lines[..insert] {
-            writeln!(&mut file, "{}", line)?;
+            writeln!(&mut s, "{}", line)?;
         }
         if !self.hostname_map.is_empty() {
-            writeln!(&mut file, "{}", begin_marker)?;
+            writeln!(&mut s, "{}", begin_marker)?;
             for (ip, hostnames) in &self.hostname_map {
                 if cfg!(windows) {
                     // windows only allows one hostname per line
                     for hostname in hostnames {
-                        writeln!(&mut file, "{} {}", ip, hostname)?;
+                        writeln!(&mut s, "{} {}", ip, hostname)?;
                     }
                 } else {
                     // assume the same format as Unix
-                    writeln!(&mut file, "{} {}", ip, hostnames.join(" "))?;
+                    writeln!(&mut s, "{} {}", ip, hostnames.join(" "))?;
                 }
             }
-            writeln!(&mut file, "{}", end_marker)?;
+            writeln!(&mut s, "{}", end_marker)?;
         }
         for line in &lines[insert..] {
-            writeln!(&mut file, "{}", line)?;
+            writeln!(&mut s, "{}", line)?;
         }
 
-        // Move the file atomically to avoid a partial state.
-        fs::rename(&temp_path, &hosts_path)?;
+        OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open(hosts_path)?
+            .write_all(&s)?;
 
         Ok(())
     }

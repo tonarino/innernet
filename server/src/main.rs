@@ -1,3 +1,4 @@
+use anyhow::{anyhow, bail};
 use colored::*;
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
@@ -261,14 +262,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn open_database_connection(
     interface: &InterfaceName,
     conf: &ServerConfig,
-) -> Result<rusqlite::Connection, Box<dyn std::error::Error>> {
+) -> Result<rusqlite::Connection, Error> {
     let database_path = conf.database_path(&interface);
     if !Path::new(&database_path).exists() {
-        return Err(format!(
+        bail!(
             "no database file found at {}",
             database_path.to_string_lossy()
-        )
-        .into());
+        );
     }
 
     let conn = Connection::open(&database_path)?;
@@ -337,7 +337,7 @@ fn rename_peer(
         let mut db_peer = DatabasePeer::list(&conn)?
             .into_iter()
             .find(|p| p.name == old_name)
-            .ok_or( "Peer not found.")?;
+            .ok_or(anyhow!("Peer not found."))?;
         let _peer = db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");

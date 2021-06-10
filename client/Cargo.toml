@@ -14,13 +14,13 @@ name = "innernet"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = "1"
 colored = "2"
 dialoguer = "0.8"
 hostsfile = { path = "../hostsfile" }
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
 lazy_static = "1"
-libc = "0.2"
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }

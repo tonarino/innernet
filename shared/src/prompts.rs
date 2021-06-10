@@ -3,6 +3,7 @@ use crate::{
     AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, Endpoint,
     Error, Hostname, Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
+use anyhow::anyhow;
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
@@ -21,7 +22,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
         cidrs
             .iter()
             .find(|cidr| &cidr.name == parent_name)
-            .ok_or("No parent CIDR with that name exists.")?
+            .ok_or(anyhow!("No parent CIDR with that name exists."))?
     } else {
         choose_cidr(cidrs, "Parent CIDR")?
     };
@@ -74,7 +75,7 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
         cidrs
             .iter()
             .find(|cidr| &cidr.name == name)
-            .ok_or_else(|| format!("CIDR {} doesn't exist or isn't eligible for deletion", name))?
+            .ok_or_else(|| anyhow!("CIDR {} doesn't exist or isn't eligible for deletion", name))?
     } else {
         let cidr_index = Select::with_theme(&*THEME)
             .with_prompt("Delete CIDR")
@@ -92,7 +93,7 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
     {
         Ok(cidr.id)
     } else {
-        Err("Canceled".into())
+        Err(anyhow!("Canceled"))
     }
 }
 
@@ -193,7 +194,7 @@ pub fn add_peer(
         leaves
             .iter()
             .find(|cidr| &cidr.name == parent_name)
-            .ok_or("No eligible CIDR with that name exists.")?
+            .ok_or(anyhow!("No eligible CIDR with that name exists."))?
     } else {
         choose_cidr(&leaves[..], "Eligible CIDRs for peer")?
     };
@@ -241,7 +242,7 @@ pub fn add_peer(
     } else {
         Input::with_theme(&*THEME)
             .with_prompt("Invite expires after")
-            .default("14d".parse()?)
+            .default("14d".parse().map_err(|s: &str| anyhow!(s))?)
             .interact()?
     };
 
@@ -287,7 +288,7 @@ pub fn rename_peer(
         eligible_peers
             .into_iter()
             .find(|p| &p.name == name)
-            .ok_or_else(|| format!("Peer '{}' does not exist", name))?
+            .ok_or_else(|| anyhow!("Peer '{}' does not exist", name))?
             .clone()
     } else {
         let peer_index = Select::with_theme(&*THEME)
