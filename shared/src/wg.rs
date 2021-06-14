@@ -85,7 +85,7 @@ pub fn up(
         .set_private_key(wgctrl::Key::from_base64(&private_key).unwrap())
         .apply(interface, network.backend)?;
     set_addr(interface, address)?;
-    set_up(interface, network.mtu)?;
+    set_up(interface, network.mtu.unwrap_or_else(|| if address.is_ipv4() { 1420 } else { 1400 }))?;
     if !network.no_routing {
         add_route(interface, address)?;
     }

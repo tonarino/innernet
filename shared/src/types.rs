@@ -385,9 +385,9 @@ pub struct NetworkOpt {
     /// If not set, innernet will auto-select based on availability.
     pub backend: Backend,
 
-    #[structopt(long, default_value = "1420")]
-    /// Specify the desired MTU for your interface.
-    pub mtu: u32,
+    #[structopt(long)]
+    /// Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6).
+    pub mtu: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
