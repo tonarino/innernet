@@ -1,8 +1,16 @@
-use crate::{CLIENT_CONFIG_DIR, Endpoint, Error, IoErrorContext, WrappedIoError, ensure_dirs_exist};
+use crate::{
+    ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError, CLIENT_CONFIG_DIR,
+};
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
-use std::{fs::{File, OpenOptions}, io::{self, Write}, net::SocketAddr, os::unix::fs::PermissionsExt, path::{Path, PathBuf}};
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Write},
+    net::SocketAddr,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+};
 use wgctrl::InterfaceName;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -75,8 +83,7 @@ impl InterfaceConfig {
                 "
             )?;
         }
-        target_file
-            .write_all(toml::to_string(self).unwrap().as_bytes())?;
+        target_file.write_all(toml::to_string(self).unwrap().as_bytes())?;
         Ok(())
     }
 
@@ -92,7 +99,8 @@ impl InterfaceConfig {
             .write(true)
             .open(path)
             .with_path(path)?;
-        self.write_to(&mut target_file, comments, mode).with_path(path)
+        self.write_to(&mut target_file, comments, mode)
+            .with_path(path)
     }
 
     /// Overwrites the config file if it already exists.

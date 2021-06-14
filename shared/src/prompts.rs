@@ -9,7 +9,14 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use publicip::Preference;
-use std::{fmt::{Debug, Display}, fs::{File, OpenOptions}, io, net::SocketAddr, str::FromStr, time::SystemTime};
+use std::{
+    fmt::{Debug, Display},
+    fs::{File, OpenOptions},
+    io,
+    net::SocketAddr,
+    str::FromStr,
+    time::SystemTime,
+};
 use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
@@ -20,7 +27,10 @@ pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
     if atty::is(atty::Stream::Stdin) {
         Ok(())
     } else {
-        Err(io::Error::new(io::ErrorKind::BrokenPipe, format!("Prompt \"{}\" failed because TTY isn't connected.", prompt)))
+        Err(io::Error::new(
+            io::ErrorKind::BrokenPipe,
+            format!("Prompt \"{}\" failed because TTY isn't connected.", prompt),
+        ))
     }
 }
 
@@ -45,7 +55,7 @@ pub fn select<'a, T: ToString>(prompt: &str, items: &'a [T]) -> Result<(usize, &
 pub enum Prefill<T> {
     Default(T),
     Editable(String),
-    None
+    None,
 }
 
 pub fn input<T>(prompt: &str, prefill: Prefill<T>) -> Result<T, io::Error>
@@ -58,8 +68,10 @@ where
     match prefill {
         Prefill::Default(value) => input.default(value),
         Prefill::Editable(value) => input.with_initial_text(value),
-        _ => &mut input
-    }.with_prompt(prompt).interact()
+        _ => &mut input,
+    }
+    .with_prompt(prompt)
+    .interact()
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
@@ -246,13 +258,19 @@ pub fn add_peer(
     let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
         invite_expires.clone()
     } else {
-        input("Invite expires after", Prefill::Default("14d".parse().map_err(|s: &str| anyhow!(s))?))?
+        input(
+            "Invite expires after",
+            Prefill::Default("14d".parse().map_err(|s: &str| anyhow!(s))?),
+        )?
     };
 
     let invite_save_path = if let Some(ref location) = args.save_config {
         location.clone()
     } else {
-        input("Save peer invitation file to", Prefill::Default(format!("{}.toml", name)))?
+        input(
+            "Save peer invitation file to",
+            Prefill::Default(format!("{}.toml", name)),
+        )?
     };
 
     let default_keypair = KeyPair::generate();
@@ -412,7 +430,10 @@ pub fn set_listen_port(
 ) -> Result<Option<Option<u16>>, Error> {
     let listen_port = (!unset)
         .then(|| {
-            input("Listen port", Prefill::Default(interface.listen_port.unwrap_or(51820)))
+            input(
+                "Listen port",
+                Prefill::Default(interface.listen_port.unwrap_or(51820)),
+            )
         })
         .transpose()?;
 
@@ -451,10 +472,13 @@ pub fn ask_endpoint() -> Result<Endpoint, Error> {
         None
     };
 
-    Ok(input("External endpoint", match external_ip {
-        Some(ip) => Prefill::Editable(SocketAddr::new(ip, 51820).to_string()),
-        None => Prefill::None
-    })?)
+    Ok(input(
+        "External endpoint",
+        match external_ip {
+            Some(ip) => Prefill::Editable(SocketAddr::new(ip, 51820).to_string()),
+            None => Prefill::None,
+        },
+    )?)
 }
 
 pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {
