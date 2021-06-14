@@ -614,21 +614,23 @@ fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
     let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some((peer_request, keypair)) = prompts::add_peer(&peers, &cidr_tree, &opts)? {
+    if let Some(result) = prompts::add_peer(&peers, &cidr_tree, &opts)? {
+        let (peer_request, keypair, target_path, mut target_file) = result;
         log::info!("Creating peer...");
         let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
-        prompts::save_peer_invitation(
+        prompts::write_peer_invitation(
+            &mut target_file,
+            &target_path,
             interface,
             &peer,
             server_peer,
             &cidr_tree,
             keypair,
             &server.internal_endpoint,
-            &opts.save_config,
         )?;
     } else {
-        log::info!("exited without creating peer.");
+        log::info!("Exited without creating peer.");
     }
 
     Ok(())

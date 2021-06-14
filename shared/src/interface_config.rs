@@ -1,15 +1,8 @@
-use crate::{ensure_dirs_exist, Endpoint, Error, IoErrorContext, CLIENT_CONFIG_DIR};
-use colored::*;
+use crate::{CLIENT_CONFIG_DIR, Endpoint, Error, IoErrorContext, WrappedIoError, ensure_dirs_exist};
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{File, OpenOptions},
-    io::Write,
-    net::SocketAddr,
-    os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
-};
+use std::{fs::{File, OpenOptions}, io::{self, Write}, net::SocketAddr, os::unix::fs::PermissionsExt, path::{Path, PathBuf}};
 use wgctrl::InterfaceName;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -53,26 +46,13 @@ pub struct ServerInfo {
 }
 
 impl InterfaceConfig {
-    pub fn write_to_path<P: AsRef<Path>>(
+    pub fn write_to(
         &self,
-        path: P,
+        target_file: &mut File,
         comments: bool,
         mode: Option<u32>,
-    ) -> Result<(), Error> {
-        let path = path.as_ref();
-        let mut target_file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(path)
-            .with_path(path)?;
+    ) -> Result<(), io::Error> {
         if let Some(val) = mode {
-            if crate::chmod(&target_file, 0o600)? {
-                println!(
-                    "{} updated permissions for {} to 0600.",
-                    "[!]".yellow(),
-                    path.display()
-                );
-            }
             let metadata = target_file.metadata()?;
             let mut permissions = metadata.permissions();
             permissions.set_mode(val);
@@ -96,9 +76,23 @@ impl InterfaceConfig {
             )?;
         }
         target_file
-            .write_all(toml::to_string(self).unwrap().as_bytes())
-            .with_path(path)?;
+            .write_all(toml::to_string(self).unwrap().as_bytes())?;
         Ok(())
+    }
+
+    pub fn write_to_path<P: AsRef<Path>>(
+        &self,
+        path: P,
+        comments: bool,
+        mode: Option<u32>,
+    ) -> Result<(), WrappedIoError> {
+        let path = path.as_ref();
+        let mut target_file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(path)
+            .with_path(path)?;
+        self.write_to(&mut target_file, comments, mode).with_path(path)
     }
 
     /// Overwrites the config file if it already exists.

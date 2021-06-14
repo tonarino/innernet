@@ -9,13 +9,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use publicip::Preference;
-use std::{
-    fmt::{Debug, Display},
-    io,
-    net::SocketAddr,
-    str::FromStr,
-    time::SystemTime,
-};
+use std::{fmt::{Debug, Display}, fs::{File, OpenOptions}, io, net::SocketAddr, str::FromStr, time::SystemTime};
 use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
@@ -206,7 +200,7 @@ pub fn add_peer(
     peers: &[Peer],
     cidr_tree: &CidrTree,
     args: &AddPeerOpts,
-) -> Result<Option<(PeerContents, KeyPair)>, Error> {
+) -> Result<Option<(PeerContents, KeyPair, String, File)>, Error> {
     let leaves = cidr_tree.leaves();
 
     let cidr = if let Some(ref parent_name) = args.cidr {
@@ -255,6 +249,12 @@ pub fn add_peer(
         input("Invite expires after", Prefill::Default("14d".parse().map_err(|s: &str| anyhow!(s))?))?
     };
 
+    let invite_save_path = if let Some(ref location) = args.save_config {
+        location.clone()
+    } else {
+        input("Save peer invitation file to", Prefill::Default(format!("{}.toml", name)))?
+    };
+
     let default_keypair = KeyPair::generate();
     let peer_request = PeerContents {
         name,
@@ -271,7 +271,12 @@ pub fn add_peer(
 
     Ok(
         if args.yes || confirm(&format!("Create peer {}?", peer_request.name.yellow()))? {
-            Some((peer_request, default_keypair))
+            let invite_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create_new(true)
+                .open(&invite_save_path)?;
+            Some((peer_request, default_keypair, invite_save_path, invite_file))
         } else {
             None
         },
@@ -360,14 +365,15 @@ pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Pee
 }
 
 /// Confirm and write a innernet invitation file after a peer has been created.
-pub fn save_peer_invitation(
+pub fn write_peer_invitation(
+    target_file: &mut File,
+    target_path: &str,
     network_name: &InterfaceName,
     peer: &Peer,
     server_peer: &Peer,
     root_cidr: &Cidr,
     keypair: KeyPair,
     server_api_addr: &SocketAddr,
-    config_location: &Option<String>,
 ) -> Result<(), Error> {
     let peer_invitation = InterfaceConfig {
         interface: InterfaceInfo {
@@ -386,13 +392,7 @@ pub fn save_peer_invitation(
         },
     };
 
-    let invitation_save_path = if let Some(location) = config_location {
-        location.clone()
-    } else {
-        input("Save peer invitation file as", Prefill::Default(format!("{}.toml", peer.name)))?
-    };
-
-    peer_invitation.write_to_path(&invitation_save_path, true, None)?;
+    peer_invitation.write_to(target_file, true, None)?;
 
     println!(
         "\nPeer \"{}\" added\n\
@@ -400,7 +400,7 @@ pub fn save_peer_invitation(
          Please send it to them securely (eg. via magic-wormhole) \
          to bootstrap them onto the network.",
         peer.name.bold(),
-        invitation_save_path.bold()
+        target_path.bold()
     );
 
     Ok(())

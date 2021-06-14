@@ -293,7 +293,8 @@ fn add_peer(
     let cidrs = DatabaseCidr::list(&conn)?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some((peer_request, keypair)) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
+    if let Some(result) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
+        let (peer_request, keypair, target_path, mut target_file) = result;
         let peer = DatabasePeer::create(&conn, peer_request)?;
         if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
@@ -306,14 +307,15 @@ fn add_peer(
         }
 
         let server_peer = DatabasePeer::get(&conn, 1)?;
-        prompts::save_peer_invitation(
+        prompts::write_peer_invitation(
+            &mut target_file,
+            &target_path,
             interface,
             &peer,
             &*server_peer,
             &cidr_tree,
             keypair,
             &SocketAddr::new(config.address, config.listen_port),
-            &opts.save_config,
         )?;
     } else {
         println!("exited without creating peer.");
