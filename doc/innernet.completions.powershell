@@ -21,6 +21,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
     $completions = @(switch ($command) {
         'innernet' {
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
+            [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Verbose output, use -vv for even higher verbositude')
             [CompletionResult]::new('--verbose', 'verbose', [CompletionResultType]::ParameterName, 'Verbose output, use -vv for even higher verbositude')
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
@@ -38,6 +39,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename a peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR')
             [CompletionResult]::new('delete-cidr', 'delete-cidr', [CompletionResultType]::ParameterValue, 'Delete a CIDR')
+            [CompletionResult]::new('list-cidrs', 'list-cidrs', [CompletionResultType]::ParameterValue, 'List CIDRs')
             [CompletionResult]::new('disable-peer', 'disable-peer', [CompletionResultType]::ParameterValue, 'Disable an enabled peer')
             [CompletionResult]::new('enable-peer', 'enable-peer', [CompletionResultType]::ParameterValue, 'Enable a disabled peer')
             [CompletionResult]::new('add-association', 'add-association', [CompletionResultType]::ParameterValue, 'Add an association between CIDRs')
@@ -147,6 +149,15 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
         'innernet;delete-cidr' {
             [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. "engineers")')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
+            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            break
+        }
+        'innernet;list-cidrs' {
+            [CompletionResult]::new('-t', 't', [CompletionResultType]::ParameterName, 'Display CIDRs in tree format')
+            [CompletionResult]::new('--tree', 'tree', [CompletionResultType]::ParameterName, 'Display CIDRs in tree format')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')

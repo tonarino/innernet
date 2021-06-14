@@ -55,6 +55,9 @@ _innernet() {
             list-associations)
                 cmd+="__list__associations"
                 ;;
+            list-cidrs)
+                cmd+="__list__cidrs"
+                ;;
             override-endpoint)
                 cmd+="__override__endpoint"
                 ;;
@@ -83,7 +86,7 @@ _innernet() {
 
     case "${cmd}" in
         innernet)
-            opts=" -v -h -V  --verbose --no-routing --help --version --backend   install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help  redeem redeem  list list"
+            opts=" -v -h -V  --verbose --no-routing --help --version --backend --mtu   install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help  redeem redeem  list list"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -92,6 +95,10 @@ _innernet() {
                 
                 --backend)
                     COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
+                    return 0
+                    ;;
+                --mtu)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)
@@ -351,6 +358,21 @@ _innernet() {
             ;;
         innernet__list__associations)
             opts=" -h -V  --help --version  <interface> "
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__list__cidrs)
+            opts=" -t -h -V  --tree --help --version  <interface> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

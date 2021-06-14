@@ -16,6 +16,7 @@ _innernet() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(kernel userspace)' \
+'--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]' \
 '*-v[Verbose output, use -vv for even higher verbositude]' \
 '*--verbose[Verbose output, use -vv for even higher verbositude]' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
@@ -212,6 +213,17 @@ _arguments "${_arguments_options[@]}" \
 ':interface:_files' \
 && ret=0
 ;;
+(list-cidrs)
+_arguments "${_arguments_options[@]}" \
+'-t[Display CIDRs in tree format]' \
+'--tree[Display CIDRs in tree format]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+':interface:_files' \
+&& ret=0
+;;
 (disable-peer)
 _arguments "${_arguments_options[@]}" \
 '-h[Prints help information]' \
@@ -316,6 +328,7 @@ _innernet_commands() {
 "rename-peer:Rename a peer" \
 "add-cidr:Add a new CIDR" \
 "delete-cidr:Delete a CIDR" \
+"list-cidrs:List CIDRs" \
 "disable-peer:Disable an enabled peer" \
 "enable-peer:Enable a disabled peer" \
 "add-association:Add an association between CIDRs" \
@@ -432,6 +445,13 @@ _innernet__list-associations_commands() {
         
     )
     _describe -t commands 'innernet list-associations commands' commands "$@"
+}
+(( $+functions[_innernet__list-cidrs_commands] )) ||
+_innernet__list-cidrs_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'innernet list-cidrs commands' commands "$@"
 }
 (( $+functions[_innernet__override-endpoint_commands] )) ||
 _innernet__override-endpoint_commands() {

@@ -16,6 +16,7 @@ edit:completion:arg-completer[innernet] = [@words]{
     completions = [
         &'innernet'= {
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
+            cand --mtu 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
             cand -v 'Verbose output, use -vv for even higher verbositude'
             cand --verbose 'Verbose output, use -vv for even higher verbositude'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
@@ -33,6 +34,7 @@ edit:completion:arg-completer[innernet] = [@words]{
             cand rename-peer 'Rename a peer'
             cand add-cidr 'Add a new CIDR'
             cand delete-cidr 'Delete a CIDR'
+            cand list-cidrs 'List CIDRs'
             cand disable-peer 'Disable an enabled peer'
             cand enable-peer 'Enable a disabled peer'
             cand add-association 'Add an association between CIDRs'
@@ -132,6 +134,14 @@ edit:completion:arg-completer[innernet] = [@words]{
         &'innernet;delete-cidr'= {
             cand --name 'The CIDR name (eg. "engineers")'
             cand --yes 'Bypass confirmation'
+            cand -h 'Prints help information'
+            cand --help 'Prints help information'
+            cand -V 'Prints version information'
+            cand --version 'Prints version information'
+        }
+        &'innernet;list-cidrs'= {
+            cand -t 'Display CIDRs in tree format'
+            cand --tree 'Display CIDRs in tree format'
             cand -h 'Prints help information'
             cand --help 'Prints help information'
             cand -V 'Prints version information'

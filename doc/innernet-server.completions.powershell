@@ -21,6 +21,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
     $completions = @(switch ($command) {
         'innernet-server' {
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
+            [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)')
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
@@ -58,6 +59,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
         }
         'innernet-server;serve' {
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
+            [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)')
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
