@@ -9,11 +9,63 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use publicip::Preference;
-use std::{net::SocketAddr, time::SystemTime};
+use std::{
+    fmt::{Debug, Display},
+    io,
+    net::SocketAddr,
+    str::FromStr,
+    time::SystemTime,
+};
 use wgctrl::{InterfaceName, KeyPair};
 
 lazy_static! {
     pub static ref THEME: ColorfulTheme = ColorfulTheme::default();
+}
+
+pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
+    if atty::is(atty::Stream::Stdin) {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::BrokenPipe, format!("Prompt \"{}\" failed because TTY isn't connected.", prompt)))
+    }
+}
+
+pub fn confirm(prompt: &str) -> Result<bool, io::Error> {
+    ensure_interactive(prompt)?;
+    Confirm::with_theme(&*THEME)
+        .wait_for_newline(true)
+        .with_prompt(prompt)
+        .default(false)
+        .interact()
+}
+
+pub fn select<'a, T: ToString>(prompt: &str, items: &'a [T]) -> Result<(usize, &'a T), io::Error> {
+    ensure_interactive(prompt)?;
+    let choice = Select::with_theme(&*THEME)
+        .with_prompt(prompt)
+        .items(items)
+        .interact()?;
+    Ok((choice, &items[choice]))
+}
+
+pub enum Prefill<T> {
+    Default(T),
+    Editable(String),
+    None
+}
+
+pub fn input<T>(prompt: &str, prefill: Prefill<T>) -> Result<T, io::Error>
+where
+    T: Clone + FromStr + Display,
+    T::Err: Display + Debug,
+{
+    ensure_interactive(prompt)?;
+    let mut input = Input::with_theme(&*THEME);
+    match prefill {
+        Prefill::Default(value) => input.default(value),
+        Prefill::Editable(value) => input.with_initial_text(value),
+        _ => &mut input
+    }.with_prompt(prompt).interact()
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
@@ -30,13 +82,13 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
     let name = if let Some(ref name) = request.name {
         name.clone()
     } else {
-        Input::with_theme(&*THEME).with_prompt("Name").interact()?
+        input("Name", Prefill::None)?
     };
 
     let cidr = if let Some(cidr) = request.cidr {
         cidr
     } else {
-        Input::with_theme(&*THEME).with_prompt("CIDR").interact()?
+        input("CIDR", Prefill::None)?
     };
 
     let cidr_request = CidrContents {
@@ -46,13 +98,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
     };
 
     Ok(
-        if request.yes
-            || Confirm::with_theme(&*THEME)
-                .wait_for_newline(true)
-                .with_prompt(&format!("Create CIDR \"{}\"?", cidr_request.name))
-                .default(false)
-                .interact()?
-        {
+        if request.yes || confirm(&format!("Create CIDR \"{}\"?", cidr_request.name))? {
             Some(cidr_request)
         } else {
             None
@@ -77,20 +123,10 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
             .find(|cidr| &cidr.name == name)
             .ok_or_else(|| anyhow!("CIDR {} doesn't exist or isn't eligible for deletion", name))?
     } else {
-        let cidr_index = Select::with_theme(&*THEME)
-            .with_prompt("Delete CIDR")
-            .items(&eligible_cidrs)
-            .interact()?;
-        &eligible_cidrs[cidr_index]
+        select("Delete CIDR", &eligible_cidrs)?.1
     };
 
-    if request.yes
-        || Confirm::with_theme(&*THEME)
-            .wait_for_newline(true)
-            .with_prompt(&format!("Delete CIDR \"{}\"?", cidr.name))
-            .default(false)
-            .interact()?
-    {
+    if request.yes || confirm(&format!("Delete CIDR \"{}\"?", cidr.name))? {
         Ok(cidr.id)
     } else {
         Err(anyhow!("Canceled"))
@@ -102,11 +138,7 @@ pub fn choose_cidr<'a>(cidrs: &'a [Cidr], text: &'static str) -> Result<&'a Cidr
         .iter()
         .filter(|cidr| cidr.name != "innernet-server")
         .collect();
-    let cidr_index = Select::with_theme(&*THEME)
-        .with_prompt(text)
-        .items(&eligible_cidrs)
-        .interact()?;
-    Ok(&eligible_cidrs[cidr_index])
+    Ok(select(text, &eligible_cidrs)?.1)
 }
 
 pub fn choose_association<'a>(
@@ -132,10 +164,7 @@ pub fn choose_association<'a>(
             )
         })
         .collect();
-    let index = Select::with_theme(&*THEME)
-        .with_prompt("Association")
-        .items(&names)
-        .interact()?;
+    let (index, _) = select("Association", &names)?;
 
     Ok(&associations[index])
 }
@@ -145,16 +174,11 @@ pub fn add_association(cidrs: &[Cidr]) -> Result<Option<(&Cidr, &Cidr)>, Error> 
     let cidr2 = choose_cidr(cidrs, "Second CIDR")?;
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .wait_for_newline(true)
-            .with_prompt(&format!(
-                "Add association: {} <=> {}?",
-                cidr1.name.yellow().bold(),
-                cidr2.name.yellow().bold()
-            ))
-            .default(false)
-            .interact()?
-        {
+        if confirm(&format!(
+            "Add association: {} <=> {}?",
+            cidr1.name.yellow().bold(),
+            cidr2.name.yellow().bold()
+        ))? {
             Some((cidr1, cidr2))
         } else {
             None
@@ -169,12 +193,7 @@ pub fn delete_association<'a>(
     let association = choose_association(associations, cidrs)?;
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .wait_for_newline(true)
-            .with_prompt(&format!("Delete association #{}?", association.id))
-            .default(false)
-            .interact()?
-        {
+        if confirm(&format!("Delete association #{}?", association.id))? {
             Some(association)
         } else {
             None
@@ -215,35 +234,25 @@ pub fn add_peer(
     } else if args.auto_ip {
         available_ip
     } else {
-        Input::with_theme(&*THEME)
-            .with_prompt("IP")
-            .default(available_ip)
-            .interact()?
+        input("IP", Prefill::Default(available_ip))?
     };
 
     let name = if let Some(ref name) = args.name {
         name.clone()
     } else {
-        Input::with_theme(&*THEME).with_prompt("Name").interact()?
+        input("Name", Prefill::None)?
     };
 
     let is_admin = if let Some(is_admin) = args.admin {
         is_admin
     } else {
-        Confirm::with_theme(&*THEME)
-            .wait_for_newline(true)
-            .with_prompt(&format!("Make {} an admin?", name))
-            .default(false)
-            .interact()?
+        confirm(&format!("Make {} an admin?", name))?
     };
 
     let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
         invite_expires.clone()
     } else {
-        Input::with_theme(&*THEME)
-            .with_prompt("Invite expires after")
-            .default("14d".parse().map_err(|s: &str| anyhow!(s))?)
-            .interact()?
+        input("Invite expires after", Prefill::Default("14d".parse().map_err(|s: &str| anyhow!(s))?))?
     };
 
     let default_keypair = KeyPair::generate();
@@ -261,13 +270,7 @@ pub fn add_peer(
     };
 
     Ok(
-        if args.yes
-            || Confirm::with_theme(&*THEME)
-                .wait_for_newline(true)
-                .with_prompt(&format!("Create peer {}?", peer_request.name.yellow()))
-                .default(false)
-                .interact()?
-        {
+        if args.yes || confirm(&format!("Create peer {}?", peer_request.name.yellow()))? {
             Some((peer_request, default_keypair))
         } else {
             None
@@ -291,24 +294,20 @@ pub fn rename_peer(
             .ok_or_else(|| anyhow!("Peer '{}' does not exist", name))?
             .clone()
     } else {
-        let peer_index = Select::with_theme(&*THEME)
-            .with_prompt("Peer to rename")
-            .items(
-                &eligible_peers
-                    .iter()
-                    .map(|ep| ep.name.clone())
-                    .collect::<Vec<_>>(),
-            )
-            .interact()?;
+        let (peer_index, _) = select(
+            "Peer to rename",
+            &eligible_peers
+                .iter()
+                .map(|ep| ep.name.clone())
+                .collect::<Vec<_>>(),
+        )?;
         eligible_peers[peer_index].clone()
     };
     let old_name = old_peer.name.clone();
     let new_name = if let Some(ref name) = args.new_name {
         name.clone()
     } else {
-        Input::with_theme(&*THEME)
-            .with_prompt("New Name")
-            .interact()?
+        input("New Name", Prefill::None)?
     };
 
     let mut new_peer = old_peer;
@@ -316,14 +315,11 @@ pub fn rename_peer(
 
     Ok(
         if args.yes
-            || Confirm::with_theme(&*THEME)
-                .with_prompt(&format!(
-                    "Rename peer {} to {}?",
-                    old_name.yellow(),
-                    new_name.yellow()
-                ))
-                .default(false)
-                .interact()?
+            || confirm(&format!(
+                "Rename peer {} to {}?",
+                old_name.yellow(),
+                new_name.yellow()
+            ))?
         {
             Some((new_peer.contents, old_name))
         } else {
@@ -344,26 +340,18 @@ pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Pee
         .iter()
         .map(|peer| format!("{} ({})", &peer.name, &peer.ip))
         .collect();
-    let index = Select::with_theme(&*THEME)
-        .with_prompt(&format!(
-            "Peer to {}able",
-            if enable { "en" } else { "dis" }
-        ))
-        .items(&peer_selection)
-        .interact()?;
+    let (index, _) = select(
+        &format!("Peer to {}able", if enable { "en" } else { "dis" }),
+        &peer_selection,
+    )?;
     let peer = enabled_peers[index];
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .wait_for_newline(true)
-            .with_prompt(&format!(
-                "{}able peer {}?",
-                if enable { "En" } else { "Dis" },
-                peer.name.yellow()
-            ))
-            .default(false)
-            .interact()?
-        {
+        if confirm(&format!(
+            "{}able peer {}?",
+            if enable { "En" } else { "Dis" },
+            peer.name.yellow()
+        ))? {
             Some(peer.clone())
         } else {
             None
@@ -401,10 +389,7 @@ pub fn save_peer_invitation(
     let invitation_save_path = if let Some(location) = config_location {
         location.clone()
     } else {
-        Input::with_theme(&*THEME)
-            .with_prompt("Save peer invitation file as")
-            .default(format!("{}.toml", peer.name))
-            .interact()?
+        input("Save peer invitation file as", Prefill::Default(format!("{}.toml", peer.name)))?
     };
 
     peer_invitation.write_to_path(&invitation_save_path, true, None)?;
@@ -427,10 +412,7 @@ pub fn set_listen_port(
 ) -> Result<Option<Option<u16>>, Error> {
     let listen_port = (!unset)
         .then(|| {
-            Input::with_theme(&*THEME)
-                .with_prompt("Listen port")
-                .default(interface.listen_port.unwrap_or(51820))
-                .interact()
+            input("Listen port", Prefill::Default(interface.listen_port.unwrap_or(51820)))
         })
         .transpose()?;
 
@@ -469,32 +451,23 @@ pub fn ask_endpoint() -> Result<Endpoint, Error> {
         None
     };
 
-    let mut endpoint_builder = Input::with_theme(&*THEME);
-    if let Some(ip) = external_ip {
-        endpoint_builder.with_initial_text(SocketAddr::new(ip, 51820).to_string());
-    }
-    endpoint_builder
-        .with_prompt("External endpoint")
-        .interact()
-        .map_err(Into::into)
+    Ok(input("External endpoint", match external_ip {
+        Some(ip) => Prefill::Editable(SocketAddr::new(ip, 51820).to_string()),
+        None => Prefill::None
+    })?)
 }
 
 pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {
     let endpoint = if !unset { Some(ask_endpoint()?) } else { None };
 
     Ok(
-        if Confirm::with_theme(&*THEME)
-            .wait_for_newline(true)
-            .with_prompt(
-                &(if let Some(endpoint) = &endpoint {
-                    format!("Set external endpoint to {}?", endpoint)
-                } else {
-                    "Unset external endpoint to enable automatic endpoint discovery?".to_string()
-                }),
-            )
-            .default(false)
-            .interact()?
-        {
+        if confirm(
+            &(if let Some(endpoint) = &endpoint {
+                format!("Set external endpoint to {}?", endpoint)
+            } else {
+                "Unset external endpoint to enable automatic endpoint discovery?".to_string()
+            }),
+        )? {
             Some(endpoint)
         } else {
             None

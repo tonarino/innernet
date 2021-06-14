@@ -1,4 +1,12 @@
-use std::{collections::HashMap, fmt, fs::OpenOptions, io::{self, BufRead, BufReader, ErrorKind, Write}, net::IpAddr, path::{Path, PathBuf}, result};
+use std::{
+    collections::HashMap,
+    fmt,
+    fs::OpenOptions,
+    io::{self, BufRead, BufReader, ErrorKind, Write},
+    net::IpAddr,
+    path::{Path, PathBuf},
+    result,
+};
 
 pub type Result<T> = result::Result<T, Box<dyn std::error::Error>>;
 

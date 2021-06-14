@@ -137,7 +137,9 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
     if !output.status.success() {
         Err(anyhow::anyhow!(
             "failed to add route for device {} ({}): {}",
-            &interface, real_interface, stderr
+            &interface,
+            real_interface,
+            stderr
         ))
     } else {
         Ok(!stderr.contains("File exists"))
