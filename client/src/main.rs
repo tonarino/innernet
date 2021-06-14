@@ -171,6 +171,15 @@ enum Command {
         opts: DeleteCidrOpts,
     },
 
+    /// List CIDRs.
+    ListCidrs {
+        interface: Interface,
+
+        /// Display CIDRs in tree format
+        #[structopt(short, long)]
+        tree: bool,
+    },
+
     /// Disable an enabled peer.
     DisablePeer { interface: Interface },
 
@@ -601,6 +610,21 @@ fn delete_cidr(interface: &InterfaceName, opts: DeleteCidrOpts) -> Result<(), Er
 
     println!("CIDR deleted.");
 
+    Ok(())
+}
+
+fn list_cidrs(interface: &InterfaceName, tree: bool) -> Result<(), Error> {
+    let data_store = DataStore::open(interface)?;
+    if tree {
+        let cidr_tree = CidrTree::new(data_store.cidrs());
+        colored::control::set_override(false);
+        print_tree(&cidr_tree, &[], 0);
+        colored::control::unset_override();
+    } else {
+        for cidr in data_store.cidrs() {
+            println!("{} {}", cidr.cidr, cidr.name);
+        }
+    }
     Ok(())
 }
 
@@ -1036,6 +1060,7 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::RenamePeer { interface, opts } => rename_peer(&interface, opts)?,
         Command::AddCidr { interface, opts } => add_cidr(&interface, opts)?,
         Command::DeleteCidr { interface, opts } => delete_cidr(&interface, opts)?,
+        Command::ListCidrs { interface, tree } => list_cidrs(&interface, tree)?,
         Command::DisablePeer { interface } => enable_or_disable_peer(&interface, false)?,
         Command::EnablePeer { interface } => enable_or_disable_peer(&interface, true)?,
         Command::AddAssociation { interface, opts } => add_association(&interface, opts)?,
