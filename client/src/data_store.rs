@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_DIR};
 use std::{
     fs::{File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{self, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 use wgctrl::InterfaceName;
@@ -121,7 +121,7 @@ impl DataStore {
         }
     }
 
-    pub fn write(&mut self) -> Result<(), Error> {
+    pub fn write(&mut self) -> Result<(), io::Error> {
         self.file.seek(SeekFrom::Start(0))?;
         self.file.set_len(0)?;
         self.file

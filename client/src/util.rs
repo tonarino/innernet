@@ -102,7 +102,7 @@ pub fn human_size(bytes: u64) -> String {
     }
 }
 
-pub fn permissions_helptext(e: &WrappedIoError) {
+pub fn permissions_helptext(e: &io::Error) {
     if e.raw_os_error() == Some(1) {
         let current_exe = std::env::current_exe()
             .ok()

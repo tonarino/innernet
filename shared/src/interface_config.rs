@@ -128,7 +128,7 @@ impl InterfaceConfig {
             .with_extension("conf")
     }
 
-    fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, Error> {
+    fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, WrappedIoError> {
         ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
         Ok(Self::get_path(interface))
     }

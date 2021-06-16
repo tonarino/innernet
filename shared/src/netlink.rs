@@ -1,5 +1,3 @@
-use crate::Error;
-use anyhow::anyhow;
 use ipnetwork::IpNetwork;
 use netlink_packet_core::{
     NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
@@ -12,9 +10,12 @@ use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
 use std::io;
 use wgctrl::InterfaceName;
 
-fn if_nametoindex(interface: &InterfaceName) -> Result<u32, Error> {
+fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
     match unsafe { libc::if_nametoindex(interface.as_ptr()) } {
-        0 => Err(anyhow!("couldn't find interface '{}'.", interface)),
+        0 => Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("couldn't find interface '{}'.", interface),
+        )),
         index => Ok(index),
     }
 }
@@ -52,7 +53,7 @@ fn netlink_call(
     Ok(response)
 }
 
-pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), Error> {
+pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
     let index = if_nametoindex(interface)?;
     let message = LinkMessage {
         header: LinkHeader {
@@ -66,7 +67,7 @@ pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error> {
+pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Error> {
     let index = if_nametoindex(interface)?;
     let (family, nlas) = match addr {
         IpNetwork::V4(network) => {
@@ -101,7 +102,7 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
     Ok(())
 }
 
-pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Error> {
+pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
     let if_index = if_nametoindex(interface)?;
     let (address_family, dst) = match cidr {
         IpNetwork::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),

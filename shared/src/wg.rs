@@ -1,10 +1,13 @@
 use crate::{Error, IoErrorContext, NetworkOpt};
 use ipnetwork::IpNetwork;
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    io,
+    net::{IpAddr, SocketAddr},
+};
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 #[cfg(target_os = "macos")]
-fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, Error> {
+fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
     let output = std::process::Command::new(bin).args(args).output()?;
     log::debug!("cmd: {} {}", bin, args.join(" "));
     log::debug!("status: {:?}", output.status.code());
@@ -13,19 +16,21 @@ fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, Error> {
     if output.status.success() {
         Ok(output)
     } else {
-        Err(anyhow::anyhow!(
-            "failed to run {} {} command: {}",
-            bin,
-            args.join(" "),
-            String::from_utf8_lossy(&output.stderr)
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "failed to run {} {} command: {}",
+                bin,
+                args.join(" "),
+                String::from_utf8_lossy(&output.stderr)
+            ),
         ))
     }
 }
 
 #[cfg(target_os = "macos")]
-pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error> {
-    let real_interface =
-        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
+pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Error> {
+    let real_interface = wgctrl::backends::userspace::resolve_tun(interface)?;
 
     if addr.is_ipv4() {
         cmd(
@@ -49,9 +54,8 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), Error>
 }
 
 #[cfg(target_os = "macos")]
-pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), Error> {
-    let real_interface =
-        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
+pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
+    let real_interface = wgctrl::backends::userspace::resolve_tun(interface)?;
     cmd("ifconfig", &[&real_interface, "mtu", &mtu.to_string()])?;
     Ok(())
 }
@@ -69,11 +73,17 @@ pub fn up(
     listen_port: Option<u16>,
     peer: Option<(&str, IpAddr, SocketAddr)>,
     network: NetworkOpt,
-) -> Result<(), Error> {
+) -> Result<(), io::Error> {
     let mut device = DeviceUpdate::new();
     if let Some((public_key, address, endpoint)) = peer {
         let prefix = if address.is_ipv4() { 32 } else { 128 };
-        let peer_config = PeerConfigBuilder::new(&wgctrl::Key::from_base64(&public_key)?)
+        let peer_config =
+            PeerConfigBuilder::new(&wgctrl::Key::from_base64(&public_key).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "failed to parse base64 public key",
+                )
+            })?)
             .add_allowed_ip(address, prefix)
             .set_endpoint(endpoint);
         device = device.add_peer(peer_config);
@@ -85,7 +95,12 @@ pub fn up(
         .set_private_key(wgctrl::Key::from_base64(&private_key).unwrap())
         .apply(interface, network.backend)?;
     set_addr(interface, address)?;
-    set_up(interface, network.mtu.unwrap_or_else(|| if address.is_ipv4() { 1420 } else { 1400 }))?;
+    set_up(
+        interface,
+        network
+            .mtu
+            .unwrap_or_else(|| if address.is_ipv4() { 1420 } else { 1400 }),
+    )?;
     if !network.no_routing {
         add_route(interface, address)?;
     }
@@ -119,9 +134,8 @@ pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
 /// Returns an error if the process doesn't exit successfully, otherwise returns
 /// true if the route was changed, false if the route already exists.
 #[cfg(target_os = "macos")]
-pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Error> {
-    let real_interface =
-        wgctrl::backends::userspace::resolve_tun(interface).with_str(interface.to_string())?;
+pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
+    let real_interface = wgctrl::backends::userspace::resolve_tun(interface)?;
     let output = cmd(
         "route",
         &[
@@ -135,11 +149,12 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, Err
     )?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        Err(anyhow::anyhow!(
-            "failed to add route for device {} ({}): {}",
-            &interface,
-            real_interface,
-            stderr
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "failed to add route for device {} ({}): {}",
+                &interface, real_interface, stderr
+            ),
         ))
     } else {
         Ok(!stderr.contains("File exists"))

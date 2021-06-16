@@ -245,7 +245,7 @@ fn update_hosts_file(
     interface: &InterfaceName,
     hosts_path: PathBuf,
     peers: &[Peer],
-) -> Result<(), Error> {
+) -> Result<(), WrappedIoError> {
     log::info!("updating {} with the latest peers.", "/etc/hosts".yellow());
 
     let mut hosts_builder = HostsBuilder::new(format!("innernet {}", interface));
@@ -358,7 +358,11 @@ fn redeem_invite(
     network: NetworkOpt,
 ) -> Result<(), Error> {
     log::info!("bringing up the interface.");
-    let resolved_endpoint = config.server.external_endpoint.resolve()?;
+    let resolved_endpoint = config
+        .server
+        .external_endpoint
+        .resolve()
+        .with_str(config.server.external_endpoint.to_string())?;
     wg::up(
         &iface,
         &config.interface.private_key,
@@ -370,7 +374,8 @@ fn redeem_invite(
             resolved_endpoint,
         )),
         network,
-    )?;
+    )
+    .with_str(iface.to_string())?;
 
     log::info!("Generating new keypair.");
     let keypair = wgctrl::KeyPair::generate();
@@ -397,7 +402,8 @@ fn redeem_invite(
     log::info!("Changing keys and waiting for server's WireGuard interface to transition.",);
     DeviceUpdate::new()
         .set_private_key(keypair.private)
-        .apply(&iface, network.backend)?;
+        .apply(&iface, network.backend)
+        .with_str(iface.to_string())?;
     thread::sleep(*REDEEM_TRANSITION_WAIT);
 
     Ok(())
@@ -442,7 +448,11 @@ fn fetch(
         }
 
         log::info!("bringing up the interface.");
-        let resolved_endpoint = config.server.external_endpoint.resolve()?;
+        let resolved_endpoint = config
+            .server
+            .external_endpoint
+            .resolve()
+            .with_str(config.server.external_endpoint.to_string())?;
         wg::up(
             interface,
             &config.interface.private_key,
@@ -454,7 +464,8 @@ fn fetch(
                 resolved_endpoint,
             )),
             network,
-        )?
+        )
+        .with_str(interface.to_string())?;
     }
 
     log::info!("fetching state from server.");
@@ -521,7 +532,9 @@ fn fetch(
     }
 
     if device_config_changed {
-        device_config_builder.apply(&interface, network.backend)?;
+        device_config_builder
+            .apply(&interface, network.backend)
+            .with_str(interface.to_string())?;
 
         if let Some(path) = hosts_path {
             update_hosts_file(interface, path, &peers)?;
@@ -534,7 +547,7 @@ fn fetch(
     }
     store.set_cidrs(cidrs);
     store.update_peers(peers)?;
-    store.write()?;
+    store.write().with_str(interface.to_string())?;
 
     Ok(())
 }
@@ -1018,6 +1031,9 @@ fn main() {
         println!();
         log::error!("{}\n", e);
         if let Some(e) = e.downcast_ref::<WrappedIoError>() {
+            util::permissions_helptext(e);
+        }
+        if let Some(e) = e.downcast_ref::<io::Error>() {
             util::permissions_helptext(e);
         }
         std::process::exit(1);
