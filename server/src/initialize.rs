@@ -140,7 +140,8 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
     } else if opts.auto_external_endpoint {
-        let ip = publicip::get_any(Preference::Ipv4).ok_or(anyhow!("couldn't get external IP"))?;
+        let ip = publicip::get_any(Preference::Ipv4)
+            .ok_or_else(|| anyhow!("couldn't get external IP"))?;
         SocketAddr::new(ip, 51820).into()
     } else {
         prompts::ask_endpoint()?

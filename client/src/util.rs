@@ -3,7 +3,7 @@ use colored::*;
 use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
-use shared::{interface_config::ServerInfo, WrappedIoError, INNERNET_PUBKEY_HEADER};
+use shared::{interface_config::ServerInfo, INNERNET_PUBKEY_HEADER};
 use std::{io, time::Duration};
 use ureq::{Agent, AgentBuilder};
 

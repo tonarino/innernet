@@ -657,8 +657,7 @@ fn add_peer(interface: &InterfaceName, opts: AddPeerOpts) -> Result<(), Error> {
         let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
         prompts::write_peer_invitation(
-            &mut target_file,
-            &target_path,
+            (&mut target_file, &target_path),
             interface,
             &peer,
             server_peer,
@@ -688,7 +687,7 @@ fn rename_peer(interface: &InterfaceName, opts: RenamePeerOpts) -> Result<(), Er
             .filter(|p| p.name == old_name)
             .map(|p| p.id)
             .next()
-            .ok_or(anyhow!("Peer not found."))?;
+            .ok_or_else(|| anyhow!("Peer not found."))?;
 
         let _ = api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
         log::info!("Peer renamed.");
@@ -728,11 +727,11 @@ fn add_association(interface: &InterfaceName, opts: AddAssociationOpts) -> Resul
         let cidr1 = cidrs
             .iter()
             .find(|c| &c.name == cidr1)
-            .ok_or(anyhow!("can't find cidr '{}'", cidr1))?;
+            .ok_or_else(|| anyhow!("can't find cidr '{}'", cidr1))?;
         let cidr2 = cidrs
             .iter()
             .find(|c| &c.name == cidr2)
-            .ok_or(anyhow!("can't find cidr '{}'", cidr2))?;
+            .ok_or_else(|| anyhow!("can't find cidr '{}'", cidr2))?;
         (cidr1, cidr2)
     } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
         (cidr1, cidr2)
@@ -889,7 +888,7 @@ fn show(
         let me = peers
             .iter()
             .find(|p| p.public_key == device_info.public_key.as_ref().unwrap().to_base64())
-            .ok_or(anyhow!("missing peer info"))?;
+            .ok_or_else(|| anyhow!("missing peer info"))?;
 
         let mut peer_states = device_info
             .peers

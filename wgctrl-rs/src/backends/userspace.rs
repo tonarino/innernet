@@ -249,7 +249,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         match reader.read_line(&mut buf)? {
             0 | 1 if buf == "\n" => break,
             _ => {
-                parser.add_line(&buf.trim_end())?;
+                parser.add_line(buf.trim_end())?;
                 buf.clear();
             },
         };

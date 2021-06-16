@@ -80,7 +80,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
         cidrs
             .iter()
             .find(|cidr| &cidr.name == parent_name)
-            .ok_or(anyhow!("No parent CIDR with that name exists."))?
+            .ok_or_else(|| anyhow!("No parent CIDR with that name exists."))?
     } else {
         choose_cidr(cidrs, "Parent CIDR")?
     };
@@ -219,7 +219,7 @@ pub fn add_peer(
         leaves
             .iter()
             .find(|cidr| &cidr.name == parent_name)
-            .ok_or(anyhow!("No eligible CIDR with that name exists."))?
+            .ok_or_else(|| anyhow!("No eligible CIDR with that name exists."))?
     } else {
         choose_cidr(&leaves[..], "Eligible CIDRs for peer")?
     };
@@ -384,8 +384,7 @@ pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Pee
 
 /// Confirm and write a innernet invitation file after a peer has been created.
 pub fn write_peer_invitation(
-    target_file: &mut File,
-    target_path: &str,
+    target_file: (&mut File, &str),
     network_name: &InterfaceName,
     peer: &Peer,
     server_peer: &Peer,
@@ -410,7 +409,7 @@ pub fn write_peer_invitation(
         },
     };
 
-    peer_invitation.write_to(target_file, true, None)?;
+    peer_invitation.write_to(target_file.0, true, None)?;
 
     println!(
         "\nPeer \"{}\" added\n\
@@ -418,7 +417,7 @@ pub fn write_peer_invitation(
          Please send it to them securely (eg. via magic-wormhole) \
          to bootstrap them onto the network.",
         peer.name.bold(),
-        target_path.bold()
+        target_file.1.bold()
     );
 
     Ok(())

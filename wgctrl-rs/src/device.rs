@@ -420,8 +420,8 @@ impl DeviceUpdate {
     pub fn apply(self, iface: &InterfaceName, backend: Backend) -> io::Result<()> {
         match backend {
             #[cfg(target_os = "linux")]
-            Backend::Kernel => backends::kernel::apply(&self, &iface),
-            Backend::Userspace => backends::userspace::apply(&self, &iface),
+            Backend::Kernel => backends::kernel::apply(&self, iface),
+            Backend::Userspace => backends::userspace::apply(&self, iface),
         }
     }
 }

@@ -308,8 +308,7 @@ fn add_peer(
 
         let server_peer = DatabasePeer::get(&conn, 1)?;
         prompts::write_peer_invitation(
-            &mut target_file,
-            &target_path,
+            (&mut target_file, &target_path),
             interface,
             &peer,
             &*server_peer,
@@ -339,7 +338,7 @@ fn rename_peer(
         let mut db_peer = DatabasePeer::list(&conn)?
             .into_iter()
             .find(|p| p.name == old_name)
-            .ok_or(anyhow!("Peer not found."))?;
+            .ok_or_else(|| anyhow!("Peer not found."))?;
         let _peer = db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");
