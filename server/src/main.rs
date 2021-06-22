@@ -263,7 +263,7 @@ fn open_database_connection(
     interface: &InterfaceName,
     conf: &ServerConfig,
 ) -> Result<rusqlite::Connection, Error> {
-    let database_path = conf.database_path(&interface);
+    let database_path = conf.database_path(interface);
     if !Path::new(&database_path).exists() {
         bail!(
             "no database file found at {}",
@@ -612,7 +612,7 @@ fn get_session(
         .get(INNERNET_PUBKEY_HEADER)
         .ok_or(ServerError::Unauthorized)?;
     let pubkey = pubkey.to_str().map_err(|_| ServerError::Unauthorized)?;
-    let pubkey = Key::from_base64(&pubkey).map_err(|_| ServerError::Unauthorized)?;
+    let pubkey = Key::from_base64(pubkey).map_err(|_| ServerError::Unauthorized)?;
     if pubkey.0.ct_eq(&context.public_key.0).into() {
         let peer = DatabasePeer::get_from_ip(&context.db.lock(), addr).map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => ServerError::Unauthorized,

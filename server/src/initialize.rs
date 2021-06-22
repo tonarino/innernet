@@ -57,7 +57,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     const SERVER_NAME: &str = "innernet-server";
 
     let root_cidr = DatabaseCidr::create(
-        &conn,
+        conn,
         CidrContents {
             name: db_init_data.network_name.clone(),
             cidr: db_init_data.network_cidr,
@@ -67,7 +67,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     .map_err(|_| anyhow!("failed to create root CIDR"))?;
 
     let server_cidr = DatabaseCidr::create(
-        &conn,
+        conn,
         CidrContents {
             name: SERVER_NAME.into(),
             cidr: db_init_data.server_cidr,
@@ -77,7 +77,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
     .map_err(|_| anyhow!("failed to create innernet-server CIDR"))?;
 
     let _me = DatabasePeer::create(
-        &conn,
+        conn,
         PeerContents {
             name: SERVER_NAME.parse().map_err(|e: &str| anyhow!(e))?,
             ip: db_init_data.our_ip,

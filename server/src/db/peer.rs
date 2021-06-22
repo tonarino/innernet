@@ -75,7 +75,7 @@ impl DatabasePeer {
         } = &contents;
         log::info!("creating peer {:?}", contents);
 
-        if !Self::is_valid_name(&name) {
+        if !Self::is_valid_name(name) {
             log::warn!("peer name is invalid, must conform to hostname(7) requirements.");
             return Err(ServerError::InvalidQuery);
         }

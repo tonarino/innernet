@@ -78,7 +78,7 @@ pub fn up(
     if let Some((public_key, address, endpoint)) = peer {
         let prefix = if address.is_ipv4() { 32 } else { 128 };
         let peer_config =
-            PeerConfigBuilder::new(&wgctrl::Key::from_base64(&public_key).map_err(|_| {
+            PeerConfigBuilder::new(&wgctrl::Key::from_base64(public_key).map_err(|_| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "failed to parse base64 public key",
@@ -92,7 +92,7 @@ pub fn up(
         device = device.set_listen_port(listen_port);
     }
     device
-        .set_private_key(wgctrl::Key::from_base64(&private_key).unwrap())
+        .set_private_key(wgctrl::Key::from_base64(private_key).unwrap())
         .apply(interface, network.backend)?;
     set_addr(interface, address)?;
     set_up(

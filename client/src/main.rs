@@ -364,7 +364,7 @@ fn redeem_invite(
         .resolve()
         .with_str(config.server.external_endpoint.to_string())?;
     wg::up(
-        &iface,
+        iface,
         &config.interface.private_key,
         config.interface.address,
         None,
@@ -402,7 +402,7 @@ fn redeem_invite(
     log::info!("Changing keys and waiting for server's WireGuard interface to transition.",);
     DeviceUpdate::new()
         .set_private_key(keypair.private)
-        .apply(&iface, network.backend)
+        .apply(iface, network.backend)
         .with_str(iface.to_string())?;
     thread::sleep(*REDEEM_TRANSITION_WAIT);
 
@@ -469,11 +469,11 @@ fn fetch(
     }
 
     log::info!("fetching state from server.");
-    let mut store = DataStore::open_or_create(&interface)?;
+    let mut store = DataStore::open_or_create(interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
     let device_info =
-        Device::get(&interface, network.backend).with_str(interface.as_str_lossy())?;
+        Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -533,7 +533,7 @@ fn fetch(
 
     if device_config_changed {
         device_config_builder
-            .apply(&interface, network.backend)
+            .apply(interface, network.backend)
             .with_str(interface.to_string())?;
 
         if let Some(path) = hosts_path {
@@ -936,7 +936,7 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     children.sort();
     children
         .iter()
-        .for_each(|child| print_tree(&child, peers, level + 1));
+        .for_each(|child| print_tree(child, peers, level + 1));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
         print_peer(peer, true, level);
