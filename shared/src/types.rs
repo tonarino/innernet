@@ -237,6 +237,10 @@ impl<'a> CidrTree<'a> {
             .iter()
             .min_by_key(|c| c.cidr.prefix())
             .expect("failed to find root CIDR");
+        Self::with_root(cidrs, root)
+    }
+
+    pub fn with_root(cidrs: &'a [Cidr], root: &'a Cidr) -> Self {
         Self {
             cidrs,
             contents: root,
@@ -254,13 +258,11 @@ impl<'a> CidrTree<'a> {
     }
 
     pub fn leaves(&self) -> Vec<Cidr> {
-        let mut leaves = vec![];
-        for cidr in self.cidrs {
-            if !self.cidrs.iter().any(|c| c.parent == Some(cidr.id)) {
-                leaves.push(cidr.clone());
-            }
+        if !self.cidrs.iter().any(|cidr| cidr.parent == Some(self.id)) {
+            vec![self.contents.clone()]
+        } else {
+            self.children().flat_map(|child| child.leaves()).collect()
         }
-        leaves
     }
 }
 
