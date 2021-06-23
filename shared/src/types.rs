@@ -237,10 +237,6 @@ impl<'a> CidrTree<'a> {
             .iter()
             .min_by_key(|c| c.cidr.prefix())
             .expect("failed to find root CIDR");
-        Self::with_root(cidrs, root)
-    }
-
-    pub fn with_root(cidrs: &'a [Cidr], root: &'a Cidr) -> Self {
         Self {
             cidrs,
             contents: root,
