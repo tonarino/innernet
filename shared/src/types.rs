@@ -217,7 +217,7 @@ impl Deref for Cidr {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct CidrTree<'a> {
     cidrs: &'a [Cidr],
     contents: &'a Cidr,
@@ -237,6 +237,10 @@ impl<'a> CidrTree<'a> {
             .iter()
             .min_by_key(|c| c.cidr.prefix())
             .expect("failed to find root CIDR");
+        Self::with_root(cidrs, root)
+    }
+
+    pub fn with_root(cidrs: &'a [Cidr], root: &'a Cidr) -> Self {
         Self {
             cidrs,
             contents: root,
