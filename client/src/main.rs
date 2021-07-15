@@ -472,8 +472,7 @@ fn fetch(
     let mut store = DataStore::open_or_create(interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info =
-        Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
+    let device_info = Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
     let interface_public_key = device_info
         .public_key
         .as_ref()
@@ -490,9 +489,11 @@ fn fetch(
                 .find(|p| p.config.public_key.to_base64() == peer.public_key);
 
             let change = match existing_peer {
-                Some(existing_peer) => peer
-                    .diff(&existing_peer.config)
-                    .map(|diff| (PeerConfigBuilder::from(&diff), peer, "modified".normal())),
+                Some(existing_peer) => peer.diff(&existing_peer.config).map(|diff| {
+                    diff.endpoint
+                        .map(|endpoint| log::debug!("  Peer endpoint changed: {:?}", endpoint));
+                    (PeerConfigBuilder::from(&diff), peer, "modified".normal())
+                }),
                 None => Some((PeerConfigBuilder::from(peer), peer, "added".green())),
             };
 
