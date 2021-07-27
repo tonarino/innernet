@@ -124,6 +124,6 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
     match netlink_call(RtnlMessage::NewRoute(message), None) {
         Ok(_) => Ok(true),
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(false),
-        Err(e) => Err(e.into()),
+        Err(e) => Err(e),
     }
 }

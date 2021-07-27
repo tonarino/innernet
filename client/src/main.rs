@@ -490,8 +490,9 @@ fn fetch(
 
             let change = match existing_peer {
                 Some(existing_peer) => peer.diff(&existing_peer.config).map(|diff| {
-                    diff.endpoint
-                        .map(|endpoint| log::debug!("  Peer endpoint changed: {:?}", endpoint));
+                    if let Some(endpoint) = diff.endpoint {
+                        log::debug!("  Peer endpoint changed: {:?}", endpoint);
+                    }
                     (PeerConfigBuilder::from(&diff), peer, "modified".normal())
                 }),
                 None => Some((PeerConfigBuilder::from(peer), peer, "added".green())),

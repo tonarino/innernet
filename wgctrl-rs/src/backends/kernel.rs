@@ -88,7 +88,7 @@ impl<'a> From<&'a wgctrl_sys::wg_device> for Device {
                 0 => None,
                 x => Some(x),
             },
-            peers: parse_peers(&raw),
+            peers: parse_peers(raw),
             linked_name: None,
             backend: Backend::Kernel,
             __cant_construct_me: (),
