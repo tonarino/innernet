@@ -120,7 +120,7 @@ impl PeerConfigBuilder {
     }
 
     /// Specifies that this peer does not require keepalive packets.
-    pub fn disable_persistent_keepalive(self) -> Self {
+    pub fn unset_persistent_keepalive(self) -> Self {
         self.set_persistent_keepalive_interval(0)
     }
 

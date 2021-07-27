@@ -431,27 +431,26 @@ impl Display for Peer {
 #[derive(Debug, PartialEq)]
 pub struct PeerDiff {
     pub public_key: String,
-    pub endpoint: Option<SocketAddr>,
-    pub persistent_keepalive_interval: Option<u16>,
+    pub endpoint: Option<Option<SocketAddr>>,
+    pub persistent_keepalive_interval: Option<Option<u16>>,
     pub is_disabled: bool,
 }
 
 impl Peer {
+    /// Calculates difference between this Peer and a PeerConfig from `wgctrl-rs`.
     pub fn diff(&self, peer: &PeerConfig) -> Option<PeerDiff> {
         assert_eq!(self.public_key, peer.public_key.to_base64());
 
-        let endpoint_diff = if let Some(ref endpoint) = self.endpoint {
-            match endpoint.resolve() {
-                Ok(resolved) if Some(resolved) != peer.endpoint => Some(resolved),
-                _ => None,
-            }
+        let new_endpoint = self.endpoint.as_ref().and_then(|endpoint| endpoint.resolve().ok());
+        let endpoint_diff = if new_endpoint != peer.endpoint {
+            Some(new_endpoint)
         } else {
             None
         };
 
         let keepalive_diff =
             if peer.persistent_keepalive_interval != self.persistent_keepalive_interval {
-                self.persistent_keepalive_interval
+                Some(self.persistent_keepalive_interval)
             } else {
                 None
             };
@@ -487,7 +486,7 @@ impl<'a> From<&'a Peer> for PeerConfigBuilder {
             builder
         };
 
-        let resolved = peer.endpoint.as_ref().map(|e| e.resolve().ok()).flatten();
+        let resolved = peer.endpoint.as_ref().and_then(|e| e.resolve().ok());
 
         if let Some(endpoint) = resolved {
             builder.set_endpoint(endpoint)
@@ -507,16 +506,16 @@ impl<'a> From<&'a PeerDiff> for PeerConfigBuilder {
             builder
         };
 
-        let builder = if let Some(interval) = peer.persistent_keepalive_interval {
-            builder.set_persistent_keepalive_interval(interval)
-        } else {
-            builder
+        let builder = match peer.persistent_keepalive_interval {
+            Some(Some(interval)) => builder.set_persistent_keepalive_interval(interval),
+            Some(None) => builder.unset_persistent_keepalive(),
+            None => builder,
         };
 
-        if let Some(endpoint) = peer.endpoint {
-            builder.set_endpoint(endpoint)
-        } else {
-            builder
+        // If there's a new endpoint, set it, otherwise we won't bother unsetting the endpoint.
+        match peer.endpoint {
+            Some(Some(endpoint)) => builder.set_endpoint(endpoint),
+            _ => builder
         }
     }
 }
