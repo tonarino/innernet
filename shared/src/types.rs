@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Error};
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -14,7 +15,9 @@ use std::{
 };
 use structopt::StructOpt;
 use url::Host;
-use wgctrl::{Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder};
+use wgctrl::{
+    AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
+};
 
 #[derive(Debug, Clone)]
 pub struct Interface {
@@ -428,42 +431,30 @@ impl Display for Peer {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct PeerDiff {
-    pub public_key: String,
-    pub endpoint: Option<Option<SocketAddr>>,
-    pub persistent_keepalive_interval: Option<Option<u16>>,
-    pub is_disabled: bool,
+/// Encompasses the logic for comparing the peer configuration currently on the WireGuard interface
+/// to a (potentially) more current peer configuration from the innernet server.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PeerDiff<'a> {
+    pub old: Option<&'a PeerConfig>,
+    pub new: Option<&'a Peer>,
 }
 
-impl Peer {
-    /// Calculates difference between this Peer and a PeerConfig from `wgctrl-rs`.
-    pub fn diff(&self, peer: &PeerConfig) -> Option<PeerDiff> {
-        assert_eq!(self.public_key, peer.public_key.to_base64());
+impl<'a> PeerDiff<'a> {
+    pub fn new(old: Option<&'a PeerConfig>, new: Option<&'a Peer>) -> Result<Self, Error> {
+        match (old, new) {
+            (Some(old), Some(new)) if old.public_key.to_base64() != new.public_key => Err(anyhow!(
+                "old and new peer configs have different public keys"
+            )),
+            (None, None) => Err(anyhow!("old and new peer configs are both missing")),
+            _ => Ok(Self { old, new }),
+        }
+    }
 
-        let new_endpoint = self.endpoint.as_ref().and_then(|endpoint| endpoint.resolve().ok());
-        let endpoint_diff = if new_endpoint != peer.endpoint {
-            Some(new_endpoint)
-        } else {
-            None
-        };
-
-        let keepalive_diff =
-            if peer.persistent_keepalive_interval != self.persistent_keepalive_interval {
-                Some(self.persistent_keepalive_interval)
-            } else {
-                None
-            };
-
-        if endpoint_diff.is_none() && keepalive_diff.is_none() {
-            None
-        } else {
-            Some(PeerDiff {
-                public_key: self.public_key.clone(),
-                endpoint: endpoint_diff,
-                persistent_keepalive_interval: keepalive_diff,
-                is_disabled: self.is_disabled,
-            })
+    pub fn public_key(&self) -> Key {
+        match (self.old, self.new) {
+            (Some(old), _) => old.public_key.clone(),
+            (_, Some(new)) => Key::from_base64(&new.public_key).unwrap(),
+            _ => unreachable!("PeerDiff doesn't allow empty old *and* new configs"),
         }
     }
 }
@@ -496,27 +487,48 @@ impl<'a> From<&'a Peer> for PeerConfigBuilder {
     }
 }
 
-impl<'a> From<&'a PeerDiff> for PeerConfigBuilder {
-    fn from(peer: &PeerDiff) -> Self {
-        let builder = PeerConfigBuilder::new(&Key::from_base64(&peer.public_key).unwrap());
+impl<'a> From<PeerDiff<'a>> for PeerConfigBuilder {
+    /// Turn a PeerDiff into a minimal set of instructions to update the WireGuard interface,
+    /// hopefully minimizing dropped packets and other interruptions.
+    fn from(diff: PeerDiff) -> Self {
+        let mut builder = PeerConfigBuilder::new(&diff.public_key());
 
-        let builder = if peer.is_disabled {
-            builder.remove()
-        } else {
-            builder
-        };
-
-        let builder = match peer.persistent_keepalive_interval {
-            Some(Some(interval)) => builder.set_persistent_keepalive_interval(interval),
-            Some(None) => builder.unset_persistent_keepalive(),
-            None => builder,
-        };
-
-        // If there's a new endpoint, set it, otherwise we won't bother unsetting the endpoint.
-        match peer.endpoint {
-            Some(Some(endpoint)) => builder.set_endpoint(endpoint),
-            _ => builder
+        // Remove peer from interface if they're deleted or disabled, and we can return early.
+        if diff.new.is_none() || matches!(diff.new, Some(new) if new.is_disabled) {
+            return builder.remove();
         }
+        // diff.new is now guaranteed to be a Some(_) variant.
+        let new = diff.new.unwrap();
+
+        // TODO(jake): use contains() when stable: https://github.com/rust-lang/rust/issues/62358
+
+        let new_allowed_ips = &[AllowedIp {
+            address: new.ip,
+            cidr: if new.ip.is_ipv4() { 32 } else { 128 },
+        }];
+        if diff.old.is_none() || matches!(diff.old, Some(old) if old.allowed_ips == new_allowed_ips)
+        {
+            builder = builder
+                .replace_allowed_ips()
+                .add_allowed_ips(new_allowed_ips);
+        }
+
+        if diff.old.is_none()
+            || matches!(diff.old, Some(old) if old.persistent_keepalive_interval != new.persistent_keepalive_interval)
+        {
+            builder = match new.persistent_keepalive_interval {
+                Some(interval) => builder.set_persistent_keepalive_interval(interval),
+                None => builder.unset_persistent_keepalive(),
+            };
+        }
+
+        let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
+        if let Some(addr) = resolved {
+            if diff.old.is_none() || matches!(diff.old, Some(old) if old.endpoint != resolved) {
+                builder = builder.set_endpoint(addr);
+            }
+        }
+        builder
     }
 }
 

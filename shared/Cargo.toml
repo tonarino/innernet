@@ -25,7 +25,7 @@ url = "2"
 wgctrl = { path = "../wgctrl-rs" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-netlink-sys = "0.6"
+netlink-sys = "0.7"
 netlink-packet-core = "0.2"
 netlink-packet-route = "0.7"
 wgctrl-sys = { path = "../wgctrl-sys" }
