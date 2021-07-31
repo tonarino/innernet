@@ -64,7 +64,7 @@ pub struct PeerConfig {
 ///
 /// These are the attributes that will change over time; to update them,
 /// re-read the information from the interface.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct PeerStats {
     /// Time of the last handshake/rekey with this peer.
     pub last_handshake_time: Option<SystemTime>,
@@ -72,7 +72,6 @@ pub struct PeerStats {
     pub rx_bytes: u64,
     /// Number of bytes transmitted to this peer.
     pub tx_bytes: u64,
-    pub(crate) __cant_construct_me: (),
 }
 
 /// Represents the complete status of a peer.

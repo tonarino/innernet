@@ -3,11 +3,21 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{fmt::{self, Display, Formatter}, io, net::{IpAddr, SocketAddr, ToSocketAddrs}, ops::Deref, path::Path, str::FromStr, time::{Duration, SystemTime}, vec};
+use std::{
+    fmt::{self, Display, Formatter},
+    io,
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
+    ops::Deref,
+    path::Path,
+    str::FromStr,
+    time::{Duration, SystemTime},
+    vec,
+};
 use structopt::StructOpt;
 use url::Host;
 use wgctrl::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
+    PeerInfo,
 };
 
 #[derive(Debug, Clone)]
@@ -431,12 +441,22 @@ pub struct ChangeString {
 
 impl Display for ChangeString {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {} => {}", self.name, self.old.as_deref().unwrap_or("[none]"), self.new.as_deref().unwrap_or("[none]"))
+        write!(
+            f,
+            "{}: {} => {}",
+            self.name,
+            self.old.as_deref().unwrap_or("[none]"),
+            self.new.as_deref().unwrap_or("[none]")
+        )
     }
 }
 
 impl ChangeString {
-    pub fn new<T, U>(name: &'static str, old: Option<T>, new: Option<U>) -> Self where T: fmt::Debug, U: fmt::Debug {
+    pub fn new<T, U>(name: &'static str, old: Option<T>, new: Option<U>) -> Self
+    where
+        T: fmt::Debug,
+        U: fmt::Debug,
+    {
         Self {
             name,
             old: old.map(|t| format!("{:?}", t)),
@@ -456,14 +476,38 @@ pub struct PeerDiff<'a> {
 }
 
 impl<'a> PeerDiff<'a> {
-    pub fn new(old: Option<&'a PeerConfig>, new: Option<&'a Peer>) -> Result<Option<Self>, Error> {
-        match (old, new) {
-            (Some(old), Some(new)) if old.public_key.to_base64() != new.public_key => Err(anyhow!(
-                "old and new peer configs have different public keys"
-            )),
+    pub fn new(
+        old_info: Option<&'a PeerInfo>,
+        new: Option<&'a Peer>,
+    ) -> Result<Option<Self>, Error> {
+        let old = old_info.map(|p| &p.config);
+        match (old_info, new) {
+            (Some(old), Some(new)) if old.config.public_key.to_base64() != new.public_key => Err(
+                anyhow!("old and new peer configs have different public keys"),
+            ),
             (None, None) => Ok(None),
-            _ => Ok(Self::peer_config_builder(old, new).map(|(builder, changes)| Self { old, new, builder, changes })),
+            _ => Ok(
+                Self::peer_config_builder(old_info, new).map(|(builder, changes)| Self {
+                    old,
+                    new,
+                    builder,
+                    changes,
+                }),
+            ),
         }
+    }
+
+    /// WireGuard rejects any communication after REJECT_AFTER_TIME, so we can use this
+    /// as a heuristic for "currentness" without relying on heavier things like ICMP.
+    pub fn peer_recently_connected(peer: &Option<&PeerInfo>) -> bool {
+        const REJECT_AFTER_TIME: u64 = 180;
+
+        let last_handshake = peer
+            .and_then(|p| p.stats.last_handshake_time)
+            .and_then(|t| t.elapsed().ok())
+            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
+
+        last_handshake <= Duration::from_secs(REJECT_AFTER_TIME)
     }
 
     pub fn public_key(&self) -> &Key {
@@ -475,9 +519,10 @@ impl<'a> PeerDiff<'a> {
     }
 
     fn peer_config_builder(
-        old: Option<&PeerConfig>,
+        old_info: Option<&PeerInfo>,
         new: Option<&Peer>,
     ) -> Option<(PeerConfigBuilder, Vec<ChangeString>)> {
+        let old = old_info.map(|p| &p.config);
         let public_key = match (old, new) {
             (Some(old), _) => old.public_key.clone(),
             (_, Some(new)) => Key::from_base64(&new.public_key).unwrap(),
@@ -503,7 +548,11 @@ impl<'a> PeerDiff<'a> {
             builder = builder
                 .replace_allowed_ips()
                 .add_allowed_ips(new_allowed_ips);
-            changes.push(ChangeString::new("AllowedIPs", old.map(|o| &o.allowed_ips[..]), Some(&new_allowed_ips[0])));
+            changes.push(ChangeString::new(
+                "AllowedIPs",
+                old.map(|o| &o.allowed_ips[..]),
+                Some(&new_allowed_ips[0]),
+            ));
         }
 
         if old.is_none()
@@ -513,14 +562,25 @@ impl<'a> PeerDiff<'a> {
                 Some(interval) => builder.set_persistent_keepalive_interval(interval),
                 None => builder.unset_persistent_keepalive(),
             };
-            changes.push(ChangeString::new("PersistentKeepalive", old.and_then(|p| p.persistent_keepalive_interval), new.persistent_keepalive_interval));
+            changes.push(ChangeString::new(
+                "PersistentKeepalive",
+                old.and_then(|p| p.persistent_keepalive_interval),
+                new.persistent_keepalive_interval,
+            ));
         }
 
-        let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
-        if let Some(addr) = resolved {
-            if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
-                builder = builder.set_endpoint(addr);
-                changes.push(ChangeString::new("Endpoint", old.and_then(|p| p.endpoint), Some(addr)));
+        // We won't update the endpoint if there's already a stable connection.
+        if !Self::peer_recently_connected(&old_info) {
+            let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
+            if let Some(addr) = resolved {
+                if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
+                    builder = builder.set_endpoint(addr);
+                    changes.push(ChangeString::new(
+                        "Endpoint",
+                        old.and_then(|p| p.endpoint),
+                        Some(addr),
+                    ));
+                }
             }
         }
         if !changes.is_empty() {
@@ -693,7 +753,7 @@ impl std::error::Error for WrappedIoError {}
 mod tests {
     use super::*;
     use std::net::IpAddr;
-    use wgctrl::{Key, PeerConfigBuilder};
+    use wgctrl::{Key, PeerConfigBuilder, PeerStats};
 
     #[test]
     fn test_peer_no_diff() {
@@ -718,8 +778,12 @@ mod tests {
             PeerConfigBuilder::new(&Key::from_base64(PUBKEY).unwrap()).add_allowed_ip(ip, 32);
 
         let config = builder.into_peer_config();
+        let info = PeerInfo {
+            config,
+            stats: Default::default(),
+        };
 
-        let diff = PeerDiff::new(Some(&config), Some(&peer)).unwrap();
+        let diff = PeerDiff::new(Some(&info), Some(&peer)).unwrap();
 
         println!("{:?}", diff);
         assert_eq!(diff, None);
@@ -748,10 +812,56 @@ mod tests {
             PeerConfigBuilder::new(&Key::from_base64(PUBKEY).unwrap()).add_allowed_ip(ip, 32);
 
         let config = builder.into_peer_config();
-        let diff = PeerDiff::new(Some(&config), Some(&peer)).unwrap();
+        let info = PeerInfo {
+            config,
+            stats: Default::default(),
+        };
+        let diff = PeerDiff::new(Some(&info), Some(&peer)).unwrap();
 
         println!("{:?}", peer);
-        println!("{:?}", config);
+        println!("{:?}", info.config);
         assert!(matches!(diff, Some(_)));
+    }
+
+    #[test]
+    fn test_peer_diff_handshake_time() {
+        const PUBKEY: &str = "4CNZorWVtohO64n6AAaH/JyFjIIgBFrfJK2SGtKjzEE=";
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let peer = Peer {
+            id: 1,
+            contents: PeerContents {
+                name: "peer1".parse().unwrap(),
+                ip,
+                cidr_id: 1,
+                public_key: PUBKEY.to_owned(),
+                endpoint: Some("1.1.1.1:1111".parse().unwrap()),
+                persistent_keepalive_interval: None,
+                is_admin: false,
+                is_disabled: false,
+                is_redeemed: true,
+                invite_expires: None,
+            },
+        };
+        let builder =
+            PeerConfigBuilder::new(&Key::from_base64(PUBKEY).unwrap()).add_allowed_ip(ip, 32);
+
+        let config = builder.into_peer_config();
+        let mut info = PeerInfo {
+            config,
+            stats: PeerStats {
+                last_handshake_time: Some(SystemTime::now() - Duration::from_secs(200)),
+                ..Default::default()
+            },
+        };
+
+        // If there hasn't been a recent handshake, endpoint should be being set.
+        assert!(matches!(
+            PeerDiff::new(Some(&info), Some(&peer)),
+            Ok(Some(_))
+        ));
+
+        // If there *has* been a recent handshake, endpoint should *not* be being set.
+        info.stats.last_handshake_time = Some(SystemTime::now());
+        assert!(matches!(PeerDiff::new(Some(&info), Some(&peer)), Ok(None)));
     }
 }

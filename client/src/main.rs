@@ -13,7 +13,7 @@ use std::{
     fmt, io,
     path::{Path, PathBuf},
     thread,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 use structopt::{clap::AppSettings, StructOpt};
 use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
@@ -500,8 +500,7 @@ fn fetch(
             let existing_peer = existing_peers
                 .iter()
                 .find(|p| p.config.public_key.to_base64() == peer.public_key);
-
-            PeerDiff::new(existing_peer.map(|p| &p.config), Some(peer)).unwrap()
+            PeerDiff::new(existing_peer, Some(peer)).unwrap()
         }
     });
 
@@ -511,7 +510,7 @@ fn fetch(
         if peers.iter().any(|p| p.public_key == public_key) {
             None
         } else {
-            PeerDiff::new(Some(&existing.config), None).unwrap()
+            PeerDiff::new(Some(&existing), None).unwrap()
         }
     });
 
@@ -529,7 +528,7 @@ fn fetch(
 
             // Grab the peer name from either the new data, or the historical data (if the peer is removed).
             let peer_hostname = match diff.new {
-                    Some(peer) => Some(peer.name.clone()),
+                Some(peer) => Some(peer.name.clone()),
                 _ => store
                     .peers()
                     .iter()
@@ -548,8 +547,6 @@ fn fetch(
             for change in diff.changes() {
                 log::debug!("    {}", change);
             }
-
-            
         })
         .map(PeerConfigBuilder::from)
         .collect::<Vec<_>>();
@@ -995,17 +992,16 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     if short {
-        let last_handshake = info
-            .and_then(|i| i.stats.last_handshake_time)
-            .and_then(|t| t.elapsed().ok())
-            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
-
-        let online = last_handshake <= Duration::from_secs(180) || info.is_none();
+        let connected = PeerDiff::peer_recently_connected(info);
 
         println_pad!(
             pad,
             "| {} {}: {} ({}{}…)",
-            if online { "◉".bold() } else { "◯".dimmed() },
+            if connected {
+                "◉".bold()
+            } else {
+                "◯".dimmed()
+            },
             peer.ip.to_string().yellow().bold(),
             peer.name.yellow(),
             if info.is_none() { "you, " } else { "" },
