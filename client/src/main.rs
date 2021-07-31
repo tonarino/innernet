@@ -521,16 +521,15 @@ fn fetch(
             let public_key = diff.public_key().to_base64();
 
             let text = match (diff.old, diff.new) {
-                (None, Some(_)) => "added",
-                (Some(_), Some(_)) => "modified",
-                (Some(_), None) => "removed",
+                (None, Some(_)) => "added".green(),
+                (Some(_), Some(_)) => "modified".yellow(),
+                (Some(_), None) => "removed".red(),
                 _ => unreachable!("PeerDiff can't be None -> None"),
             };
 
-            let peer_hostname = match diff {
-                PeerDiff {
-                    new: Some(peer), ..
-                } => Some(peer.name.clone()),
+            // Grab the peer name from either the new data, or the historical data (if the peer is removed).
+            let peer_hostname = match diff.new {
+                    Some(peer) => Some(peer.name.clone()),
                 _ => store
                     .peers()
                     .iter()
@@ -539,12 +538,18 @@ fn fetch(
             };
             let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
 
-            println!(
-                "    peer {} ({}...) was {}.",
+            log::info!(
+                "  peer {} ({}...) was {}.",
                 peer_name.yellow(),
                 &public_key[..10].dimmed(),
                 text
             );
+
+            for change in diff.changes() {
+                log::debug!("    {}", change);
+            }
+
+            
         })
         .map(PeerConfigBuilder::from)
         .collect::<Vec<_>>();

@@ -12,12 +12,18 @@ use std::{
 };
 
 /// Represents an IP address a peer is allowed to have, in CIDR notation.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct AllowedIp {
     /// The IP address.
     pub address: IpAddr,
     /// The CIDR subnet mask.
     pub cidr: u8,
+}
+
+impl fmt::Debug for AllowedIp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.address, self.cidr)
+    }
 }
 
 impl std::str::FromStr for AllowedIp {

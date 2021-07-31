@@ -3,16 +3,7 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{self, Display, Formatter},
-    io,
-    net::{IpAddr, SocketAddr, ToSocketAddrs},
-    ops::Deref,
-    path::Path,
-    str::FromStr,
-    time::{Duration, SystemTime},
-    vec,
-};
+use std::{fmt::{self, Display, Formatter}, io, net::{IpAddr, SocketAddr, ToSocketAddrs}, ops::Deref, path::Path, str::FromStr, time::{Duration, SystemTime}, vec};
 use structopt::StructOpt;
 use url::Host;
 use wgctrl::{
@@ -116,7 +107,7 @@ impl<'de> Deserialize<'de> for Endpoint {
     }
 }
 
-impl fmt::Display for Endpoint {
+impl Display for Endpoint {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.host.fmt(f)?;
         f.write_str(":")?;
@@ -431,6 +422,29 @@ impl Display for Peer {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChangeString {
+    name: &'static str,
+    old: Option<String>,
+    new: Option<String>,
+}
+
+impl Display for ChangeString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {} => {}", self.name, self.old.as_deref().unwrap_or("[none]"), self.new.as_deref().unwrap_or("[none]"))
+    }
+}
+
+impl ChangeString {
+    pub fn new<T, U>(name: &'static str, old: Option<T>, new: Option<U>) -> Self where T: fmt::Debug, U: fmt::Debug {
+        Self {
+            name,
+            old: old.map(|t| format!("{:?}", t)),
+            new: new.map(|t| format!("{:?}", t)),
+        }
+    }
+}
+
 /// Encompasses the logic for comparing the peer configuration currently on the WireGuard interface
 /// to a (potentially) more current peer configuration from the innernet server.
 #[derive(Clone, Debug, PartialEq)]
@@ -438,6 +452,7 @@ pub struct PeerDiff<'a> {
     pub old: Option<&'a PeerConfig>,
     pub new: Option<&'a Peer>,
     builder: PeerConfigBuilder,
+    changes: Vec<ChangeString>,
 }
 
 impl<'a> PeerDiff<'a> {
@@ -447,7 +462,7 @@ impl<'a> PeerDiff<'a> {
                 "old and new peer configs have different public keys"
             )),
             (None, None) => Ok(None),
-            _ => Ok(Self::peer_config_builder(old, new).map(|builder| Self { old, new, builder })),
+            _ => Ok(Self::peer_config_builder(old, new).map(|(builder, changes)| Self { old, new, builder, changes })),
         }
     }
 
@@ -455,21 +470,25 @@ impl<'a> PeerDiff<'a> {
         &self.builder.public_key()
     }
 
+    pub fn changes(&self) -> &[ChangeString] {
+        &self.changes
+    }
+
     fn peer_config_builder(
         old: Option<&PeerConfig>,
         new: Option<&Peer>,
-    ) -> Option<PeerConfigBuilder> {
+    ) -> Option<(PeerConfigBuilder, Vec<ChangeString>)> {
         let public_key = match (old, new) {
             (Some(old), _) => old.public_key.clone(),
             (_, Some(new)) => Key::from_base64(&new.public_key).unwrap(),
             _ => return None,
         };
         let mut builder = PeerConfigBuilder::new(&public_key);
-        let mut changed = false;
+        let mut changes = vec![];
 
         // Remove peer from interface if they're deleted or disabled, and we can return early.
         if new.is_none() || matches!(new, Some(new) if new.is_disabled) {
-            return Some(builder.remove());
+            return Some((builder.remove(), changes));
         }
         // diff.new is now guaranteed to be a Some(_) variant.
         let new = new.unwrap();
@@ -484,7 +503,7 @@ impl<'a> PeerDiff<'a> {
             builder = builder
                 .replace_allowed_ips()
                 .add_allowed_ips(new_allowed_ips);
-            changed = true;
+            changes.push(ChangeString::new("AllowedIPs", old.map(|o| &o.allowed_ips[..]), Some(&new_allowed_ips[0])));
         }
 
         if old.is_none()
@@ -494,18 +513,18 @@ impl<'a> PeerDiff<'a> {
                 Some(interval) => builder.set_persistent_keepalive_interval(interval),
                 None => builder.unset_persistent_keepalive(),
             };
-            changed = true;
+            changes.push(ChangeString::new("PersistentKeepalive", old.and_then(|p| p.persistent_keepalive_interval), new.persistent_keepalive_interval));
         }
 
         let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
         if let Some(addr) = resolved {
             if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
                 builder = builder.set_endpoint(addr);
-                changed = true;
+                changes.push(ChangeString::new("Endpoint", old.and_then(|p| p.endpoint), Some(addr)));
             }
         }
-        if changed {
-            Some(builder)
+        if !changes.is_empty() {
+            Some((builder, changes))
         } else {
             None
         }
@@ -654,7 +673,7 @@ pub struct WrappedIoError {
     context: String,
 }
 
-impl std::fmt::Display for WrappedIoError {
+impl Display for WrappedIoError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{} - {}", self.context, self.io_error)
     }
