@@ -73,6 +73,11 @@ impl PeerConfigBuilder {
         }
     }
 
+    /// The public key used in this builder.
+    pub fn public_key(&self) -> &Key {
+        &self.public_key
+    }
+
     /// Creates a `PeerConfigBuilder` from a [`PeerConfig`](PeerConfig).
     ///
     /// This is mostly a convenience method for cases when you want to copy

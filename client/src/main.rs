@@ -501,7 +501,7 @@ fn fetch(
                 .iter()
                 .find(|p| p.config.public_key.to_base64() == peer.public_key);
 
-            Some(PeerDiff::new(existing_peer.map(|p| &p.config), Some(peer)).unwrap())
+            PeerDiff::new(existing_peer.map(|p| &p.config), Some(peer)).unwrap()
         }
     });
 
@@ -511,7 +511,7 @@ fn fetch(
         if peers.iter().any(|p| p.public_key == public_key) {
             None
         } else {
-            Some(PeerDiff::new(Some(&existing.config), None).unwrap())
+            PeerDiff::new(Some(&existing.config), None).unwrap()
         }
     });
 

@@ -437,68 +437,42 @@ impl Display for Peer {
 pub struct PeerDiff<'a> {
     pub old: Option<&'a PeerConfig>,
     pub new: Option<&'a Peer>,
+    builder: PeerConfigBuilder,
 }
 
 impl<'a> PeerDiff<'a> {
-    pub fn new(old: Option<&'a PeerConfig>, new: Option<&'a Peer>) -> Result<Self, Error> {
+    pub fn new(old: Option<&'a PeerConfig>, new: Option<&'a Peer>) -> Result<Option<Self>, Error> {
         match (old, new) {
             (Some(old), Some(new)) if old.public_key.to_base64() != new.public_key => Err(anyhow!(
                 "old and new peer configs have different public keys"
             )),
-            (None, None) => Err(anyhow!("old and new peer configs are both missing")),
-            _ => Ok(Self { old, new }),
+            (None, None) => Ok(None),
+            _ => Ok(Self::peer_config_builder(old, new).map(|builder| Self { old, new, builder })),
         }
     }
 
-    pub fn public_key(&self) -> Key {
-        match (self.old, self.new) {
+    pub fn public_key(&self) -> &Key {
+        &self.builder.public_key()
+    }
+
+    fn peer_config_builder(
+        old: Option<&PeerConfig>,
+        new: Option<&Peer>,
+    ) -> Option<PeerConfigBuilder> {
+        let public_key = match (old, new) {
             (Some(old), _) => old.public_key.clone(),
             (_, Some(new)) => Key::from_base64(&new.public_key).unwrap(),
-            _ => unreachable!("PeerDiff doesn't allow empty old *and* new configs"),
-        }
-    }
-}
-
-impl<'a> From<&'a Peer> for PeerConfigBuilder {
-    fn from(peer: &Peer) -> Self {
-        let builder = PeerConfigBuilder::new(&Key::from_base64(&peer.public_key).unwrap())
-            .replace_allowed_ips()
-            .add_allowed_ip(peer.ip, if peer.ip.is_ipv4() { 32 } else { 128 });
-
-        let builder = if peer.is_disabled {
-            builder.remove()
-        } else {
-            builder
+            _ => return None,
         };
-
-        let builder = if let Some(interval) = peer.persistent_keepalive_interval {
-            builder.set_persistent_keepalive_interval(interval)
-        } else {
-            builder
-        };
-
-        let resolved = peer.endpoint.as_ref().and_then(|e| e.resolve().ok());
-
-        if let Some(endpoint) = resolved {
-            builder.set_endpoint(endpoint)
-        } else {
-            builder
-        }
-    }
-}
-
-impl<'a> From<PeerDiff<'a>> for PeerConfigBuilder {
-    /// Turn a PeerDiff into a minimal set of instructions to update the WireGuard interface,
-    /// hopefully minimizing dropped packets and other interruptions.
-    fn from(diff: PeerDiff) -> Self {
-        let mut builder = PeerConfigBuilder::new(&diff.public_key());
+        let mut builder = PeerConfigBuilder::new(&public_key);
+        let mut changed = false;
 
         // Remove peer from interface if they're deleted or disabled, and we can return early.
-        if diff.new.is_none() || matches!(diff.new, Some(new) if new.is_disabled) {
-            return builder.remove();
+        if new.is_none() || matches!(new, Some(new) if new.is_disabled) {
+            return Some(builder.remove());
         }
         // diff.new is now guaranteed to be a Some(_) variant.
-        let new = diff.new.unwrap();
+        let new = new.unwrap();
 
         // TODO(jake): use contains() when stable: https://github.com/rust-lang/rust/issues/62358
 
@@ -506,29 +480,52 @@ impl<'a> From<PeerDiff<'a>> for PeerConfigBuilder {
             address: new.ip,
             cidr: if new.ip.is_ipv4() { 32 } else { 128 },
         }];
-        if diff.old.is_none() || matches!(diff.old, Some(old) if old.allowed_ips == new_allowed_ips)
-        {
+        if old.is_none() || matches!(old, Some(old) if old.allowed_ips != new_allowed_ips) {
             builder = builder
                 .replace_allowed_ips()
                 .add_allowed_ips(new_allowed_ips);
+            changed = true;
         }
 
-        if diff.old.is_none()
-            || matches!(diff.old, Some(old) if old.persistent_keepalive_interval != new.persistent_keepalive_interval)
+        if old.is_none()
+            || matches!(old, Some(old) if old.persistent_keepalive_interval != new.persistent_keepalive_interval)
         {
             builder = match new.persistent_keepalive_interval {
                 Some(interval) => builder.set_persistent_keepalive_interval(interval),
                 None => builder.unset_persistent_keepalive(),
             };
+            changed = true;
         }
 
         let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
         if let Some(addr) = resolved {
-            if diff.old.is_none() || matches!(diff.old, Some(old) if old.endpoint != resolved) {
+            if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
                 builder = builder.set_endpoint(addr);
+                changed = true;
             }
         }
-        builder
+        if changed {
+            Some(builder)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> From<&'a Peer> for PeerConfigBuilder {
+    fn from(peer: &Peer) -> Self {
+        PeerDiff::new(None, Some(peer))
+            .expect("No Err on explicitly set peer data")
+            .expect("None -> Some(peer) will always create a PeerDiff")
+            .into()
+    }
+}
+
+impl<'a> From<PeerDiff<'a>> for PeerConfigBuilder {
+    /// Turn a PeerDiff into a minimal set of instructions to update the WireGuard interface,
+    /// hopefully minimizing dropped packets and other interruptions.
+    fn from(diff: PeerDiff) -> Self {
+        diff.builder
     }
 }
 
@@ -703,7 +700,10 @@ mod tests {
 
         let config = builder.into_peer_config();
 
-        assert_eq!(peer.diff(&config), None);
+        let diff = PeerDiff::new(Some(&config), Some(&peer)).unwrap();
+
+        println!("{:?}", diff);
+        assert_eq!(diff, None);
     }
 
     #[test]
@@ -729,9 +729,10 @@ mod tests {
             PeerConfigBuilder::new(&Key::from_base64(PUBKEY).unwrap()).add_allowed_ip(ip, 32);
 
         let config = builder.into_peer_config();
+        let diff = PeerDiff::new(Some(&config), Some(&peer)).unwrap();
 
         println!("{:?}", peer);
         println!("{:?}", config);
-        assert!(matches!(peer.diff(&config), Some(_)));
+        assert!(matches!(diff, Some(_)));
     }
 }
