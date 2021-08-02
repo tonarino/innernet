@@ -284,10 +284,19 @@ fn install(
 
     let target_conf = CLIENT_CONFIG_DIR.join(&iface).with_extension("conf");
     if target_conf.exists() {
-        bail!("An existing innernet network with the name \"{}\" already exists.", iface);
+        bail!(
+            "An existing innernet network with the name \"{}\" already exists.",
+            iface
+        );
     }
-    if Device::list(network.backend)?.iter().any(|name| name.as_str_lossy() == iface) {
-        bail!("An existing WireGuard interface with the name \"{}\" already exists.", iface);
+    if Device::list(network.backend)?
+        .iter()
+        .any(|name| name.as_str_lossy() == iface)
+    {
+        bail!(
+            "An existing WireGuard interface with the name \"{}\" already exists.",
+            iface
+        );
     }
 
     let iface = iface.parse()?;

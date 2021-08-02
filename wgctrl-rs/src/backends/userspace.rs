@@ -3,7 +3,14 @@ use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, 
 #[cfg(target_os = "linux")]
 use crate::Key;
 
-use std::{fs, io::{self, prelude::*, BufReader}, os::unix::net::UnixStream, path::{Path, PathBuf}, process::{Command, Output}, time::{Duration, SystemTime}};
+use std::{
+    fs,
+    io::{self, prelude::*, BufReader},
+    os::unix::net::UnixStream,
+    path::{Path, PathBuf},
+    process::{Command, Output},
+    time::{Duration, SystemTime},
+};
 
 static VAR_RUN_PATH: &str = "/var/run/wireguard";
 static RUN_PATH: &str = "/run/wireguard";
@@ -59,7 +66,8 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     for entry in fs::read_dir(get_base_folder()?)? {
         let path = entry?.path();
         if path.extension() == Some(OsStr::new("name")) {
-            let stem = path.file_stem()
+            let stem = path
+                .file_stem()
                 .and_then(|stem| stem.to_str())
                 .and_then(|name| name.parse::<InterfaceName>().ok())
                 .filter(|iface| open_socket(iface).is_ok());
