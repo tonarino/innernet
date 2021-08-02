@@ -59,9 +59,12 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     for entry in fs::read_dir(get_base_folder()?)? {
         let path = entry?.path();
         if path.extension() == Some(OsStr::new("name")) {
-            let stem = path.file_stem().map(|stem| stem.to_str()).flatten();
-            if let Some(name) = stem {
-                interfaces.push(name.parse()?);
+            let stem = path.file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(|name| name.parse::<InterfaceName>().ok())
+                .filter(|iface| open_socket(iface).is_ok());
+            if let Some(iface) = stem {
+                interfaces.push(iface);
             }
         }
     }
