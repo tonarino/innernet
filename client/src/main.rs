@@ -289,9 +289,11 @@ fn install(
             iface
         );
     }
-    if Device::list(network.backend)?
+    let iface = iface.parse()?;
+    if Device::list(network.backend)
         .iter()
-        .any(|name| name.as_str_lossy() == iface)
+        .flatten()
+        .any(|name| name == &iface)
     {
         bail!(
             "An existing WireGuard interface with the name \"{}\" already exists.",
@@ -299,7 +301,6 @@ fn install(
         );
     }
 
-    let iface = iface.parse()?;
     redeem_invite(&iface, config, target_conf, network).map_err(|e| {
         log::error!("failed to start the interface: {}.", e);
         log::info!("bringing down the interface.");
