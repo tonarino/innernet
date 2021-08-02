@@ -3,14 +3,7 @@ use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, 
 #[cfg(target_os = "linux")]
 use crate::Key;
 
-use std::{
-    fs,
-    io::{self, prelude::*, BufReader},
-    os::unix::net::UnixStream,
-    path::{Path, PathBuf},
-    process::Command,
-    time::{Duration, SystemTime},
-};
+use std::{fs, io::{self, prelude::*, BufReader}, os::unix::net::UnixStream, path::{Path, PathBuf}, process::{Command, Output}, time::{Duration, SystemTime}};
 
 static VAR_RUN_PATH: &str = "/var/run/wireguard";
 static RUN_PATH: &str = "/run/wireguard";
@@ -66,9 +59,12 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     for entry in fs::read_dir(get_base_folder()?)? {
         let path = entry?.path();
         if path.extension() == Some(OsStr::new("name")) {
-            let stem = path.file_stem().map(|stem| stem.to_str()).flatten();
-            if let Some(name) = stem {
-                interfaces.push(name.parse()?);
+            let stem = path.file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(|name| name.parse::<InterfaceName>().ok())
+                .filter(|iface| open_socket(iface).is_ok());
+            if let Some(iface) = stem {
+                interfaces.push(iface);
             }
         }
     }
@@ -271,26 +267,34 @@ fn get_userspace_implementation() -> String {
         .unwrap_or_else(|_| "wireguard-go".to_string())
 }
 
+fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
+    let mut command = Command::new(&get_userspace_implementation());
+    let output = if cfg!(target_os = "linux") {
+        command.args(&[iface.to_string()]).output()?
+    } else {
+        command
+            .env(
+                "WG_TUN_NAME_FILE",
+                &format!("{}/{}.name", VAR_RUN_PATH, iface),
+            )
+            .args(&["utun"])
+            .output()?
+    };
+    if !output.status.success() {
+        Err(io::ErrorKind::AddrNotAvailable.into())
+    } else {
+        Ok(output)
+    }
+}
+
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
         Err(_) => {
             fs::create_dir_all(VAR_RUN_PATH)?;
-            let mut command = Command::new(&get_userspace_implementation());
-            let output = if cfg!(target_os = "linux") {
-                command.args(&[iface.to_string()]).output()?
-            } else {
-                command
-                    .env(
-                        "WG_TUN_NAME_FILE",
-                        &format!("{}/{}.name", VAR_RUN_PATH, iface),
-                    )
-                    .args(&["utun"])
-                    .output()?
-            };
-            if !output.status.success() {
-                return Err(io::ErrorKind::AddrNotAvailable.into());
-            }
+            // Clear out any old namefiles if they didn't lead to a connected socket.
+            let _ = fs::remove_file(get_namefile(iface)?);
+            start_userspace_wireguard(iface)?;
             std::thread::sleep(Duration::from_millis(100));
             open_socket(iface)
                 .map_err(|e| io::Error::new(e.kind(), format!("failed to open socket ({})", e)))?
