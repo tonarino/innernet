@@ -12,16 +12,17 @@ use std::{
 use structopt::lazy_static;
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
-      id              INTEGER PRIMARY KEY,
-      name            TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */
-      ip              TEXT NOT NULL UNIQUE,         /* The WireGuard-internal IP address assigned to the peer.          */
-      public_key      TEXT NOT NULL UNIQUE,         /* The WireGuard public key of the peer.                            */
-      endpoint        TEXT,                         /* The optional external endpoint ([ip]:[port]) of the peer.        */
-      cidr_id         INTEGER NOT NULL,             /* The ID of the peer's parent CIDR.                                */
-      is_admin        INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
-      is_disabled     INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
-      is_redeemed     INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
-      invite_expires  INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
+      id                  INTEGER PRIMARY KEY,
+      name                TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */
+      ip                  TEXT NOT NULL UNIQUE,         /* The WireGuard-internal IP address assigned to the peer.          */
+      public_key          TEXT NOT NULL UNIQUE,         /* The WireGuard public key of the peer.                            */
+      endpoint            TEXT,                         /* The optional external endpoint ([ip]:[port]) of the peer.        */
+      cidr_id             INTEGER NOT NULL,             /* The ID of the peer's parent CIDR.                                */
+      is_admin            INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
+      is_disabled         INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
+      is_redeemed         INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
+      invite_expires      INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
+      endpoint_candidates TEXT,                         /* A list of additional endpoints that peers can use to connect.    */
       FOREIGN KEY (cidr_id)
          REFERENCES cidrs (id)
             ON UPDATE RESTRICT
