@@ -149,6 +149,7 @@ mod tests {
                 is_redeemed: true,
                 persistent_keepalive_interval: None,
                 invite_expires: None,
+                candidates: vec![],
             }
         }];
         static ref BASE_CIDRS: Vec<Cidr> = vec![Cidr {

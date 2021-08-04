@@ -408,6 +408,7 @@ pub struct PeerContents {
     pub is_disabled: bool,
     pub is_redeemed: bool,
     pub invite_expires: Option<SystemTime>,
+    pub candidates: Vec<Endpoint>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -772,6 +773,7 @@ mod tests {
                 is_disabled: false,
                 is_redeemed: true,
                 invite_expires: None,
+                candidates: vec![],
             },
         };
         let builder =
@@ -806,6 +808,7 @@ mod tests {
                 is_disabled: false,
                 is_redeemed: true,
                 invite_expires: None,
+                candidates: vec![],
             },
         };
         let builder =

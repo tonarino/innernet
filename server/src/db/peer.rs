@@ -2,8 +2,8 @@ use super::DatabaseCidr;
 use crate::ServerError;
 use lazy_static::lazy_static;
 use regex::Regex;
-use rusqlite::{params, Connection};
-use shared::{Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
+use rusqlite::{Connection, params, types::Type};
+use shared::{Endpoint, PERSISTENT_KEEPALIVE_INTERVAL_SECS, Peer, PeerContents};
 use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},
@@ -12,17 +12,17 @@ use std::{
 use structopt::lazy_static;
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
-      id                  INTEGER PRIMARY KEY,
-      name                TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */
-      ip                  TEXT NOT NULL UNIQUE,         /* The WireGuard-internal IP address assigned to the peer.          */
-      public_key          TEXT NOT NULL UNIQUE,         /* The WireGuard public key of the peer.                            */
-      endpoint            TEXT,                         /* The optional external endpoint ([ip]:[port]) of the peer.        */
-      cidr_id             INTEGER NOT NULL,             /* The ID of the peer's parent CIDR.                                */
-      is_admin            INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
-      is_disabled         INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
-      is_redeemed         INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
-      invite_expires      INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
-      endpoint_candidates TEXT,                         /* A list of additional endpoints that peers can use to connect.    */
+      id             INTEGER PRIMARY KEY,
+      name           TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */
+      ip             TEXT NOT NULL UNIQUE,         /* The WireGuard-internal IP address assigned to the peer.          */
+      public_key     TEXT NOT NULL UNIQUE,         /* The WireGuard public key of the peer.                            */
+      endpoint       TEXT,                         /* The optional external endpoint ([ip]:[port]) of the peer.        */
+      cidr_id        INTEGER NOT NULL,             /* The ID of the peer's parent CIDR.                                */
+      is_admin       INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
+      is_disabled    INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
+      is_redeemed    INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
+      invite_expires INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
+      candidates     TEXT,                         /* A list of additional endpoints that peers can use to connect.    */
       FOREIGN KEY (cidr_id)
          REFERENCES cidrs (id)
             ON UPDATE RESTRICT
@@ -72,6 +72,7 @@ impl DatabasePeer {
             is_disabled,
             is_redeemed,
             invite_expires,
+            candidates,
             ..
         } = &contents;
         log::info!("creating peer {:?}", contents);
@@ -97,8 +98,10 @@ impl DatabasePeer {
             .flatten()
             .map(|t| t.as_secs());
 
+        let candidates = serde_json::to_string(candidates)?;
+
         conn.execute(
-            "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 &**name,
                 ip.to_string(),
@@ -109,6 +112,7 @@ impl DatabasePeer {
                 is_disabled,
                 is_redeemed,
                 invite_expires,
+                candidates,
             ],
         )?;
         let id = conn.last_insert_rowid();
@@ -136,17 +140,21 @@ impl DatabasePeer {
             endpoint: contents.endpoint,
             is_admin: contents.is_admin,
             is_disabled: contents.is_disabled,
+            candidates: contents.candidates,
             ..self.contents.clone()
         };
 
+        let new_candidates = serde_json::to_string(&new_contents.candidates)?;
         conn.execute(
             "UPDATE peers SET
-                name = ?1,
-                endpoint = ?2,
-                is_admin = ?3,
-                is_disabled = ?4
-            WHERE id = ?5",
+                name = ?2,
+                endpoint = ?3,
+                is_admin = ?4,
+                is_disabled = ?5,
+                candidates = ?6
+            WHERE id = ?1",
             params![
+                self.id,
                 &*new_contents.name,
                 new_contents
                     .endpoint
@@ -154,7 +162,7 @@ impl DatabasePeer {
                     .map(|endpoint| endpoint.to_string()),
                 new_contents.is_admin,
                 new_contents.is_disabled,
-                self.id,
+                new_candidates,
             ],
         )?;
 
@@ -199,11 +207,11 @@ impl DatabasePeer {
         let name = row
             .get::<_, String>(1)?
             .parse()
-            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
+            .map_err(|_| rusqlite::Error::InvalidColumnType(1, "hostname".into(), Type::Text))?;
         let ip: IpAddr = row
             .get::<_, String>(2)?
             .parse()
-            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
+            .map_err(|_| rusqlite::Error::InvalidColumnType(2, "ip".into(), Type::Text))?;
         let cidr_id = row.get(3)?;
         let public_key = row.get(4)?;
         let endpoint = row
@@ -215,6 +223,9 @@ impl DatabasePeer {
         let invite_expires = row
             .get::<_, Option<u64>>(9)?
             .map(|unixtime| SystemTime::UNIX_EPOCH + Duration::from_secs(unixtime));
+        let candidates_str = row.get::<_, String>(10)?;
+        let candidates: Vec<Endpoint> = serde_json::from_str(&candidates_str)
+            .map_err(|_| rusqlite::Error::InvalidColumnType(10, "candidates (json)".into(), Type::Text))?;
 
         let persistent_keepalive_interval = Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS);
 
@@ -231,6 +242,7 @@ impl DatabasePeer {
                 is_disabled,
                 is_redeemed,
                 invite_expires,
+                candidates,
             },
         }
         .into())
@@ -239,7 +251,7 @@ impl DatabasePeer {
     pub fn get(conn: &Connection, id: i64) -> Result<Self, ServerError> {
         let result = conn.query_row(
             "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires
+            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates
             FROM peers
             WHERE id = ?1",
             params![id],
@@ -252,7 +264,7 @@ impl DatabasePeer {
     pub fn get_from_ip(conn: &Connection, ip: IpAddr) -> Result<Self, rusqlite::Error> {
         let result = conn.query_row(
             "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires
+            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates
             FROM peers
             WHERE ip = ?1",
             params![ip.to_string()],
@@ -290,7 +302,7 @@ impl DatabasePeer {
                     UNION
                     SELECT id FROM cidrs, associated_subcidrs WHERE cidrs.parent=associated_subcidrs.cidr_id
                 )
-                SELECT DISTINCT peers.id, peers.name, peers.ip, peers.cidr_id, peers.public_key, peers.endpoint, peers.is_admin, peers.is_disabled, peers.is_redeemed, peers.invite_expires
+                SELECT DISTINCT peers.id, peers.name, peers.ip, peers.cidr_id, peers.public_key, peers.endpoint, peers.is_admin, peers.is_disabled, peers.is_redeemed, peers.invite_expires, peers.candidates
                 FROM peers
                 JOIN associated_subcidrs ON peers.cidr_id=associated_subcidrs.cidr_id
                 WHERE peers.is_disabled = 0 AND peers.is_redeemed = 1;",
@@ -303,7 +315,7 @@ impl DatabasePeer {
 
     pub fn list(conn: &Connection) -> Result<Vec<Self>, ServerError> {
         let mut stmt = conn.prepare_cached(
-            "SELECT id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires FROM peers",
+            "SELECT id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates FROM peers",
         )?;
         let peer_iter = stmt.query_map(params![], Self::from_row)?;
 

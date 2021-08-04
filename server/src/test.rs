@@ -231,6 +231,7 @@ pub fn peer_contents(
         is_disabled: false,
         is_redeemed: true,
         invite_expires: None,
+        candidates: vec![],
     })
 }
 
