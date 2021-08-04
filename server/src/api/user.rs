@@ -36,6 +36,13 @@ pub async fn routes(
             let form = form_body(req).await?;
             handlers::endpoint(form, session).await
         },
+        (&Method::PUT, Some("candidates")) => {
+            if !session.user_capable() {
+                return Err(ServerError::Unauthorized);
+            }
+            let form = form_body(req).await?;
+            handlers::candidates(form, session).await
+        },
         _ => Err(ServerError::NotFound),
     }
 }
@@ -117,7 +124,7 @@ mod handlers {
         status_response(StatusCode::NO_CONTENT)
     }
 
-    /// Force a specific endpoint to be reported by the server.
+    /// Report any other endpoint candidates that can be tried by peers to connect.
     pub async fn candidates(
         contents: Vec<Endpoint>,
         session: Session,
