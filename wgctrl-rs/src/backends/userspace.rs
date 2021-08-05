@@ -94,7 +94,6 @@ fn new_peer_info(public_key: Key) -> PeerInfo {
             last_handshake_time: None,
             rx_bytes: 0,
             tx_bytes: 0,
-            __cant_construct_me: (),
         },
     }
 }

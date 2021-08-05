@@ -12,12 +12,18 @@ use std::{
 };
 
 /// Represents an IP address a peer is allowed to have, in CIDR notation.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct AllowedIp {
     /// The IP address.
     pub address: IpAddr,
     /// The CIDR subnet mask.
     pub cidr: u8,
+}
+
+impl fmt::Debug for AllowedIp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.address, self.cidr)
+    }
 }
 
 impl std::str::FromStr for AllowedIp {
@@ -58,7 +64,7 @@ pub struct PeerConfig {
 ///
 /// These are the attributes that will change over time; to update them,
 /// re-read the information from the interface.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct PeerStats {
     /// Time of the last handshake/rekey with this peer.
     pub last_handshake_time: Option<SystemTime>,
@@ -66,7 +72,6 @@ pub struct PeerStats {
     pub rx_bytes: u64,
     /// Number of bytes transmitted to this peer.
     pub tx_bytes: u64,
-    pub(crate) __cant_construct_me: (),
 }
 
 /// Represents the complete status of a peer.

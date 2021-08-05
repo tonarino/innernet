@@ -58,7 +58,6 @@ impl<'a> From<&'a wgctrl_sys::wg_peer> for PeerInfo {
                 },
                 rx_bytes: raw.rx_bytes,
                 tx_bytes: raw.tx_bytes,
-                __cant_construct_me: (),
             },
         }
     }

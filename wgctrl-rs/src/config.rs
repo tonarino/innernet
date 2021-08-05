@@ -73,6 +73,11 @@ impl PeerConfigBuilder {
         }
     }
 
+    /// The public key used in this builder.
+    pub fn public_key(&self) -> &Key {
+        &self.public_key
+    }
+
     /// Creates a `PeerConfigBuilder` from a [`PeerConfig`](PeerConfig).
     ///
     /// This is mostly a convenience method for cases when you want to copy
@@ -120,7 +125,7 @@ impl PeerConfigBuilder {
     }
 
     /// Specifies that this peer does not require keepalive packets.
-    pub fn disable_persistent_keepalive(self) -> Self {
+    pub fn unset_persistent_keepalive(self) -> Self {
         self.set_persistent_keepalive_interval(0)
     }
 

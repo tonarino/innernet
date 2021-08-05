@@ -85,6 +85,7 @@ pub fn up(
                 )
             })?)
             .add_allowed_ip(address, prefix)
+            .set_persistent_keepalive_interval(25)
             .set_endpoint(endpoint);
         device = device.add_peer(peer_config);
     }

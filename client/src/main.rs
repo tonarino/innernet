@@ -6,14 +6,14 @@ use indoc::eprintdoc;
 use shared::{
     interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
     Association, AssociationContents, Cidr, CidrTree, DeleteCidrOpts, EndpointContents,
-    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, RedeemContents, RenamePeerOpts,
-    State, WrappedIoError, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
+    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, PeerDiff, RedeemContents,
+    RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
     path::{Path, PathBuf},
     thread,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 use structopt::{clap::AppSettings, StructOpt};
 use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
@@ -446,10 +446,9 @@ fn fetch(
     network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
-    let interface_up = if let Ok(interfaces) = Device::list(network.backend) {
-        interfaces.iter().any(|name| name == interface)
-    } else {
-        false
+    let interface_up = match Device::list(network.backend) {
+        Ok(interfaces) => interfaces.iter().any(|name| name == interface),
+        _ => false,
     };
 
     if !interface_up {
@@ -493,61 +492,68 @@ fn fetch(
         .unwrap_or_default();
     let existing_peers = &device_info.peers;
 
-    let peer_configs_diff = peers
-        .iter()
-        .filter(|peer| !peer.is_disabled && peer.public_key != interface_public_key)
-        .filter_map(|peer| {
+    // Match existing peers (by pubkey) to new peer information from the server.
+    let modifications = peers.iter().filter_map(|peer| {
+        if peer.is_disabled || peer.public_key == interface_public_key {
+            None
+        } else {
             let existing_peer = existing_peers
                 .iter()
                 .find(|p| p.config.public_key.to_base64() == peer.public_key);
+            PeerDiff::new(existing_peer, Some(peer)).unwrap()
+        }
+    });
 
-            let change = match existing_peer {
-                Some(existing_peer) => peer.diff(&existing_peer.config).map(|diff| {
-                    if let Some(endpoint) = diff.endpoint {
-                        log::debug!("  Peer endpoint changed: {:?}", endpoint);
-                    }
-                    (PeerConfigBuilder::from(&diff), peer, "modified".normal())
-                }),
-                None => Some((PeerConfigBuilder::from(peer), peer, "added".green())),
+    // Remove any peers on the interface that aren't in the server's peer list any more.
+    let removals = existing_peers.iter().filter_map(|existing| {
+        let public_key = existing.config.public_key.to_base64();
+        if peers.iter().any(|p| p.public_key == public_key) {
+            None
+        } else {
+            PeerDiff::new(Some(&existing), None).unwrap()
+        }
+    });
+
+    let updates = modifications
+        .chain(removals)
+        .inspect(|diff| {
+            let public_key = diff.public_key().to_base64();
+
+            let text = match (diff.old, diff.new) {
+                (None, Some(_)) => "added".green(),
+                (Some(_), Some(_)) => "modified".yellow(),
+                (Some(_), None) => "removed".red(),
+                _ => unreachable!("PeerDiff can't be None -> None"),
             };
 
-            change.map(|(builder, peer, text)| {
-                println!(
-                    "    peer {} ({}...) was {}.",
-                    peer.name.yellow(),
-                    &peer.public_key[..10].dimmed(),
-                    text
-                );
-                builder
-            })
-        })
-        .collect::<Vec<PeerConfigBuilder>>();
+            // Grab the peer name from either the new data, or the historical data (if the peer is removed).
+            let peer_hostname = match diff.new {
+                Some(peer) => Some(peer.name.clone()),
+                _ => store
+                    .peers()
+                    .iter()
+                    .find(|p| p.public_key == public_key)
+                    .map(|p| p.name.clone()),
+            };
+            let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
 
-    let mut device_config_builder = DeviceUpdate::new();
-    let mut device_config_changed = false;
-
-    if !peer_configs_diff.is_empty() {
-        device_config_builder = device_config_builder.add_peers(&peer_configs_diff);
-        device_config_changed = true;
-    }
-
-    for peer in existing_peers {
-        let public_key = peer.config.public_key.to_base64();
-        if !peers.iter().any(|p| p.public_key == public_key) {
-            println!(
-                "    peer ({}...) was {}.",
-                &public_key[..10].yellow(),
-                "removed".red()
+            log::info!(
+                "  peer {} ({}...) was {}.",
+                peer_name.yellow(),
+                &public_key[..10].dimmed(),
+                text
             );
 
-            device_config_builder =
-                device_config_builder.remove_peer_by_key(&peer.config.public_key);
-            device_config_changed = true;
-        }
-    }
+            for change in diff.changes() {
+                log::debug!("    {}", change);
+            }
+        })
+        .map(PeerConfigBuilder::from)
+        .collect::<Vec<_>>();
 
-    if device_config_changed {
-        device_config_builder
+    if !updates.is_empty() {
+        DeviceUpdate::new()
+            .add_peers(&updates)
             .apply(interface, network.backend)
             .with_str(interface.to_string())?;
 
@@ -986,17 +992,16 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     if short {
-        let last_handshake = info
-            .and_then(|i| i.stats.last_handshake_time)
-            .and_then(|t| t.elapsed().ok())
-            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
-
-        let online = last_handshake <= Duration::from_secs(180) || info.is_none();
+        let connected = PeerDiff::peer_recently_connected(info);
 
         println_pad!(
             pad,
             "| {} {}: {} ({}{}…)",
-            if online { "◉".bold() } else { "◯".dimmed() },
+            if connected {
+                "◉".bold()
+            } else {
+                "◯".dimmed()
+            },
             peer.ip.to_string().yellow().bold(),
             peer.name.yellow(),
             if info.is_none() { "you, " } else { "" },
