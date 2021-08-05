@@ -511,7 +511,7 @@ impl<'a> PeerDiff<'a> {
     }
 
     pub fn public_key(&self) -> &Key {
-        &self.builder.public_key()
+        self.builder.public_key()
     }
 
     pub fn changes(&self) -> &[ChangeString] {

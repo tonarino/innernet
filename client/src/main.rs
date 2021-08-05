@@ -510,7 +510,7 @@ fn fetch(
         if peers.iter().any(|p| p.public_key == public_key) {
             None
         } else {
-            PeerDiff::new(Some(&existing), None).unwrap()
+            PeerDiff::new(Some(existing), None).unwrap()
         }
     });
 
