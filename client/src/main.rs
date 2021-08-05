@@ -529,7 +529,7 @@ fn fetch(
             // Grab the peer name from either the new data, or the historical data (if the peer is removed).
             let peer_hostname = match diff.new {
                 Some(peer) => Some(peer.name.clone()),
-                _ => store
+                None => store
                     .peers()
                     .iter()
                     .find(|p| p.public_key == public_key)
