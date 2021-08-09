@@ -47,3 +47,8 @@ jobs:
       with:
         command: test
         args: --verbose
+    - name: Clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: -- -D warnings

@@ -134,7 +134,7 @@ impl Server {
     pub fn context(&self) -> Context {
         Context {
             db: self.db.clone(),
-            interface: self.interface.clone(),
+            interface: self.interface,
             endpoints: self.endpoints.clone(),
             public_key: self.public_key.clone(),
             #[cfg(target_os = "linux")]
