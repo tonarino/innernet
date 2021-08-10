@@ -500,14 +500,14 @@ impl<'a> PeerDiff<'a> {
     /// WireGuard rejects any communication after REJECT_AFTER_TIME, so we can use this
     /// as a heuristic for "currentness" without relying on heavier things like ICMP.
     pub fn peer_recently_connected(peer: &Option<&PeerInfo>) -> bool {
-        const REJECT_AFTER_TIME: u64 = 180;
+        const REJECT_AFTER_TIME: Duration = Duration::from_secs(180);
 
         let last_handshake = peer
             .and_then(|p| p.stats.last_handshake_time)
             .and_then(|t| t.elapsed().ok())
             .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
 
-        last_handshake <= Duration::from_secs(REJECT_AFTER_TIME)
+        last_handshake <= REJECT_AFTER_TIME
     }
 
     pub fn public_key(&self) -> &Key {
