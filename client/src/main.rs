@@ -439,6 +439,39 @@ fn up(
     Ok(())
 }
 
+fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
+            let public_key = diff.public_key().to_base64();
+
+            let text = match (diff.old, diff.new) {
+                (None, Some(_)) => "added".green(),
+                (Some(_), Some(_)) => "modified".yellow(),
+                (Some(_), None) => "removed".red(),
+                _ => unreachable!("PeerDiff can't be None -> None"),
+            };
+
+            // Grab the peer name from either the new data, or the historical data (if the peer is removed).
+            let peer_hostname = match diff.new {
+                Some(peer) => Some(peer.name.clone()),
+                None => store
+                    .peers()
+                    .iter()
+                    .find(|p| p.public_key == public_key)
+                    .map(|p| p.name.clone()),
+            };
+            let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
+
+            log::info!(
+                "  peer {} ({}...) was {}.",
+                peer_name.yellow(),
+                &public_key[..10].dimmed(),
+                text
+            );
+
+            for change in diff.changes() {
+                log::debug!("    {}", change);
+            }
+}
+
 fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
@@ -516,38 +549,7 @@ fn fetch(
 
     let updates = modifications
         .chain(removals)
-        .inspect(|diff| {
-            let public_key = diff.public_key().to_base64();
-
-            let text = match (diff.old, diff.new) {
-                (None, Some(_)) => "added".green(),
-                (Some(_), Some(_)) => "modified".yellow(),
-                (Some(_), None) => "removed".red(),
-                _ => unreachable!("PeerDiff can't be None -> None"),
-            };
-
-            // Grab the peer name from either the new data, or the historical data (if the peer is removed).
-            let peer_hostname = match diff.new {
-                Some(peer) => Some(peer.name.clone()),
-                None => store
-                    .peers()
-                    .iter()
-                    .find(|p| p.public_key == public_key)
-                    .map(|p| p.name.clone()),
-            };
-            let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
-
-            log::info!(
-                "  peer {} ({}...) was {}.",
-                peer_name.yellow(),
-                &public_key[..10].dimmed(),
-                text
-            );
-
-            for change in diff.changes() {
-                log::debug!("    {}", change);
-            }
-        })
+        .inspect(|diff| print_peer_diff(&store, diff))
         .map(PeerConfigBuilder::from)
         .collect::<Vec<_>>();
 
