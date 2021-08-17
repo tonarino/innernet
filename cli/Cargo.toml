@@ -1,0 +1,67 @@
+[package]
+authors = ["Jake McGinty <jake@tonari.no>"]
+description = "A CLI client to manage innernet network interfaces."
+edition = "2018"
+homepage = "https://github.com/tonarino/innernet"
+license = "MIT"
+name = "cli"
+publish = false
+repository = "https://github.com/tonarino/innernet"
+version = "1.4.1"
+
+[[bin]]
+name = "innernet"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+colored = "2"
+dialoguer = "0.8"
+hostsfile = { path = "../hostsfile" }
+indoc = "1"
+ipnetwork = { git = "https://github.com/mcginty/ipnetwork" } # pending https://github.com/achanda/ipnetwork/pull/129
+lazy_static = "1"
+log = "0.4"
+regex = { version = "1", default-features = false, features = ["std"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+shared = { path = "../shared", default-features = false }
+structopt = "0.3"
+ureq = { version = "2", default-features = false, features = ["json"] }
+wgctrl = { path = "../wgctrl-rs" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[package.metadata.deb]
+assets = [
+  ["target/release/innernet", "usr/bin/", "755"],
+  ["target/release/innernet", "usr/bin/inn", "755"],
+  ["innernet@.service", "usr/lib/systemd/system/", "644"],
+  ["../doc/innernet.8.gz", "usr/share/man/man8/", "644"],
+  ["../doc/innernet.completions.bash", "etc/bash_completion.d/innernet", "644"],
+  ["../doc/innernet.completions.fish", "usr/share/fish/vendor_completions.d/innernet.fish", "644"],
+  ["../doc/innernet.completions.zsh", "usr/share/zsh/site-functions/_innernet", "644"],
+]
+depends = "libc6, libgcc1, systemd"
+extended-description = "innernet client binary for fetching peer information and conducting admin tasks such as adding a new peer."
+maintainer = "tonari <hey@tonari.no>"
+name = "innernet"
+priority = "optional"
+section = "net"
+
+[package.metadata.rpm]
+package = "innernet"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.files]
+"../../doc/innernet.8.gz" = { path = "/usr/share/man/man8/innernet.8.gz" }
+"../innernet@.service" = { path = "/usr/lib/systemd/system/innernet@.service" }
+"../../doc/innernet.completions.bash" = { path = "/etc/bash_completion.d/innernet" }
+"../../doc/innernet.completions.fish" =  { path = "/usr/share/fish/vendor_completions.d/innernet.fish" }
+"../../doc/innernet.completions.zsh" =  { path = "/usr/share/zsh/site-functions/_innernet" }
+
+[package.metadata.rpm.targets]
+innernet = { path = "/usr/bin/innernet" }

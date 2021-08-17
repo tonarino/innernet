@@ -162,7 +162,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "client"
+name = "cli"
 version = "1.4.1"
 dependencies = [
  "anyhow",
@@ -182,6 +182,10 @@ dependencies = [
  "ureq",
  "wgctrl",
 ]
+
+[[package]]
+name = "client"
+version = "0.1.0"
 
 [[package]]
 name = "colored"
