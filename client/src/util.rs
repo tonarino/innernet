@@ -1,9 +1,9 @@
-use crate::{ClientError, Error, data_store::DataStore};
+use crate::{data_store::DataStore, ClientError, Error};
 use colored::*;
 use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
-use shared::{INNERNET_PUBKEY_HEADER, PeerDiff, interface_config::ServerInfo};
+use shared::{interface_config::ServerInfo, PeerDiff, INNERNET_PUBKEY_HEADER};
 use std::{io, time::Duration};
 use ureq::{Agent, AgentBuilder};
 

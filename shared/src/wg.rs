@@ -1,6 +1,10 @@
 use crate::{Error, IoErrorContext, NetworkOpt, Peer, PeerDiff};
 use ipnetwork::IpNetwork;
-use std::{io, net::{IpAddr, SocketAddr}, time::{Duration, SystemTime}};
+use std::{
+    io,
+    net::{IpAddr, SocketAddr},
+    time::{Duration, SystemTime},
+};
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
 
 #[cfg(target_os = "macos")]
@@ -205,9 +209,9 @@ impl DeviceExt for Device {
     }
 
     fn get_peer(&self, public_key: &str) -> Option<&PeerInfo> {
-        Key::from_base64(public_key).ok().and_then(|key| {
-            self.peers.iter().find(|peer| peer.config.public_key == key)
-        })
+        Key::from_base64(public_key)
+            .ok()
+            .and_then(|key| self.peers.iter().find(|peer| peer.config.public_key == key))
     }
 }
 
@@ -220,7 +224,9 @@ impl PeerInfoExt for PeerInfo {
     fn is_recently_connected(&self) -> bool {
         const REJECT_AFTER_TIME: u64 = 180;
 
-        let last_handshake = self.stats.last_handshake_time
+        let last_handshake = self
+            .stats
+            .last_handshake_time
             .and_then(|t| t.elapsed().ok())
             .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
 

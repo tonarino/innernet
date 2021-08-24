@@ -3,7 +3,15 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
-use shared::{AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, CLIENT_CONFIG_DIR, Cidr, CidrTree, DeleteCidrOpts, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, REDEEM_TRANSITION_WAIT, RedeemContents, RenamePeerOpts, State, WrappedIoError, interface_config::InterfaceConfig, prompts, wg::{DeviceExt, PeerInfoExt}};
+use shared::{
+    interface_config::InterfaceConfig,
+    prompts,
+    wg::{DeviceExt, PeerInfoExt},
+    AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
+    DeleteCidrOpts, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer,
+    RedeemContents, RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR,
+    REDEEM_TRANSITION_WAIT,
+};
 use std::{
     fmt, io,
     path::{Path, PathBuf},
@@ -14,13 +22,13 @@ use structopt::{clap::AppSettings, StructOpt};
 use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
-mod util;
 mod ice;
+mod util;
 
 use data_store::DataStore;
+use ice::EndpointTester;
 use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
-use ice::EndpointTester;
 
 struct PeerState<'a> {
     peer: &'a Peer,
@@ -436,7 +444,6 @@ fn up(
     Ok(())
 }
 
-
 fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
@@ -485,7 +492,8 @@ fn fetch(
     let device = Device::get(interface, network.backend)?;
     let modifications = device.diff(&peers);
 
-    let updates = modifications.iter()
+    let updates = modifications
+        .iter()
         .inspect(|diff| util::print_peer_diff(&store, diff))
         .cloned()
         .map(PeerConfigBuilder::from)
@@ -507,12 +515,18 @@ fn fetch(
         log::info!("{}", "peers are already up to date.".green());
     }
 
-    let mut tester = EndpointTester::new(&modifications);
-    while !tester.is_finished() {
-        let device = Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
-        tester.step(device)?;
-        thread::sleep(Duration::from_secs(1));
-        log::debug!("{} unconnected peers...", tester.remaining());
+    let mut tester = EndpointTester::new(interface, network.backend, &modifications);
+    loop {
+        tester.step()?;
+        if tester.is_finished() {
+            break;
+        }
+        // TODO(jake): duration here? do we need to send a packet to force an attempted handshake?
+        thread::sleep(Duration::from_secs(3));
+        log::debug!(
+            "(ICE) {} unconnected peers remaining...",
+            tester.remaining()
+        );
     }
 
     store.set_cidrs(cidrs);
@@ -941,7 +955,9 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     if short {
-        let connected = info.map(|info| !info.is_recently_connected()).unwrap_or_default();
+        let connected = info
+            .map(|info| !info.is_recently_connected())
+            .unwrap_or_default();
 
         println_pad!(
             pad,

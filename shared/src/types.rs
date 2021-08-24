@@ -3,7 +3,16 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{fmt::{self, Display, Formatter}, io, net::{IpAddr, SocketAddr, ToSocketAddrs}, ops::{Deref, DerefMut}, path::Path, str::FromStr, time::{Duration, SystemTime}, vec};
+use std::{
+    fmt::{self, Display, Formatter},
+    io,
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
+    ops::{Deref, DerefMut},
+    path::Path,
+    str::FromStr,
+    time::{Duration, SystemTime},
+    vec,
+};
 use structopt::StructOpt;
 use url::Host;
 use wgctrl::{
@@ -401,6 +410,7 @@ pub struct PeerContents {
     pub is_disabled: bool,
     pub is_redeemed: bool,
     pub invite_expires: Option<SystemTime>,
+    #[serde(default)]
     pub candidates: Vec<Endpoint>,
 }
 
@@ -557,7 +567,10 @@ impl<'a> PeerDiff<'a> {
         }
 
         // We won't update the endpoint if there's already a stable connection.
-        if old_info.map(|info| !info.is_recently_connected()).unwrap_or(true) {
+        if old_info
+            .map(|info| !info.is_recently_connected())
+            .unwrap_or(true)
+        {
             let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
             if let Some(addr) = resolved {
                 if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {

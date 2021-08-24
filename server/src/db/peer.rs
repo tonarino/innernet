@@ -2,8 +2,8 @@ use super::DatabaseCidr;
 use crate::ServerError;
 use lazy_static::lazy_static;
 use regex::Regex;
-use rusqlite::{Connection, params, types::Type};
-use shared::{Endpoint, PERSISTENT_KEEPALIVE_INTERVAL_SECS, Peer, PeerContents};
+use rusqlite::{params, types::Type, Connection};
+use shared::{Endpoint, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},
@@ -224,8 +224,9 @@ impl DatabasePeer {
             .get::<_, Option<u64>>(9)?
             .map(|unixtime| SystemTime::UNIX_EPOCH + Duration::from_secs(unixtime));
         let candidates_str = row.get::<_, String>(10)?;
-        let candidates: Vec<Endpoint> = serde_json::from_str(&candidates_str)
-            .map_err(|_| rusqlite::Error::InvalidColumnType(10, "candidates (json)".into(), Type::Text))?;
+        let candidates: Vec<Endpoint> = serde_json::from_str(&candidates_str).map_err(|_| {
+            rusqlite::Error::InvalidColumnType(10, "candidates (json)".into(), Type::Text)
+        })?;
 
         let persistent_keepalive_interval = Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS);
 

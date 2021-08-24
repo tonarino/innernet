@@ -1,52 +1,99 @@
 //! ICE-esque connection attempt handler.
 
-use anyhow::{Error};
-use shared::{Peer, PeerDiff, wg::{DeviceExt, PeerInfoExt}};
-use wgctrl::{Device, DeviceUpdate, Key, PeerConfigBuilder};
+use std::time::{Duration, Instant};
 
-pub struct EndpointTester {
-    efforts: Vec<Peer>,
+use anyhow::Error;
+use shared::{
+    wg::{DeviceExt, PeerInfoExt},
+    Peer, PeerDiff,
+};
+use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
+
+pub struct EndpointTester<'a> {
+    interface: &'a InterfaceName,
+    backend: Backend,
+    remaining: Vec<Peer>,
 }
 
-impl EndpointTester {
-    pub fn new(diffs: &[PeerDiff]) -> Self {
-        let efforts = diffs.iter()
+impl<'a> EndpointTester<'a> {
+    pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Self {
+        let remaining = diffs
+            .iter()
             .filter_map(|diff| diff.new)
             .cloned()
             .collect::<Vec<_>>();
         Self {
-            efforts
+            interface,
+            backend,
+            remaining,
         }
     }
 
     pub fn is_finished(&self) -> bool {
-        self.efforts.is_empty()
+        self.remaining.is_empty()
     }
 
     pub fn remaining(&self) -> usize {
-        self.efforts.len()
+        self.remaining.len()
     }
 
-    pub fn step(&mut self, device: Device) -> Result<(), Error> {
-        self.efforts.retain(|peer| {
-            if let Some(peer) = device.get_peer(&peer.public_key) {
-                !peer.is_recently_connected()
+    fn refresh_remaining(&mut self) -> Result<(), Error> {
+        let device = Device::get(self.interface, self.backend)?;
+        self.remaining.retain(|peer| {
+            if peer.endpoint.is_none() && peer.candidates.is_empty() {
+                log::debug!(
+                    "peer {} removed from ICE (no remaining candidates).",
+                    peer.name
+                );
+                false
+            } else if let Some(peer_info) = device.get_peer(&peer.public_key) {
+                let recently_connected = peer_info.is_recently_connected();
+                if recently_connected {
+                    log::debug!("peer {} removed from ICE (connected!).", peer.name);
+                }
+                !recently_connected
             } else {
-                peer.endpoint.is_some() || !peer.candidates.is_empty()
+                log::debug!(
+                    "peer {} removed from ICE (no longer on interface).",
+                    peer.name
+                );
+                false
             }
         });
+        Ok(())
+    }
 
-        let updates = self.efforts.iter_mut()
+    pub fn step(&mut self) -> Result<(), Error> {
+        self.refresh_remaining()?;
+
+        let updates = self
+            .remaining
+            .iter_mut()
             .filter_map(|peer| {
-                peer.endpoint.take()
+                peer.endpoint
+                    .take()
                     .or_else(|| peer.candidates.pop())
                     .and_then(|endpoint| endpoint.resolve().ok())
-                    .map(|addr| PeerConfigBuilder::new(&Key::from_base64(&peer.public_key).unwrap()).set_endpoint(addr))
-            }).collect::<Vec<_>>();
+                    .map(|addr| {
+                        PeerConfigBuilder::new(&Key::from_base64(&peer.public_key).unwrap())
+                            .set_endpoint(addr)
+                    })
+            })
+            .collect::<Vec<_>>();
 
         DeviceUpdate::new()
             .add_peers(&updates)
-            .apply(&device.name, device.backend)?;
+            .apply(self.interface, self.backend)?;
+
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(5) {
+            self.refresh_remaining()?;
+            if self.is_finished() {
+                log::debug!("ICE is finished!");
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
         Ok(())
     }
 }
