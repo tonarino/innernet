@@ -134,7 +134,7 @@ mod handlers {
         selected_peer.update(
             &conn,
             PeerContents {
-                candidates: contents.into(),
+                candidates: contents,
                 ..selected_peer.contents.clone()
             },
         )?;

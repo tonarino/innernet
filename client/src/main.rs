@@ -3,12 +3,7 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
-use shared::{
-    interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
-    Association, AssociationContents, Cidr, CidrTree, DeleteCidrOpts, EndpointContents,
-    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, PeerDiff, RedeemContents,
-    RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
-};
+use shared::{AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, CLIENT_CONFIG_DIR, Cidr, CidrTree, DeleteCidrOpts, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, REDEEM_TRANSITION_WAIT, RedeemContents, RenamePeerOpts, State, WrappedIoError, interface_config::InterfaceConfig, prompts, wg::{DeviceExt, PeerInfoExt}};
 use std::{
     fmt, io,
     path::{Path, PathBuf},
@@ -20,10 +15,12 @@ use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
 mod util;
+mod ice;
 
 use data_store::DataStore;
 use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
+use ice::EndpointTester;
 
 struct PeerState<'a> {
     peer: &'a Peer,
@@ -439,38 +436,6 @@ fn up(
     Ok(())
 }
 
-fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
-            let public_key = diff.public_key().to_base64();
-
-            let text = match (diff.old, diff.new) {
-                (None, Some(_)) => "added".green(),
-                (Some(_), Some(_)) => "modified".yellow(),
-                (Some(_), None) => "removed".red(),
-                _ => unreachable!("PeerDiff can't be None -> None"),
-            };
-
-            // Grab the peer name from either the new data, or the historical data (if the peer is removed).
-            let peer_hostname = match diff.new {
-                Some(peer) => Some(peer.name.clone()),
-                None => store
-                    .peers()
-                    .iter()
-                    .find(|p| p.public_key == public_key)
-                    .map(|p| p.name.clone()),
-            };
-            let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
-
-            log::info!(
-                "  peer {} ({}...) was {}.",
-                peer_name.yellow(),
-                &public_key[..10].dimmed(),
-                text
-            );
-
-            for change in diff.changes() {
-                log::debug!("    {}", change);
-            }
-}
 
 fn fetch(
     interface: &InterfaceName,
@@ -517,39 +482,12 @@ fn fetch(
     let mut store = DataStore::open_or_create(interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
-    let interface_public_key = device_info
-        .public_key
-        .as_ref()
-        .map(|k| k.to_base64())
-        .unwrap_or_default();
-    let existing_peers = &device_info.peers;
+    let device = Device::get(interface, network.backend)?;
+    let modifications = device.diff(&peers);
 
-    // Match existing peers (by pubkey) to new peer information from the server.
-    let modifications = peers.iter().filter_map(|peer| {
-        if peer.is_disabled || peer.public_key == interface_public_key {
-            None
-        } else {
-            let existing_peer = existing_peers
-                .iter()
-                .find(|p| p.config.public_key.to_base64() == peer.public_key);
-            PeerDiff::new(existing_peer, Some(peer)).unwrap()
-        }
-    });
-
-    // Remove any peers on the interface that aren't in the server's peer list any more.
-    let removals = existing_peers.iter().filter_map(|existing| {
-        let public_key = existing.config.public_key.to_base64();
-        if peers.iter().any(|p| p.public_key == public_key) {
-            None
-        } else {
-            PeerDiff::new(Some(existing), None).unwrap()
-        }
-    });
-
-    let updates = modifications
-        .chain(removals)
-        .inspect(|diff| print_peer_diff(&store, diff))
+    let updates = modifications.iter()
+        .inspect(|diff| util::print_peer_diff(&store, diff))
+        .cloned()
         .map(PeerConfigBuilder::from)
         .collect::<Vec<_>>();
 
@@ -568,6 +506,15 @@ fn fetch(
     } else {
         log::info!("{}", "peers are already up to date.".green());
     }
+
+    let mut tester = EndpointTester::new(&modifications);
+    while !tester.is_finished() {
+        let device = Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
+        tester.step(device)?;
+        thread::sleep(Duration::from_secs(1));
+        log::debug!("{} unconnected peers...", tester.remaining());
+    }
+
     store.set_cidrs(cidrs);
     store.update_peers(peers)?;
     store.write().with_str(interface.to_string())?;
@@ -994,7 +941,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     if short {
-        let connected = PeerDiff::peer_recently_connected(info);
+        let connected = info.map(|info| !info.is_recently_connected()).unwrap_or_default();
 
         println_pad!(
             pad,

@@ -3,22 +3,15 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{self, Display, Formatter},
-    io,
-    net::{IpAddr, SocketAddr, ToSocketAddrs},
-    ops::Deref,
-    path::Path,
-    str::FromStr,
-    time::{Duration, SystemTime},
-    vec,
-};
+use std::{fmt::{self, Display, Formatter}, io, net::{IpAddr, SocketAddr, ToSocketAddrs}, ops::{Deref, DerefMut}, path::Path, str::FromStr, time::{Duration, SystemTime}, vec};
 use structopt::StructOpt;
 use url::Host;
 use wgctrl::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
     PeerInfo,
 };
+
+use crate::wg::PeerInfoExt;
 
 #[derive(Debug, Clone)]
 pub struct Interface {
@@ -427,6 +420,12 @@ impl Deref for Peer {
     }
 }
 
+impl DerefMut for Peer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.contents
+    }
+}
+
 impl Display for Peer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} ({})", &self.name, &self.public_key)
@@ -498,19 +497,6 @@ impl<'a> PeerDiff<'a> {
         }
     }
 
-    /// WireGuard rejects any communication after REJECT_AFTER_TIME, so we can use this
-    /// as a heuristic for "currentness" without relying on heavier things like ICMP.
-    pub fn peer_recently_connected(peer: &Option<&PeerInfo>) -> bool {
-        const REJECT_AFTER_TIME: Duration = Duration::from_secs(180);
-
-        let last_handshake = peer
-            .and_then(|p| p.stats.last_handshake_time)
-            .and_then(|t| t.elapsed().ok())
-            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
-
-        last_handshake <= REJECT_AFTER_TIME
-    }
-
     pub fn public_key(&self) -> &Key {
         self.builder.public_key()
     }
@@ -571,7 +557,7 @@ impl<'a> PeerDiff<'a> {
         }
 
         // We won't update the endpoint if there's already a stable connection.
-        if !Self::peer_recently_connected(&old_info) {
+        if old_info.map(|info| !info.is_recently_connected()).unwrap_or(true) {
             let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
             if let Some(addr) = resolved {
                 if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
