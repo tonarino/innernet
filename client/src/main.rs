@@ -8,12 +8,13 @@ use shared::{
     prompts,
     wg::{DeviceExt, PeerInfoExt},
     AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
-    DeleteCidrOpts, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer,
-    RedeemContents, RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR,
+    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt,
+    Peer, RedeemContents, RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR,
     REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
+    net::SocketAddr,
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -532,6 +533,19 @@ fn fetch(
     store.set_cidrs(cidrs);
     store.update_peers(peers)?;
     store.write().with_str(interface.to_string())?;
+
+    let local_addrs = wg::get_local_addrs()?
+        .into_iter()
+        .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
+        .collect::<Vec<Endpoint>>();
+    log::info!("reporting local addresses as ICE candidates...");
+    log::debug!("viable ICE link addrs: {:?}", local_addrs);
+    if Api::new(&config.server)
+        .http_form::<_, ()>("PUT", "/user/candidates", local_addrs)
+        .is_err()
+    {
+        log::warn!("Server doesn't support ICE candidate reporting.");
+    }
 
     Ok(())
 }

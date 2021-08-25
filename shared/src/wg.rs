@@ -166,6 +166,14 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
 #[cfg(target_os = "linux")]
 pub use super::netlink::add_route;
 
+#[cfg(target_os = "macos")]
+pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
+    vec![]
+}
+
+#[cfg(target_os = "linux")]
+pub use super::netlink::get_local_addrs;
+
 pub trait DeviceExt {
     /// Diff the output of a wgctrl device with a list of server-reported peers.
     fn diff<'a>(&'a self, peers: &'a [Peer]) -> Vec<PeerDiff<'a>>;

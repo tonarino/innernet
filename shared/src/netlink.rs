@@ -1,11 +1,19 @@
 use ipnetwork::IpNetwork;
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL,
-    NLM_F_REQUEST,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
 };
-use netlink_packet_route::{AddressHeader, AddressMessage, LinkHeader, LinkMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN, RouteHeader, RouteMessage, RtnlMessage, address, constants::*, link::{self, nlas::State}, route};
+use netlink_packet_route::{
+    address,
+    constants::*,
+    link::{self, nlas::State},
+    route, AddressHeader, AddressMessage, LinkHeader, LinkMessage, RouteHeader, RouteMessage,
+    RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN,
+};
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
-use std::{io, net::{IpAddr, Ipv4Addr}};
+use std::{
+    io,
+    net::{IpAddr, Ipv4Addr},
+};
 use wgctrl::InterfaceName;
 
 fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
