@@ -168,7 +168,7 @@ pub use super::netlink::add_route;
 
 #[cfg(target_os = "macos")]
 pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
-    vec![]
+    Ok(vec![])
 }
 
 #[cfg(target_os = "linux")]
