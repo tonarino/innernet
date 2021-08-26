@@ -103,7 +103,7 @@ impl DatabasePeer {
         }
 
         if !cidr.cidr.is_assignable(*ip) {
-            println!("Peer IP cannot be the network or broadcast IP of CIDRs with network prefixes under 31.");
+            println!("Peer IP {} is not unicast assignable in CIDR {}", ip, cidr.cidr);
             return Err(ServerError::InvalidQuery);
         }
 
