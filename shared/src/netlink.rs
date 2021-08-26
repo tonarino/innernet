@@ -201,7 +201,7 @@ pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
                 None
             })
         // Only select addresses for helpful links
-        .filter(|nlas| nlas.iter().any(|nla| matches!(nla, address::nlas::Nla::Label(label) if links.contains(&label))))
+        .filter(|nlas| nlas.iter().any(|nla| matches!(nla, address::nlas::Nla::Label(label) if links.contains(label))))
         .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
             // TODO(jake): support IPv6 addresses as well.
             address::nlas::Nla::Address(name) if name.len() == 4 => {
