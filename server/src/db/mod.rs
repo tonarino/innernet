@@ -24,7 +24,7 @@ pub fn auto_migrate(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> 
 
     if old_version < ENDPOINT_CANDIDATES_VERSION {
         conn.execute(
-            "ALTER TABLE peers ADD COLUMN endpoint_candidates TEXT",
+            "ALTER TABLE peers ADD COLUMN candidates TEXT",
             params![],
         )?;
     }

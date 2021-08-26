@@ -538,7 +538,7 @@ fn fetch(
         .into_iter()
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .collect::<Vec<Endpoint>>();
-    log::info!("reporting local addresses as ICE candidates...");
+    log::info!("reporting {} local addresses as ICE candidates...", local_addrs.len());
     log::debug!("viable ICE link addrs: {:?}", local_addrs);
     if Api::new(&config.server)
         .http_form::<_, ()>("PUT", "/user/candidates", local_addrs)
