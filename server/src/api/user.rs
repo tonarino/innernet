@@ -448,14 +448,9 @@ mod tests {
             StatusCode::NO_CONTENT
         );
 
-        let res = 
-            server
-                .request(
-                    test::DEVELOPER1_PEER_IP,
-                    "GET",
-                    "/v1/user/state",
-                )
-                .await;
+        let res = server
+            .request(test::DEVELOPER1_PEER_IP, "GET", "/v1/user/state")
+            .await;
 
         assert_eq!(res.status(), StatusCode::OK);
 
