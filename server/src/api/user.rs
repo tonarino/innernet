@@ -168,7 +168,7 @@ mod tests {
     use super::*;
     use crate::{db::DatabaseAssociation, test};
     use bytes::Buf;
-    use shared::{AssociationContents, CidrContents, EndpointContents, Error};
+    use shared::{AssociationContents, CidrContents, Endpoint, EndpointContents, Error};
 
     #[tokio::test]
     async fn test_get_state_from_developer1() -> Result<(), Error> {
@@ -424,6 +424,43 @@ mod tests {
             )
             .await;
         assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_candidates() -> Result<(), Error> {
+        let server = test::Server::new()?;
+
+        let peer = DatabasePeer::get(&server.db().lock(), test::DEVELOPER1_PEER_ID)?;
+        assert_eq!(peer.candidates, vec![]);
+
+        let candidates = vec!["1.1.1.1:51820".parse::<Endpoint>().unwrap()];
+        assert_eq!(
+            server
+                .form_request(
+                    test::DEVELOPER1_PEER_IP,
+                    "PUT",
+                    "/v1/user/candidates",
+                    &candidates
+                )
+                .await
+                .status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let res = 
+            server
+                .request(
+                    test::DEVELOPER1_PEER_IP,
+                    "GET",
+                    "/v1/user/state",
+                )
+                .await;
+
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let peer = DatabasePeer::get(&server.db().lock(), test::DEVELOPER1_PEER_ID)?;
+        assert_eq!(peer.candidates, candidates);
         Ok(())
     }
 }
