@@ -1,4 +1,4 @@
-use crate::{data_store::DataStore, ClientError, Error};
+use crate::data_store::DataStore;
 use colored::*;
 use indoc::eprintdoc;
 use log::{Level, LevelFilter};
@@ -184,7 +184,7 @@ impl<'a> Api<'a> {
         Self { agent, server }
     }
 
-    pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, Error> {
+    pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, ureq::Error> {
         self.request::<(), _>(verb, endpoint, None)
     }
 
@@ -193,7 +193,7 @@ impl<'a> Api<'a> {
         verb: &str,
         endpoint: &str,
         form: S,
-    ) -> Result<T, Error> {
+    ) -> Result<T, ureq::Error> {
         self.request(verb, endpoint, Some(form))
     }
 
@@ -202,7 +202,7 @@ impl<'a> Api<'a> {
         verb: &str,
         endpoint: &str,
         form: Option<S>,
-    ) -> Result<T, Error> {
+    ) -> Result<T, ureq::Error> {
         let request = self
             .agent
             .request(
@@ -212,7 +212,12 @@ impl<'a> Api<'a> {
             .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
 
         let response = if let Some(form) = form {
-            request.send_json(serde_json::to_value(form)?)?
+            request.send_json(serde_json::to_value(form).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("failed to serialize JSON request: {}", e),
+                )
+            })?)?
         } else {
             request.call()?
         };
@@ -223,10 +228,13 @@ impl<'a> Api<'a> {
             response = "null".into();
         }
         Ok(serde_json::from_str(&response).map_err(|e| {
-            ClientError(format!(
-                "failed to deserialize JSON response from the server: {}, response={}",
-                e, &response
-            ))
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "failed to deserialize JSON response from the server: {}, response={}",
+                    e, &response
+                ),
+            )
         })?)
     }
 }

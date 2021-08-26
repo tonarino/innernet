@@ -534,17 +534,21 @@ fn fetch(
     store.update_peers(peers)?;
     store.write().with_str(interface.to_string())?;
 
-    let local_addrs = wg::get_local_addrs()?
+    let candidates = wg::get_local_addrs()?
         .into_iter()
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .collect::<Vec<Endpoint>>();
-    log::info!("reporting {} local addresses as ICE candidates...", local_addrs.len());
-    log::debug!("viable ICE link addrs: {:?}", local_addrs);
-    if Api::new(&config.server)
-        .http_form::<_, ()>("PUT", "/user/candidates", local_addrs)
-        .is_err()
-    {
-        log::warn!("Server doesn't support ICE candidate reporting.");
+    log::info!(
+        "reporting {} network interface addresses as ICE candidates...",
+        candidates.len()
+    );
+    log::debug!("viable ICE candidates: {:?}", candidates);
+    match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", candidates) {
+        Err(ureq::Error::Status(404, _)) => {
+            log::warn!("Server doesn't support ICE candidate reporting.")
+        },
+        Err(e) => return Err(e.into()),
+        _ => {},
     }
 
     Ok(())
