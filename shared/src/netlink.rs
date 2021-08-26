@@ -10,10 +10,7 @@ use netlink_packet_route::{
     RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN,
 };
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
-use std::{
-    io,
-    net::{IpAddr, Ipv4Addr},
-};
+use std::{io, net::IpAddr};
 use wgctrl::InterfaceName;
 
 fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
@@ -152,7 +149,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
     }
 }
 
-pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
+fn get_links() -> Result<Vec<String>, io::Error> {
     let link_responses = netlink_call(
         RtnlMessage::GetLink(LinkMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
@@ -180,6 +177,12 @@ pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
             _ => None,
         }))
         .collect::<Vec<_>>();
+
+    Ok(links)
+}
+
+pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
+    let links = get_links()?;
     let addr_responses = netlink_call(
         RtnlMessage::GetAddress(AddressMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
@@ -205,7 +208,14 @@ pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
         .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
             // TODO(jake): support IPv6 addresses as well.
             address::nlas::Nla::Address(name) if name.len() == 4 => {
-                Some(IpAddr::V4(Ipv4Addr::new(name[0], name[1], name[2], name[3])))
+                let mut addr = [0u8; 4];
+                addr.copy_from_slice(name);
+                Some(IpAddr::V4(addr.into()))
+            },
+            address::nlas::Nla::Address(name) if name.len() == 16 => {
+                let mut addr = [0u8; 16];
+                addr.copy_from_slice(name);
+                Some(IpAddr::V6(addr.into()))
             },
             _ => None,
         }))
@@ -219,6 +229,7 @@ mod tests {
 
     #[test]
     fn test_local_addrs() {
-        get_local_addrs().unwrap();
+        let addrs = get_local_addrs().unwrap();
+        println!("{:?}", addrs);
     }
 }
