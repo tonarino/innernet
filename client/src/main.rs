@@ -517,15 +517,14 @@ fn fetch(
     }
 
     let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications);
+    log::info!("Attempting to establish connection with {} remaining unconnected peers...", nat_traverse.remaining());
     loop {
         nat_traverse.step()?;
         if nat_traverse.is_finished() {
             break;
         }
-        // TODO(jake): duration here? do we need to send a packet to force an attempted handshake?
-        thread::sleep(Duration::from_secs(3));
-        log::debug!(
-            "(ICE) {} unconnected peers remaining...",
+        log::info!(
+            "{} unconnected peers remaining...",
             nat_traverse.remaining()
         );
     }
