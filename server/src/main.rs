@@ -476,9 +476,11 @@ async fn serve(
     network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
+    log::debug!("opening database connection...");
     let conn = open_database_connection(&interface, conf)?;
 
     let peers = DatabasePeer::list(&conn)?;
+    log::debug!("peers listed...");
     let peer_configs = peers
         .iter()
         .map(|peer| peer.deref().into())

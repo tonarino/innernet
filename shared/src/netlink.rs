@@ -47,31 +47,30 @@ fn netlink_call(
     }
 
     let mut responses = vec![];
-    'outer: loop {
+    loop {
         let n_received = socket.recv(&mut buf[..], 0).unwrap();
         let mut offset = 0;
-        'inner: loop {
+        loop {
             let bytes = &buf[offset..];
             let response = NetlinkMessage::<RtnlMessage>::deserialize(bytes)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-            if let NetlinkPayload::Error(e) = response.payload {
-                return Err(e.to_io());
-            }
             responses.push(response.clone());
             log::trace!("netlink response: {:?}", response);
-            if (req.header.flags & NLM_F_DUMP) == 0 || response.payload == NetlinkPayload::Done {
+            match response.payload {
                 // We've parsed all parts of the response and can leave the loop.
-                break 'outer;
+                NetlinkPayload::Ack(_) | NetlinkPayload::Done => return Ok(responses),
+                NetlinkPayload::Error(e) => return Err(e.into()),
+                _ => {},
             }
             offset += response.header.length as usize;
             if offset == n_received || response.header.length == 0 {
                 // We've fully parsed the datagram, but there may be further datagrams
                 // with additional netlink response parts.
-                break 'inner;
+                log::debug!("breaking inner loop");
+                break;
             }
         }
     }
-    Ok(responses)
 }
 
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {

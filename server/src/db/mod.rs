@@ -14,6 +14,7 @@ pub const CURRENT_VERSION: usize = ENDPOINT_CANDIDATES_VERSION;
 
 pub fn auto_migrate(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     let old_version: usize = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    log::debug!("user_version: {}", old_version);
 
     if old_version < INVITE_EXPIRATION_VERSION {
         conn.execute(
@@ -26,8 +27,8 @@ pub fn auto_migrate(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> 
         conn.execute("ALTER TABLE peers ADD COLUMN candidates TEXT", params![])?;
     }
 
-    conn.pragma_update(None, "user_version", &CURRENT_VERSION)?;
     if old_version != CURRENT_VERSION {
+        conn.pragma_update(None, "user_version", &CURRENT_VERSION)?;
         log::info!(
             "migrated db version from {} to {}",
             old_version,

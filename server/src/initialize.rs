@@ -17,6 +17,7 @@ fn create_database<P: AsRef<Path>>(
     conn.execute(db::association::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::cidr::CREATE_TABLE_SQL, params![])?;
     conn.pragma_update(None, "user_version", &db::CURRENT_VERSION)?;
+    log::debug!("set database version to db::CURRENT_VERSION");
 
     Ok(conn)
 }
