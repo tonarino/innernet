@@ -12,22 +12,24 @@ use std::{
 use structopt::lazy_static;
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
-      id             INTEGER PRIMARY KEY,
-      name           TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */
-      ip             TEXT NOT NULL UNIQUE,         /* The WireGuard-internal IP address assigned to the peer.          */
-      public_key     TEXT NOT NULL UNIQUE,         /* The WireGuard public key of the peer.                            */
-      endpoint       TEXT,                         /* The optional external endpoint ([ip]:[port]) of the peer.        */
-      cidr_id        INTEGER NOT NULL,             /* The ID of the peer's parent CIDR.                                */
-      is_admin       INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
-      is_disabled    INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
-      is_redeemed    INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
-      invite_expires INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
-      candidates     TEXT,                         /* A list of additional endpoints that peers can use to connect.    */
+      id              INTEGER PRIMARY KEY,
+      name            TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */
+      ip              TEXT NOT NULL UNIQUE,         /* The WireGuard-internal IP address assigned to the peer.          */
+      public_key      TEXT NOT NULL UNIQUE,         /* The WireGuard public key of the peer.                            */
+      endpoint        TEXT,                         /* The optional external endpoint ([ip]:[port]) of the peer.        */
+      cidr_id         INTEGER NOT NULL,             /* The ID of the peer's parent CIDR.                                */
+      is_admin        INTEGER DEFAULT 0 NOT NULL,   /* Admin capabilities are per-peer, not per-CIDR.                   */
+      is_disabled     INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
+      is_redeemed     INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
+      invite_expires  INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
+      candidates      TEXT,                         /* A list of additional endpoints that peers can use to connect.    */
       FOREIGN KEY (cidr_id)
          REFERENCES cidrs (id)
             ON UPDATE RESTRICT
             ON DELETE RESTRICT
     )";
+
+pub static COLUMNS: &[&str] = &["id", "name", "ip", "cidr_id", "public_key", "endpoint", "is_admin", "is_disabled", "is_redeemed", "invite_expires", "candidates"];
 
 lazy_static! {
     /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
@@ -101,7 +103,7 @@ impl DatabasePeer {
         let candidates = serde_json::to_string(candidates)?;
 
         conn.execute(
-            "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            &format!("INSERT INTO peers ({}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)", COLUMNS[1..].join(", ")),
             params![
                 &**name,
                 ip.to_string(),
@@ -251,10 +253,7 @@ impl DatabasePeer {
 
     pub fn get(conn: &Connection, id: i64) -> Result<Self, ServerError> {
         let result = conn.query_row(
-            "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates
-            FROM peers
-            WHERE id = ?1",
+            &format!("SELECT {} FROM peers WHERE id = ?1", COLUMNS.join(", ")),
             params![id],
             Self::from_row,
         )?;
@@ -264,10 +263,7 @@ impl DatabasePeer {
 
     pub fn get_from_ip(conn: &Connection, ip: IpAddr) -> Result<Self, rusqlite::Error> {
         let result = conn.query_row(
-            "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates
-            FROM peers
-            WHERE ip = ?1",
+            &format!("SELECT {} FROM peers WHERE ip = ?1", COLUMNS.join(", ")),
             params![ip.to_string()],
             Self::from_row,
         )?;
@@ -285,7 +281,7 @@ impl DatabasePeer {
         //
         // NOTE that a forced association is created with the special "infra" CIDR with id 2 (1 being the root).
         let mut stmt = conn.prepare_cached(
-            "WITH
+            &format!("WITH
                 parent_of(id, parent) AS (
                     SELECT id, parent FROM cidrs WHERE id = ?1
                     UNION ALL
@@ -303,10 +299,12 @@ impl DatabasePeer {
                     UNION
                     SELECT id FROM cidrs, associated_subcidrs WHERE cidrs.parent=associated_subcidrs.cidr_id
                 )
-                SELECT DISTINCT peers.id, peers.name, peers.ip, peers.cidr_id, peers.public_key, peers.endpoint, peers.is_admin, peers.is_disabled, peers.is_redeemed, peers.invite_expires, peers.candidates
+                SELECT DISTINCT {}
                 FROM peers
                 JOIN associated_subcidrs ON peers.cidr_id=associated_subcidrs.cidr_id
                 WHERE peers.is_disabled = 0 AND peers.is_redeemed = 1;",
+                COLUMNS.iter().map(|col| format!("peers.{}", col)).collect::<Vec<_>>().join(", ")
+            ),
         )?;
         let peers = stmt
             .query_map(params![self.cidr_id], Self::from_row)?
@@ -316,7 +314,7 @@ impl DatabasePeer {
 
     pub fn list(conn: &Connection) -> Result<Vec<Self>, ServerError> {
         let mut stmt = conn.prepare_cached(
-            "SELECT id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires, candidates FROM peers",
+            &format!("SELECT {} FROM peers", COLUMNS.join(", ")),
         )?;
         let peer_iter = stmt.query_map(params![], Self::from_row)?;
 
