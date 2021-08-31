@@ -1,4 +1,7 @@
-//! ICE-esque connection attempt handler.
+//! ICE-like NAT traversal logic.
+//!
+//! Doesn't follow the specific ICE protocol, but takes great inspiration from RFC 8445
+//! and applies it to a protocol more specific to innernet.
 
 use std::time::{Duration, Instant};
 
@@ -9,13 +12,13 @@ use shared::{
 };
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
-pub struct EndpointTester<'a> {
+pub struct NatTraverse<'a> {
     interface: &'a InterfaceName,
     backend: Backend,
     remaining: Vec<Peer>,
 }
 
-impl<'a> EndpointTester<'a> {
+impl<'a> NatTraverse<'a> {
     pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Self {
         let remaining = diffs
             .iter()
@@ -42,19 +45,19 @@ impl<'a> EndpointTester<'a> {
         self.remaining.retain(|peer| {
             if peer.endpoint.is_none() && peer.candidates.is_empty() {
                 log::debug!(
-                    "peer {} removed from ICE (no remaining candidates).",
+                    "peer {} removed from NAT traverser (no remaining candidates).",
                     peer.name
                 );
                 false
             } else if let Some(peer_info) = device.get_peer(&peer.public_key) {
                 let recently_connected = peer_info.is_recently_connected();
                 if recently_connected {
-                    log::debug!("peer {} removed from ICE (connected!).", peer.name);
+                    log::debug!("peer {} removed from NAT traverser (connected!).", peer.name);
                 }
                 !recently_connected
             } else {
                 log::debug!(
-                    "peer {} removed from ICE (no longer on interface).",
+                    "peer {} removed from NAT traverser (no longer on interface).",
                     peer.name
                 );
                 false
@@ -89,7 +92,7 @@ impl<'a> EndpointTester<'a> {
         while start.elapsed() < Duration::from_secs(5) {
             self.refresh_remaining()?;
             if self.is_finished() {
-                log::debug!("ICE is finished!");
+                log::debug!("NAT traverser is finished!");
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));

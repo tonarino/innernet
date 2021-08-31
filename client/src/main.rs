@@ -23,11 +23,11 @@ use structopt::{clap::AppSettings, StructOpt};
 use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
-mod ice;
+mod nat;
 mod util;
 
 use data_store::DataStore;
-use ice::EndpointTester;
+use nat::NatTraverse;
 use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
 
@@ -516,17 +516,17 @@ fn fetch(
         log::info!("{}", "peers are already up to date.".green());
     }
 
-    let mut tester = EndpointTester::new(interface, network.backend, &modifications);
+    let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications);
     loop {
-        tester.step()?;
-        if tester.is_finished() {
+        nat_traverse.step()?;
+        if nat_traverse.is_finished() {
             break;
         }
         // TODO(jake): duration here? do we need to send a packet to force an attempted handshake?
         thread::sleep(Duration::from_secs(3));
         log::debug!(
             "(ICE) {} unconnected peers remaining...",
-            tester.remaining()
+            nat_traverse.remaining()
         );
     }
 
