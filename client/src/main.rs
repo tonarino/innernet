@@ -537,6 +537,7 @@ fn fetch(
         .into_iter()
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .collect::<Vec<Endpoint>>();
+    log::debug!("candidates: {:?}", candidates);
     log::info!(
         "reporting {} network interface addresses as ICE candidates...",
         candidates.len()

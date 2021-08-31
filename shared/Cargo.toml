@@ -29,3 +29,6 @@ netlink-sys = "0.7"
 netlink-packet-core = "0.2"
 netlink-packet-route = "0.7"
 wgctrl-sys = { path = "../wgctrl-sys" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+nix = "0.22"
