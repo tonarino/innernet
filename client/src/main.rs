@@ -541,19 +541,15 @@ fn fetch(
     log::debug!("viable ICE candidates: {:?}", candidates);
 
     let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications);
-    log::info!(
-        "Attempting to establish connection with {} remaining unconnected peers...",
-        nat_traverse.remaining()
-    );
     loop {
-        nat_traverse.step()?;
         if nat_traverse.is_finished() {
             break;
         }
         log::info!(
-            "{} unconnected peers remaining...",
+            "Attempting to establish connection with {} remaining unconnected peers...",
             nat_traverse.remaining()
         );
+        nat_traverse.step()?;
     }
 
     Ok(())
