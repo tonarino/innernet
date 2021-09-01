@@ -3,7 +3,7 @@ use ipnetwork::IpNetwork;
 use std::{
     io,
     net::{IpAddr, SocketAddr},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
 
@@ -256,6 +256,6 @@ impl PeerInfoExt for PeerInfo {
             .and_then(|t| t.elapsed().ok())
             .unwrap_or(Duration::MAX);
 
-        last_handshake <= Duration::from_secs(REJECT_AFTER_TIME)
+        last_handshake <= REJECT_AFTER_TIME
     }
 }
