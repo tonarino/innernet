@@ -526,13 +526,14 @@ fn fetch(
         .take(10)
         .collect::<Vec<Endpoint>>();
     log::info!(
-        "reporting {} network interface addresses as ICE candidates...",
-        candidates.len()
+        "reporting {} interface address{} as NAT traversal candidates...",
+        candidates.len(),
+        if candidates.len() == 1 { "" } else { "es" }
     );
     log::debug!("candidates: {:?}", candidates);
     match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
         Err(ureq::Error::Status(404, _)) => {
-            log::warn!("Server doesn't support ICE candidate reporting.")
+            log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
         },
         Err(e) => return Err(e.into()),
         _ => {},
@@ -540,7 +541,7 @@ fn fetch(
 
     log::debug!("viable ICE candidates: {:?}", candidates);
 
-    let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications);
+    let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications)?;
     loop {
         if nat_traverse.is_finished() {
             break;

@@ -19,7 +19,7 @@ pub struct NatTraverse<'a> {
 }
 
 impl<'a> NatTraverse<'a> {
-    pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Self {
+    pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Result<Self, Error> {
         let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
 
         for peer in &mut remaining {
@@ -31,11 +31,13 @@ impl<'a> NatTraverse<'a> {
             peer.candidates
                 .retain(|addr| Some(addr) != endpoint.as_ref());
         }
-        Self {
+        let mut nat_traverse = Self {
             interface,
             backend,
             remaining,
-        }
+        };
+        nat_traverse.refresh_remaining()?;
+        Ok(nat_traverse)
     }
 
     pub fn is_finished(&self) -> bool {
