@@ -516,6 +516,30 @@ fn fetch(
         log::info!("{}", "peers are already up to date.".green());
     }
 
+
+    store.set_cidrs(cidrs);
+    store.update_peers(&peers)?;
+    store.write().with_str(interface.to_string())?;
+
+    let candidates = wg::get_local_addrs()?
+        .into_iter()
+        .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
+        .collect::<Vec<Endpoint>>();
+    log::info!(
+        "reporting {} network interface addresses as ICE candidates...",
+        candidates.len()
+    );
+    log::debug!("candidates: {:?}", candidates);
+    match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
+        Err(ureq::Error::Status(404, _)) => {
+            log::warn!("Server doesn't support ICE candidate reporting.")
+        },
+        Err(e) => return Err(e.into()),
+        _ => {},
+    }
+
+    log::debug!("viable ICE candidates: {:?}", candidates);
+
     let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications);
     log::info!("Attempting to establish connection with {} remaining unconnected peers...", nat_traverse.remaining());
     loop {
@@ -527,28 +551,6 @@ fn fetch(
             "{} unconnected peers remaining...",
             nat_traverse.remaining()
         );
-    }
-
-    store.set_cidrs(cidrs);
-    store.update_peers(peers)?;
-    store.write().with_str(interface.to_string())?;
-
-    let candidates = wg::get_local_addrs()?
-        .into_iter()
-        .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
-        .collect::<Vec<Endpoint>>();
-    log::debug!("candidates: {:?}", candidates);
-    log::info!(
-        "reporting {} network interface addresses as ICE candidates...",
-        candidates.len()
-    );
-    log::debug!("viable ICE candidates: {:?}", candidates);
-    match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", candidates) {
-        Err(ureq::Error::Status(404, _)) => {
-            log::warn!("Server doesn't support ICE candidate reporting.")
-        },
-        Err(e) => return Err(e.into()),
-        _ => {},
     }
 
     Ok(())
