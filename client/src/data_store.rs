@@ -80,7 +80,7 @@ impl DataStore {
     ///
     /// Note, however, that this does not prevent a compromised server from adding a new
     /// peer under its control, of course.
-    pub fn update_peers(&mut self, current_peers: Vec<Peer>) -> Result<(), Error> {
+    pub fn update_peers(&mut self, current_peers: &[Peer]) -> Result<(), Error> {
         let peers = match &mut self.contents {
             Contents::V1 { ref mut peers, .. } => peers,
         };
@@ -149,6 +149,7 @@ mod tests {
                 is_redeemed: true,
                 persistent_keepalive_interval: None,
                 invite_expires: None,
+                candidates: vec![],
             }
         }];
         static ref BASE_CIDRS: Vec<Cidr> = vec![Cidr {
@@ -167,7 +168,7 @@ mod tests {
         assert_eq!(0, store.peers().len());
         assert_eq!(0, store.cidrs().len());
 
-        store.update_peers(BASE_PEERS.to_owned()).unwrap();
+        store.update_peers(&BASE_PEERS).unwrap();
         store.set_cidrs(BASE_CIDRS.to_owned());
         store.write().unwrap();
     }
@@ -189,13 +190,13 @@ mod tests {
             DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
-        store.update_peers(BASE_PEERS.clone()).unwrap();
+        store.update_peers(&BASE_PEERS).unwrap();
 
         let mut modified = BASE_PEERS.clone();
         modified[0].contents.public_key = "foo".to_string();
 
         // Should NOT work, since peer is unmodified.
-        assert!(store.update_peers(modified).is_err());
+        assert!(store.update_peers(&modified).is_err());
     }
 
     #[test]
@@ -206,7 +207,7 @@ mod tests {
             DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
-        store.update_peers(vec![]).unwrap();
+        store.update_peers(&[]).unwrap();
         let new_peers = BASE_PEERS
             .iter()
             .cloned()

@@ -1,10 +1,11 @@
-use crate::{Error, IoErrorContext, NetworkOpt};
+use crate::{Error, IoErrorContext, NetworkOpt, Peer, PeerDiff};
 use ipnetwork::IpNetwork;
 use std::{
     io,
     net::{IpAddr, SocketAddr},
+    time::Duration,
 };
-use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
+use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
 
 #[cfg(target_os = "macos")]
 fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
@@ -164,3 +165,97 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
 
 #[cfg(target_os = "linux")]
 pub use super::netlink::add_route;
+
+#[cfg(target_os = "macos")]
+pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
+    use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
+
+    let addrs = nix::ifaddrs::getifaddrs()?
+        .inspect(|addr| println!("{:?}", addr))
+        .filter(|addr| {
+            addr.flags.contains(InterfaceFlags::IFF_UP)
+                && !addr.flags.intersects(
+                    InterfaceFlags::IFF_LOOPBACK
+                        | InterfaceFlags::IFF_POINTOPOINT
+                        | InterfaceFlags::IFF_PROMISC,
+                )
+        })
+        .filter_map(|addr| match addr.address {
+            Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    Ok(addrs)
+}
+
+#[cfg(target_os = "linux")]
+pub use super::netlink::get_local_addrs;
+
+pub trait DeviceExt {
+    /// Diff the output of a wgctrl device with a list of server-reported peers.
+    fn diff<'a>(&'a self, peers: &'a [Peer]) -> Vec<PeerDiff<'a>>;
+
+    // /// Get a peer by their public key, a helper function.
+    fn get_peer(&self, public_key: &str) -> Option<&PeerInfo>;
+}
+
+impl DeviceExt for Device {
+    fn diff<'a>(&'a self, peers: &'a [Peer]) -> Vec<PeerDiff<'a>> {
+        let interface_public_key = self
+            .public_key
+            .as_ref()
+            .map(|k| k.to_base64())
+            .unwrap_or_default();
+        let existing_peers = &self.peers;
+
+        // Match existing peers (by pubkey) to new peer information from the server.
+        let modifications = peers.iter().filter_map(|peer| {
+            if peer.is_disabled || peer.public_key == interface_public_key {
+                None
+            } else {
+                let existing_peer = existing_peers
+                    .iter()
+                    .find(|p| p.config.public_key.to_base64() == peer.public_key);
+                PeerDiff::new(existing_peer, Some(peer)).unwrap()
+            }
+        });
+
+        // Remove any peers on the interface that aren't in the server's peer list any more.
+        let removals = existing_peers.iter().filter_map(|existing| {
+            let public_key = existing.config.public_key.to_base64();
+            if peers.iter().any(|p| p.public_key == public_key) {
+                None
+            } else {
+                PeerDiff::new(Some(existing), None).unwrap()
+            }
+        });
+
+        modifications.chain(removals).collect::<Vec<_>>()
+    }
+
+    fn get_peer(&self, public_key: &str) -> Option<&PeerInfo> {
+        Key::from_base64(public_key)
+            .ok()
+            .and_then(|key| self.peers.iter().find(|peer| peer.config.public_key == key))
+    }
+}
+
+pub trait PeerInfoExt {
+    /// WireGuard rejects any communication after REJECT_AFTER_TIME, so we can use this
+    /// as a heuristic for "currentness" without relying on heavier things like ICMP.
+    fn is_recently_connected(&self) -> bool;
+}
+impl PeerInfoExt for PeerInfo {
+    fn is_recently_connected(&self) -> bool {
+        const REJECT_AFTER_TIME: Duration = Duration::from_secs(180);
+
+        let last_handshake = self
+            .stats
+            .last_handshake_time
+            .and_then(|t| t.elapsed().ok())
+            .unwrap_or(Duration::MAX);
+
+        last_handshake <= REJECT_AFTER_TIME
+    }
+}

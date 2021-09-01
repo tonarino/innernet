@@ -7,7 +7,7 @@ use std::{
     fmt::{self, Display, Formatter},
     io,
     net::{IpAddr, SocketAddr, ToSocketAddrs},
-    ops::Deref,
+    ops::{Deref, DerefMut},
     path::Path,
     str::FromStr,
     time::{Duration, SystemTime},
@@ -19,6 +19,8 @@ use wgctrl::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
     PeerInfo,
 };
+
+use crate::wg::PeerInfoExt;
 
 #[derive(Debug, Clone)]
 pub struct Interface {
@@ -408,6 +410,8 @@ pub struct PeerContents {
     pub is_disabled: bool,
     pub is_redeemed: bool,
     pub invite_expires: Option<SystemTime>,
+    #[serde(default)]
+    pub candidates: Vec<Endpoint>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -423,6 +427,12 @@ impl Deref for Peer {
 
     fn deref(&self) -> &Self::Target {
         &self.contents
+    }
+}
+
+impl DerefMut for Peer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.contents
     }
 }
 
@@ -497,19 +507,6 @@ impl<'a> PeerDiff<'a> {
         }
     }
 
-    /// WireGuard rejects any communication after REJECT_AFTER_TIME, so we can use this
-    /// as a heuristic for "currentness" without relying on heavier things like ICMP.
-    pub fn peer_recently_connected(peer: &Option<&PeerInfo>) -> bool {
-        const REJECT_AFTER_TIME: Duration = Duration::from_secs(180);
-
-        let last_handshake = peer
-            .and_then(|p| p.stats.last_handshake_time)
-            .and_then(|t| t.elapsed().ok())
-            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
-
-        last_handshake <= REJECT_AFTER_TIME
-    }
-
     pub fn public_key(&self) -> &Key {
         self.builder.public_key()
     }
@@ -570,7 +567,10 @@ impl<'a> PeerDiff<'a> {
         }
 
         // We won't update the endpoint if there's already a stable connection.
-        if !Self::peer_recently_connected(&old_info) {
+        if !old_info
+            .map(|info| info.is_recently_connected())
+            .unwrap_or_default()
+        {
             let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
             if let Some(addr) = resolved {
                 if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
@@ -772,6 +772,7 @@ mod tests {
                 is_disabled: false,
                 is_redeemed: true,
                 invite_expires: None,
+                candidates: vec![],
             },
         };
         let builder =
@@ -806,6 +807,7 @@ mod tests {
                 is_disabled: false,
                 is_redeemed: true,
                 invite_expires: None,
+                candidates: vec![],
             },
         };
         let builder =
@@ -840,6 +842,7 @@ mod tests {
                 is_disabled: false,
                 is_redeemed: true,
                 invite_expires: None,
+                candidates: vec![],
             },
         };
         let builder =

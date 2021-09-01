@@ -4,13 +4,17 @@ use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
 use shared::{
-    interface_config::InterfaceConfig, prompts, AddAssociationOpts, AddCidrOpts, AddPeerOpts,
-    Association, AssociationContents, Cidr, CidrTree, DeleteCidrOpts, EndpointContents,
-    InstallOpts, Interface, IoErrorContext, NetworkOpt, Peer, PeerDiff, RedeemContents,
-    RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR, REDEEM_TRANSITION_WAIT,
+    interface_config::InterfaceConfig,
+    prompts,
+    wg::{DeviceExt, PeerInfoExt},
+    AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
+    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt,
+    Peer, RedeemContents, RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR,
+    REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
+    net::SocketAddr,
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -19,9 +23,11 @@ use structopt::{clap::AppSettings, StructOpt};
 use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
+mod nat;
 mod util;
 
 use data_store::DataStore;
+use nat::NatTraverse;
 use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
 
@@ -484,70 +490,13 @@ fn fetch(
     let mut store = DataStore::open_or_create(interface)?;
     let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
 
-    let device_info = Device::get(interface, network.backend).with_str(interface.as_str_lossy())?;
-    let interface_public_key = device_info
-        .public_key
-        .as_ref()
-        .map(|k| k.to_base64())
-        .unwrap_or_default();
-    let existing_peers = &device_info.peers;
-
-    // Match existing peers (by pubkey) to new peer information from the server.
-    let modifications = peers.iter().filter_map(|peer| {
-        if peer.is_disabled || peer.public_key == interface_public_key {
-            None
-        } else {
-            let existing_peer = existing_peers
-                .iter()
-                .find(|p| p.config.public_key.to_base64() == peer.public_key);
-            PeerDiff::new(existing_peer, Some(peer)).unwrap()
-        }
-    });
-
-    // Remove any peers on the interface that aren't in the server's peer list any more.
-    let removals = existing_peers.iter().filter_map(|existing| {
-        let public_key = existing.config.public_key.to_base64();
-        if peers.iter().any(|p| p.public_key == public_key) {
-            None
-        } else {
-            PeerDiff::new(Some(existing), None).unwrap()
-        }
-    });
+    let device = Device::get(interface, network.backend)?;
+    let modifications = device.diff(&peers);
 
     let updates = modifications
-        .chain(removals)
-        .inspect(|diff| {
-            let public_key = diff.public_key().to_base64();
-
-            let text = match (diff.old, diff.new) {
-                (None, Some(_)) => "added".green(),
-                (Some(_), Some(_)) => "modified".yellow(),
-                (Some(_), None) => "removed".red(),
-                _ => unreachable!("PeerDiff can't be None -> None"),
-            };
-
-            // Grab the peer name from either the new data, or the historical data (if the peer is removed).
-            let peer_hostname = match diff.new {
-                Some(peer) => Some(peer.name.clone()),
-                _ => store
-                    .peers()
-                    .iter()
-                    .find(|p| p.public_key == public_key)
-                    .map(|p| p.name.clone()),
-            };
-            let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
-
-            log::info!(
-                "  peer {} ({}...) was {}.",
-                peer_name.yellow(),
-                &public_key[..10].dimmed(),
-                text
-            );
-
-            for change in diff.changes() {
-                log::debug!("    {}", change);
-            }
-        })
+        .iter()
+        .inspect(|diff| util::print_peer_diff(&store, diff))
+        .cloned()
         .map(PeerConfigBuilder::from)
         .collect::<Vec<_>>();
 
@@ -566,9 +515,43 @@ fn fetch(
     } else {
         log::info!("{}", "peers are already up to date.".green());
     }
+
     store.set_cidrs(cidrs);
-    store.update_peers(peers)?;
+    store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
+
+    let candidates = wg::get_local_addrs()?
+        .into_iter()
+        .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
+        .take(10)
+        .collect::<Vec<Endpoint>>();
+    log::info!(
+        "reporting {} interface address{} as NAT traversal candidates...",
+        candidates.len(),
+        if candidates.len() == 1 { "" } else { "es" }
+    );
+    log::debug!("candidates: {:?}", candidates);
+    match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
+        Err(ureq::Error::Status(404, _)) => {
+            log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
+        },
+        Err(e) => return Err(e.into()),
+        _ => {},
+    }
+
+    log::debug!("viable ICE candidates: {:?}", candidates);
+
+    let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications)?;
+    loop {
+        if nat_traverse.is_finished() {
+            break;
+        }
+        log::info!(
+            "Attempting to establish connection with {} remaining unconnected peers...",
+            nat_traverse.remaining()
+        );
+        nat_traverse.step()?;
+    }
 
     Ok(())
 }
@@ -992,7 +975,9 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     if short {
-        let connected = PeerDiff::peer_recently_connected(info);
+        let connected = info
+            .map(|info| !info.is_recently_connected())
+            .unwrap_or_default();
 
         println_pad!(
             pad,

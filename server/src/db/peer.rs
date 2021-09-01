@@ -2,8 +2,8 @@ use super::DatabaseCidr;
 use crate::ServerError;
 use lazy_static::lazy_static;
 use regex::Regex;
-use rusqlite::{params, Connection};
-use shared::{Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
+use rusqlite::{params, types::Type, Connection};
+use shared::{Endpoint, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},
@@ -22,11 +22,26 @@ pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
       is_disabled     INTEGER DEFAULT 0 NOT NULL,   /* Is the peer disabled? (peers cannot be deleted)                  */
       is_redeemed     INTEGER DEFAULT 0 NOT NULL,   /* Has the peer redeemed their invite yet?                          */
       invite_expires  INTEGER,                      /* The UNIX time that an invited peer can no longer redeem.         */
+      candidates      TEXT,                         /* A list of additional endpoints that peers can use to connect.    */
       FOREIGN KEY (cidr_id)
          REFERENCES cidrs (id)
             ON UPDATE RESTRICT
             ON DELETE RESTRICT
     )";
+
+pub static COLUMNS: &[&str] = &[
+    "id",
+    "name",
+    "ip",
+    "cidr_id",
+    "public_key",
+    "endpoint",
+    "is_admin",
+    "is_disabled",
+    "is_redeemed",
+    "invite_expires",
+    "candidates",
+];
 
 lazy_static! {
     /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
@@ -71,6 +86,7 @@ impl DatabasePeer {
             is_disabled,
             is_redeemed,
             invite_expires,
+            candidates,
             ..
         } = &contents;
         log::info!("creating peer {:?}", contents);
@@ -96,8 +112,13 @@ impl DatabasePeer {
             .flatten()
             .map(|t| t.as_secs());
 
+        let candidates = serde_json::to_string(candidates)?;
+
         conn.execute(
-            "INSERT INTO peers (name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            &format!(
+                "INSERT INTO peers ({}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                COLUMNS[1..].join(", ")
+            ),
             params![
                 &**name,
                 ip.to_string(),
@@ -108,6 +129,7 @@ impl DatabasePeer {
                 is_disabled,
                 is_redeemed,
                 invite_expires,
+                candidates,
             ],
         )?;
         let id = conn.last_insert_rowid();
@@ -135,17 +157,21 @@ impl DatabasePeer {
             endpoint: contents.endpoint,
             is_admin: contents.is_admin,
             is_disabled: contents.is_disabled,
+            candidates: contents.candidates,
             ..self.contents.clone()
         };
 
+        let new_candidates = serde_json::to_string(&new_contents.candidates)?;
         conn.execute(
             "UPDATE peers SET
-                name = ?1,
-                endpoint = ?2,
-                is_admin = ?3,
-                is_disabled = ?4
-            WHERE id = ?5",
+                name = ?2,
+                endpoint = ?3,
+                is_admin = ?4,
+                is_disabled = ?5,
+                candidates = ?6
+            WHERE id = ?1",
             params![
+                self.id,
                 &*new_contents.name,
                 new_contents
                     .endpoint
@@ -153,7 +179,7 @@ impl DatabasePeer {
                     .map(|endpoint| endpoint.to_string()),
                 new_contents.is_admin,
                 new_contents.is_disabled,
-                self.id,
+                new_candidates,
             ],
         )?;
 
@@ -198,11 +224,11 @@ impl DatabasePeer {
         let name = row
             .get::<_, String>(1)?
             .parse()
-            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
+            .map_err(|_| rusqlite::Error::InvalidColumnType(1, "hostname".into(), Type::Text))?;
         let ip: IpAddr = row
             .get::<_, String>(2)?
             .parse()
-            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
+            .map_err(|_| rusqlite::Error::InvalidColumnType(2, "ip".into(), Type::Text))?;
         let cidr_id = row.get(3)?;
         let public_key = row.get(4)?;
         let endpoint = row
@@ -214,6 +240,10 @@ impl DatabasePeer {
         let invite_expires = row
             .get::<_, Option<u64>>(9)?
             .map(|unixtime| SystemTime::UNIX_EPOCH + Duration::from_secs(unixtime));
+        let candidates_str: String = row.get(10)?;
+        let candidates: Vec<Endpoint> = serde_json::from_str(&candidates_str).map_err(|_| {
+            rusqlite::Error::InvalidColumnType(10, "candidates (json)".into(), Type::Text)
+        })?;
 
         let persistent_keepalive_interval = Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS);
 
@@ -230,6 +260,7 @@ impl DatabasePeer {
                 is_disabled,
                 is_redeemed,
                 invite_expires,
+                candidates,
             },
         }
         .into())
@@ -237,10 +268,7 @@ impl DatabasePeer {
 
     pub fn get(conn: &Connection, id: i64) -> Result<Self, ServerError> {
         let result = conn.query_row(
-            "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires
-            FROM peers
-            WHERE id = ?1",
+            &format!("SELECT {} FROM peers WHERE id = ?1", COLUMNS.join(", ")),
             params![id],
             Self::from_row,
         )?;
@@ -250,10 +278,7 @@ impl DatabasePeer {
 
     pub fn get_from_ip(conn: &Connection, ip: IpAddr) -> Result<Self, rusqlite::Error> {
         let result = conn.query_row(
-            "SELECT
-            id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires
-            FROM peers
-            WHERE ip = ?1",
+            &format!("SELECT {} FROM peers WHERE ip = ?1", COLUMNS.join(", ")),
             params![ip.to_string()],
             Self::from_row,
         )?;
@@ -271,7 +296,7 @@ impl DatabasePeer {
         //
         // NOTE that a forced association is created with the special "infra" CIDR with id 2 (1 being the root).
         let mut stmt = conn.prepare_cached(
-            "WITH
+            &format!("WITH
                 parent_of(id, parent) AS (
                     SELECT id, parent FROM cidrs WHERE id = ?1
                     UNION ALL
@@ -289,10 +314,12 @@ impl DatabasePeer {
                     UNION
                     SELECT id FROM cidrs, associated_subcidrs WHERE cidrs.parent=associated_subcidrs.cidr_id
                 )
-                SELECT DISTINCT peers.id, peers.name, peers.ip, peers.cidr_id, peers.public_key, peers.endpoint, peers.is_admin, peers.is_disabled, peers.is_redeemed, peers.invite_expires
+                SELECT DISTINCT {}
                 FROM peers
                 JOIN associated_subcidrs ON peers.cidr_id=associated_subcidrs.cidr_id
                 WHERE peers.is_disabled = 0 AND peers.is_redeemed = 1;",
+                COLUMNS.iter().map(|col| format!("peers.{}", col)).collect::<Vec<_>>().join(", ")
+            ),
         )?;
         let peers = stmt
             .query_map(params![self.cidr_id], Self::from_row)?
@@ -301,9 +328,7 @@ impl DatabasePeer {
     }
 
     pub fn list(conn: &Connection) -> Result<Vec<Self>, ServerError> {
-        let mut stmt = conn.prepare_cached(
-            "SELECT id, name, ip, cidr_id, public_key, endpoint, is_admin, is_disabled, is_redeemed, invite_expires FROM peers",
-        )?;
+        let mut stmt = conn.prepare_cached(&format!("SELECT {} FROM peers", COLUMNS.join(", ")))?;
         let peer_iter = stmt.query_map(params![], Self::from_row)?;
 
         Ok(peer_iter.collect::<Result<_, _>>()?)

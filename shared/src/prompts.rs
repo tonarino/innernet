@@ -285,6 +285,7 @@ pub fn add_peer(
         is_redeemed: false,
         persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
         invite_expires: Some(SystemTime::now() + invite_expires.into()),
+        candidates: vec![],
     };
 
     Ok(
