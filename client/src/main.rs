@@ -516,7 +516,6 @@ fn fetch(
         log::info!("{}", "peers are already up to date.".green());
     }
 
-
     store.set_cidrs(cidrs);
     store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
@@ -541,7 +540,10 @@ fn fetch(
     log::debug!("viable ICE candidates: {:?}", candidates);
 
     let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications);
-    log::info!("Attempting to establish connection with {} remaining unconnected peers...", nat_traverse.remaining());
+    log::info!(
+        "Attempting to establish connection with {} remaining unconnected peers...",
+        nat_traverse.remaining()
+    );
     loop {
         nat_traverse.step()?;
         if nat_traverse.is_finished() {

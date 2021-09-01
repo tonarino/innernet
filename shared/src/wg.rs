@@ -168,17 +168,21 @@ pub use super::netlink::add_route;
 
 #[cfg(target_os = "macos")]
 pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
-    use nix::sys::socket::SockAddr;
-    use nix::net::if_::InterfaceFlags;
+    use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
 
     let addrs = nix::ifaddrs::getifaddrs()?
         .inspect(|addr| println!("{:?}", addr))
-        .filter(|addr|
-            addr.flags.contains(InterfaceFlags::IFF_UP) &&
-            !addr.flags.intersects(InterfaceFlags::IFF_LOOPBACK | InterfaceFlags::IFF_POINTOPOINT | InterfaceFlags::IFF_PROMISC))
+        .filter(|addr| {
+            addr.flags.contains(InterfaceFlags::IFF_UP)
+                && !addr.flags.intersects(
+                    InterfaceFlags::IFF_LOOPBACK
+                        | InterfaceFlags::IFF_POINTOPOINT
+                        | InterfaceFlags::IFF_PROMISC,
+                )
+        })
         .filter_map(|addr| match addr.address {
             Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
-            _ => None
+            _ => None,
         })
         .collect::<Vec<_>>();
 

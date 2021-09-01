@@ -20,11 +20,7 @@ pub struct NatTraverse<'a> {
 
 impl<'a> NatTraverse<'a> {
     pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Self {
-        let remaining: Vec<_> = diffs
-            .iter()
-            .filter_map(|diff| diff.new)
-            .cloned()
-            .collect();
+        let remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
         Self {
             interface,
             backend,
@@ -52,7 +48,10 @@ impl<'a> NatTraverse<'a> {
             } else if let Some(peer_info) = device.get_peer(&peer.public_key) {
                 let recently_connected = peer_info.is_recently_connected();
                 if recently_connected {
-                    log::debug!("peer {} removed from NAT traverser (connected!).", peer.name);
+                    log::debug!(
+                        "peer {} removed from NAT traverser (connected!).",
+                        peer.name
+                    );
                 }
                 !recently_connected
             } else {

@@ -29,7 +29,19 @@ pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
             ON DELETE RESTRICT
     )";
 
-pub static COLUMNS: &[&str] = &["id", "name", "ip", "cidr_id", "public_key", "endpoint", "is_admin", "is_disabled", "is_redeemed", "invite_expires", "candidates"];
+pub static COLUMNS: &[&str] = &[
+    "id",
+    "name",
+    "ip",
+    "cidr_id",
+    "public_key",
+    "endpoint",
+    "is_admin",
+    "is_disabled",
+    "is_redeemed",
+    "invite_expires",
+    "candidates",
+];
 
 lazy_static! {
     /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
@@ -103,7 +115,10 @@ impl DatabasePeer {
         let candidates = serde_json::to_string(candidates)?;
 
         conn.execute(
-            &format!("INSERT INTO peers ({}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)", COLUMNS[1..].join(", ")),
+            &format!(
+                "INSERT INTO peers ({}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                COLUMNS[1..].join(", ")
+            ),
             params![
                 &**name,
                 ip.to_string(),
@@ -313,9 +328,7 @@ impl DatabasePeer {
     }
 
     pub fn list(conn: &Connection) -> Result<Vec<Self>, ServerError> {
-        let mut stmt = conn.prepare_cached(
-            &format!("SELECT {} FROM peers", COLUMNS.join(", ")),
-        )?;
+        let mut stmt = conn.prepare_cached(&format!("SELECT {} FROM peers", COLUMNS.join(", ")))?;
         let peer_iter = stmt.query_map(params![], Self::from_row)?;
 
         Ok(peer_iter.collect::<Result<_, _>>()?)
