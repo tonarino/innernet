@@ -21,7 +21,11 @@ pub struct NatTraverse<'a> {
 }
 
 impl<'a> NatTraverse<'a> {
-    pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Result<Self, Error> {
+    pub fn new(
+        interface: &'a InterfaceName,
+        backend: Backend,
+        diffs: &[PeerDiff],
+    ) -> Result<Self, Error> {
         let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
 
         for peer in &mut remaining {
