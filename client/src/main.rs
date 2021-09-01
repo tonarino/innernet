@@ -523,6 +523,7 @@ fn fetch(
     let candidates = wg::get_local_addrs()?
         .into_iter()
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
+        .take(10)
         .collect::<Vec<Endpoint>>();
     log::info!(
         "reporting {} network interface addresses as ICE candidates...",

@@ -125,10 +125,14 @@ mod handlers {
     }
 
     /// Report any other endpoint candidates that can be tried by peers to connect.
+    /// Currently limited to 10 candidates max.
     pub async fn candidates(
         contents: Vec<Endpoint>,
         session: Session,
     ) -> Result<Response<Body>, ServerError> {
+        if contents.len() > 10 {
+            return status_response(StatusCode::PAYLOAD_TOO_LARGE);
+        }
         let conn = session.context.db.lock();
         let mut selected_peer = DatabasePeer::get(&conn, session.peer.id)?;
         selected_peer.update(

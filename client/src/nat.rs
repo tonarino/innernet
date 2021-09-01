@@ -20,7 +20,14 @@ pub struct NatTraverse<'a> {
 
 impl<'a> NatTraverse<'a> {
     pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Self {
-        let remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
+        let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
+
+        // Filter out the existing endpoint from candidates list and limit to 10 results.
+        for peer in &mut remaining {
+            peer.candidates.truncate(10);
+            let endpoint = peer.endpoint.clone();
+            peer.candidates.retain(|candidate| Some(candidate) != endpoint.as_ref());
+        }
         Self {
             interface,
             backend,
