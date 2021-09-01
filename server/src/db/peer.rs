@@ -225,7 +225,7 @@ impl DatabasePeer {
         let invite_expires = row
             .get::<_, Option<u64>>(9)?
             .map(|unixtime| SystemTime::UNIX_EPOCH + Duration::from_secs(unixtime));
-        let candidates_str = row.get::<_, String>(10)?;
+        let candidates_str: String = row.get(10)?;
         let candidates: Vec<Endpoint> = serde_json::from_str(&candidates_str).map_err(|_| {
             rusqlite::Error::InvalidColumnType(10, "candidates (json)".into(), Type::Text)
         })?;

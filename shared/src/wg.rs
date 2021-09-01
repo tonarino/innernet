@@ -166,7 +166,6 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
 #[cfg(target_os = "linux")]
 pub use super::netlink::add_route;
 
-// TODO(jake): implement get_local_addrs() for macOS
 #[cfg(target_os = "macos")]
 pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
     use nix::sys::socket::SockAddr;

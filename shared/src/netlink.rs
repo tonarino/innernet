@@ -35,10 +35,10 @@ fn netlink_call(
     let len = req.buffer_len();
 
     log::debug!("netlink request: {:?}", req);
-    let socket = Socket::new(NETLINK_ROUTE).unwrap();
+    let socket = Socket::new(NETLINK_ROUTE)?;
     let kernel_addr = SocketAddr::new(0, 0);
     socket.connect(&kernel_addr)?;
-    let n_sent = socket.send(&buf[..len], 0).unwrap();
+    let n_sent = socket.send(&buf[..len], 0)?;
     if n_sent != len {
         return Err(io::Error::new(
             io::ErrorKind::UnexpectedEof,
@@ -48,7 +48,7 @@ fn netlink_call(
 
     let mut responses = vec![];
     loop {
-        let n_received = socket.recv(&mut buf[..], 0).unwrap();
+        let n_received = socket.recv(&mut buf[..], 0)?;
         let mut offset = 0;
         loop {
             let bytes = &buf[offset..];
@@ -205,7 +205,6 @@ pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
         // Only select addresses for helpful links
         .filter(|nlas| nlas.iter().any(|nla| matches!(nla, address::nlas::Nla::Label(label) if links.contains(label))))
         .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
-            // TODO(jake): support IPv6 addresses as well.
             address::nlas::Nla::Address(name) if name.len() == 4 => {
                 let mut addr = [0u8; 4];
                 addr.copy_from_slice(name);
