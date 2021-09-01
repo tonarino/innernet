@@ -12,6 +12,8 @@ use shared::{
 };
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
+const STEP_INTERVAL: Duration = Duration::from_secs(5);
+
 pub struct NatTraverse<'a> {
     interface: &'a InterfaceName,
     backend: Backend,
@@ -101,7 +103,7 @@ impl<'a> NatTraverse<'a> {
             .apply(self.interface, self.backend)?;
 
         let start = Instant::now();
-        while start.elapsed() < Duration::from_secs(5) {
+        while start.elapsed() < STEP_INTERVAL {
             self.refresh_remaining()?;
             if self.is_finished() {
                 log::debug!("NAT traverser is finished!");
