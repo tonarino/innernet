@@ -26,7 +26,8 @@ impl<'a> NatTraverse<'a> {
         for peer in &mut remaining {
             peer.candidates.truncate(10);
             let endpoint = peer.endpoint.clone();
-            peer.candidates.retain(|candidate| Some(candidate) != endpoint.as_ref());
+            peer.candidates
+                .retain(|candidate| Some(candidate) != endpoint.as_ref());
         }
         Self {
             interface,
