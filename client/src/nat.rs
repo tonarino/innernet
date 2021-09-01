@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::Error;
 use shared::{
     wg::{DeviceExt, PeerInfoExt},
-    Peer, PeerDiff,
+    Endpoint, Peer, PeerDiff,
 };
 use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
@@ -22,12 +22,14 @@ impl<'a> NatTraverse<'a> {
     pub fn new(interface: &'a InterfaceName, backend: Backend, diffs: &[PeerDiff]) -> Self {
         let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
 
-        // Filter out the existing endpoint from candidates list and limit to 10 results.
         for peer in &mut remaining {
+            // Limit reported alternative candidates to 10.
             peer.candidates.truncate(10);
+
+            // remove server-reported endpoint from elsewhere in the list if it existed.
             let endpoint = peer.endpoint.clone();
             peer.candidates
-                .retain(|candidate| Some(candidate) != endpoint.as_ref());
+                .retain(|addr| Some(addr) != endpoint.as_ref());
         }
         Self {
             interface,
@@ -44,16 +46,14 @@ impl<'a> NatTraverse<'a> {
         self.remaining.len()
     }
 
-    fn refresh_remaining(&mut self) -> Result<(), Error> {
+    /// Refreshes the current state of candidate traversal attempts, returning
+    /// the peers that have been exhausted of all options (not included are
+    /// peers that have successfully connected, or peers removed from the interface).
+    fn refresh_remaining(&mut self) -> Result<Vec<Peer>, Error> {
         let device = Device::get(self.interface, self.backend)?;
+        // Remove connected and missing peers
         self.remaining.retain(|peer| {
-            if peer.endpoint.is_none() && peer.candidates.is_empty() {
-                log::debug!(
-                    "peer {} removed from NAT traverser (no remaining candidates).",
-                    peer.name
-                );
-                false
-            } else if let Some(peer_info) = device.get_peer(&peer.public_key) {
+            if let Some(peer_info) = device.get_peer(&peer.public_key) {
                 let recently_connected = peer_info.is_recently_connected();
                 if recently_connected {
                     log::debug!(
@@ -70,26 +70,29 @@ impl<'a> NatTraverse<'a> {
                 false
             }
         });
-        Ok(())
+        let (exhausted, remaining): (Vec<_>, Vec<_>) = self
+            .remaining
+            .drain(..)
+            .partition(|peer| peer.candidates.is_empty());
+        self.remaining = remaining;
+        Ok(exhausted)
     }
 
     pub fn step(&mut self) -> Result<(), Error> {
-        self.refresh_remaining()?;
+        let exhuasted = self.refresh_remaining()?;
 
-        let updates = self
-            .remaining
-            .iter_mut()
-            .filter_map(|peer| {
-                peer.endpoint
-                    .take()
-                    .or_else(|| peer.candidates.pop())
-                    .and_then(|endpoint| endpoint.resolve().ok())
-                    .map(|addr| {
-                        PeerConfigBuilder::new(&Key::from_base64(&peer.public_key).unwrap())
-                            .set_endpoint(addr)
-                    })
-            })
-            .collect::<Vec<_>>();
+        // Reset peer endpoints that had no viable candidates back to the server-reported one, if it exists.
+        let reset_updates = exhuasted
+            .into_iter()
+            .filter_map(|peer| set_endpoint(&peer.public_key, peer.endpoint.as_ref()));
+
+        // Set all peers' endpoints to their next available candidate.
+        let candidate_updates = self.remaining.iter_mut().filter_map(|peer| {
+            let endpoint = peer.candidates.pop();
+            set_endpoint(&peer.public_key, endpoint.as_ref())
+        });
+
+        let updates: Vec<_> = reset_updates.chain(candidate_updates).collect();
 
         DeviceUpdate::new()
             .add_peers(&updates)
@@ -106,4 +109,13 @@ impl<'a> NatTraverse<'a> {
         }
         Ok(())
     }
+}
+
+/// Return a PeerConfigBuilder if an endpoint exists and resolves successfully.
+fn set_endpoint(public_key: &str, endpoint: Option<&Endpoint>) -> Option<PeerConfigBuilder> {
+    endpoint
+        .and_then(|endpoint| endpoint.resolve().ok())
+        .map(|addr| {
+            PeerConfigBuilder::new(&Key::from_base64(public_key).unwrap()).set_endpoint(addr)
+        })
 }
