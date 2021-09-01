@@ -567,9 +567,9 @@ impl<'a> PeerDiff<'a> {
         }
 
         // We won't update the endpoint if there's already a stable connection.
-        if old_info
-            .map(|info| !info.is_recently_connected())
-            .unwrap_or(true)
+        if !old_info
+            .map(|info| info.is_recently_connected())
+            .unwrap_or_default()
         {
             let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
             if let Some(addr) = resolved {

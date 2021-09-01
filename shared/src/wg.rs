@@ -245,13 +245,13 @@ pub trait PeerInfoExt {
 }
 impl PeerInfoExt for PeerInfo {
     fn is_recently_connected(&self) -> bool {
-        const REJECT_AFTER_TIME: u64 = 180;
+        const REJECT_AFTER_TIME: Duration = Duration::from_secs(180);
 
         let last_handshake = self
             .stats
             .last_handshake_time
             .and_then(|t| t.elapsed().ok())
-            .unwrap_or_else(|| SystemTime::UNIX_EPOCH.elapsed().unwrap());
+            .unwrap_or(Duration::MAX);
 
         last_handshake <= Duration::from_secs(REJECT_AFTER_TIME)
     }
