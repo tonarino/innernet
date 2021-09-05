@@ -14,21 +14,47 @@ use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wgctrl::{Backend, InterfaceName, Key, KeyPair};
 
-pub const ROOT_CIDR: &str = "10.80.0.0/15";
-pub const SERVER_CIDR: &str = "10.80.0.1/32";
-pub const ADMIN_CIDR: &str = "10.80.1.0/24";
-pub const DEVELOPER_CIDR: &str = "10.80.64.0/24";
-pub const USER_CIDR: &str = "10.80.128.0/17";
-pub const EXPERIMENTAL_CIDR: &str = "10.81.0.0/16";
-pub const EXPERIMENTAL_SUBCIDR: &str = "10.81.0.0/17";
+#[cfg(not(feature = "v6-test"))]
+mod v4 {
+    pub const ROOT_CIDR: &str = "10.80.0.0/15";
+    pub const SERVER_CIDR: &str = "10.80.0.1/32";
+    pub const ADMIN_CIDR: &str = "10.80.1.0/24";
+    pub const DEVELOPER_CIDR: &str = "10.80.64.0/24";
+    pub const USER_CIDR: &str = "10.80.128.0/17";
+    pub const EXPERIMENTAL_CIDR: &str = "10.81.0.0/16";
+    pub const EXPERIMENTAL_SUBCIDR: &str = "10.81.0.0/17";
 
-pub const ADMIN_PEER_IP: &str = "10.80.1.1";
-pub const WG_MANAGE_PEER_IP: &str = "10.80.1.1";
-pub const DEVELOPER1_PEER_IP: &str = "10.80.64.2";
-pub const DEVELOPER2_PEER_IP: &str = "10.80.64.3";
-pub const USER1_PEER_IP: &str = "10.80.128.2";
-pub const USER2_PEER_IP: &str = "10.80.129.2";
-pub const EXPERIMENT_SUBCIDR_PEER_IP: &str = "10.81.0.1";
+    pub const ADMIN_PEER_IP: &str = "10.80.1.1";
+    pub const WG_MANAGE_PEER_IP: &str = ADMIN_PEER_IP;
+    pub const DEVELOPER1_PEER_IP: &str = "10.80.64.2";
+    pub const DEVELOPER2_PEER_IP: &str = "10.80.64.3";
+    pub const USER1_PEER_IP: &str = "10.80.128.2";
+    pub const USER2_PEER_IP: &str = "10.80.129.2";
+    pub const EXPERIMENT_SUBCIDR_PEER_IP: &str = "10.81.0.1";
+}
+#[cfg(not(feature = "v6-test"))]
+pub use v4::*;
+
+#[cfg(feature = "v6-test")]
+mod v6 {
+    pub const ROOT_CIDR: &str = "fd00:1337::/64";
+    pub const SERVER_CIDR: &str = "fd00:1337::1/128";
+    pub const ADMIN_CIDR: &str = "fd00:1337::1:0:0:0/80";
+    pub const DEVELOPER_CIDR: &str = "fd00:1337::2:0:0:0/80";
+    pub const USER_CIDR: &str = "fd00:1337::3:0:0:0/80";
+    pub const EXPERIMENTAL_CIDR: &str = "fd00:1337::4:0:0:0/80";
+    pub const EXPERIMENTAL_SUBCIDR: &str = "fd00:1337::4:0:0:0/81";
+
+    pub const ADMIN_PEER_IP: &str = "fd00:1337::1:0:0:1";
+    pub const WG_MANAGE_PEER_IP: &str = ADMIN_PEER_IP;
+    pub const DEVELOPER1_PEER_IP: &str = "fd00:1337::2:0:0:1";
+    pub const DEVELOPER2_PEER_IP: &str = "fd00:1337::2:0:0:2";
+    pub const USER1_PEER_IP: &str = "fd00:1337::3:0:0:1";
+    pub const USER2_PEER_IP: &str = "fd00:1337::3:0:0:2";
+    pub const EXPERIMENT_SUBCIDR_PEER_IP: &str = "fd00:1337::4:0:0:1";
+}
+#[cfg(feature = "v6-test")]
+pub use v6::*;
 
 pub const ROOT_CIDR_ID: i64 = 1;
 pub const INFRA_CIDR_ID: i64 = 2;
@@ -160,8 +186,13 @@ impl Server {
     }
 
     fn base_request_builder(&self, verb: &str, path: &str) -> http::request::Builder {
+        let path = if cfg!(feature = "v6-test") {
+            format!("http://[{}]{}", WG_MANAGE_PEER_IP, path)
+        } else {
+            format!("http://{}{}", WG_MANAGE_PEER_IP, path)
+        };
         Request::builder()
-            .uri(format!("http://{}{}", WG_MANAGE_PEER_IP, path))
+            .uri(path)
             .method(verb)
             .header(
                 shared::INNERNET_PUBKEY_HEADER,

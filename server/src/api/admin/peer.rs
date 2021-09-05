@@ -103,7 +103,11 @@ mod tests {
 
         let old_peers = DatabasePeer::list(&server.db().lock())?;
 
-        let peer = test::developer_peer_contents("developer3", "10.80.64.4")?;
+        let peer = if cfg!(feature = "v6-test") {
+            test::developer_peer_contents("developer3", "fd00:1337::2:0:0:3")?
+        } else {
+            test::developer_peer_contents("developer3", "10.80.64.4")?
+        };
 
         let res = server
             .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/peers", &peer)

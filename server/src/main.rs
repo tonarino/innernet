@@ -651,8 +651,13 @@ mod tests {
     async fn test_with_session_disguised_with_headers() -> Result<(), Error> {
         let server = test::Server::new()?;
 
+        let path = if cfg!(feature = "v6-test") {
+            format!("http://[{}]/v1/admin/peers", test::WG_MANAGE_PEER_IP)
+        } else {
+            format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP)
+        };
         let req = Request::builder()
-            .uri(format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP))
+            .uri(path)
             .header("Forwarded", format!("for={}", test::ADMIN_PEER_IP))
             .header("X-Forwarded-For", test::ADMIN_PEER_IP)
             .header("X-Real-IP", test::ADMIN_PEER_IP)
@@ -660,7 +665,11 @@ mod tests {
             .unwrap();
 
         // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
-        let res = server.raw_request("10.80.80.80", req).await;
+        let res = if cfg!(feature = "v6-test") {
+            server.raw_request("fd00:1337::1337", req).await
+        } else {
+            server.raw_request("10.80.80.80", req).await
+        };
 
         // addr::remote() filter only look at remote_addr from TCP socket.
         // HTTP headers are not considered. This also means that innernet
@@ -676,13 +685,22 @@ mod tests {
 
         let key = Key::generate_private().generate_public();
 
+        let path = if cfg!(feature = "v6-test") {
+            format!("http://[{}]/v1/admin/peers", test::WG_MANAGE_PEER_IP)
+        } else {
+            format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP)
+        };
         // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
         let req = Request::builder()
-            .uri(format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP))
+            .uri(path)
             .header(shared::INNERNET_PUBKEY_HEADER, key.to_base64())
             .body(Body::empty())
             .unwrap();
-        let res = server.raw_request("10.80.80.80", req).await;
+        let res = if cfg!(feature = "v6-test") {
+            server.raw_request("fd00:1337::1337", req).await
+        } else {
+            server.raw_request("10.80.80.80", req).await
+        };
 
         // addr::remote() filter only look at remote_addr from TCP socket.
         // HTTP headers are not considered. This also means that innernet
@@ -696,12 +714,21 @@ mod tests {
     async fn test_unparseable_public_key() -> Result<(), Error> {
         let server = test::Server::new()?;
 
+        let path = if cfg!(feature = "v6-test") {
+            format!("http://[{}]/v1/admin/peers", test::WG_MANAGE_PEER_IP)
+        } else {
+            format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP)
+        };
         let req = Request::builder()
-            .uri(format!("http://{}/v1/admin/peers", test::WG_MANAGE_PEER_IP))
+            .uri(path)
             .header(shared::INNERNET_PUBKEY_HEADER, "!!!")
             .body(Body::empty())
             .unwrap();
-        let res = server.raw_request("10.80.80.80", req).await;
+        let res = if cfg!(feature = "v6-test") {
+            server.raw_request("fd00:1337::1337", req).await
+        } else {
+            server.raw_request("10.80.80.80", req).await
+        };
 
         // addr::remote() filter only look at remote_addr from TCP socket.
         // HTTP headers are not considered. This also means that innernet

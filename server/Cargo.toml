@@ -12,6 +12,9 @@ version = "1.4.1"
 name = "innernet-server"
 path = "src/main.rs"
 
+[features]
+v6-test = []
+
 [dependencies]
 anyhow = "1"
 bytes = "1"

@@ -47,6 +47,11 @@ jobs:
       with:
         command: test
         args: --verbose
+    - name: Test (IPv6)
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --features v6-test --verbose
     - name: Clippy
       uses: actions-rs/cargo@v1
       with:
