@@ -350,10 +350,6 @@ fn install(
 
             {interface} has been {installed}.
 
-            It's recommended to now keep the interface automatically refreshing via systemd:
-
-                {systemctl_enable}{interface}
-
             By default, innernet will write to your /etc/hosts file for peer name
             resolution. To disable this behavior, use the --no-write-hosts or --write-hosts [PATH]
             options.
@@ -365,8 +361,40 @@ fn install(
         star = "[*]".dimmed(),
         interface = iface.to_string().yellow(),
         installed = "installed".green(),
-        systemctl_enable = "systemctl enable --now innernet@".yellow(),
     );
+    if cfg!(target_os = "linux") {
+        eprintdoc!(
+            "
+                It's recommended to now keep the interface automatically refreshing via systemd:
+
+                    {systemctl_enable}{interface}
+        ",
+            interface = iface.to_string().yellow(),
+            systemctl_enable = "systemctl enable --now innernet@".yellow(),
+        );
+    } else if cfg!(target_os = "macos") {
+        eprintdoc!("
+            It's recommended to now keep the interface automatically refreshing, which you can
+            do via a launchd script (easier macOS helpers to be added to innernet in a later version).
+
+            Ex. to run innernet in a 60s update loop:
+
+                {daemon_mode} {interface}
+        ",
+            interface = iface.to_string().yellow(),
+            daemon_mode = "innernet up -d --interval 60".yellow());
+    } else {
+        eprintdoc!("
+            It's recommended to now keep the interface automatically refreshing via whatever service
+            system your distribution provides.
+
+            Ex. to run innernet in a 60s update loop:
+
+                {daemon_mode} {interface}
+        ",
+            interface = iface.to_string().yellow(),
+            daemon_mode = "innernet up -d --interval 60".yellow());
+    }
     Ok(())
 }
 
