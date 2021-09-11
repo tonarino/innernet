@@ -59,6 +59,7 @@ assets = [
   ["../doc/innernet-server.completions.fish", "usr/share/fish/vendor_completions.d/innernet-server.fish", "644"],
 ]
 depends = "libc6, libgcc1, libsqlite3-0, zlib1g, systemd"
+recommends = "wireguard"
 maintainer = "tonari <hey@tonari.no>"
 name = "innernet-server"
 priority = "optional"
