@@ -1,3 +1,5 @@
+use curve25519_dalek::scalar::Scalar;
+
 use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
 
 #[cfg(target_os = "linux")]
@@ -396,11 +398,16 @@ pub struct Key(pub [u8; 32]);
 impl Key {
     /// Generates and returns a new private key.
     pub fn generate_private() -> Self {
-        use rand_core::OsRng;
-        use x25519_dalek::StaticSecret;
+        use rand_core::{OsRng, RngCore};
 
-        let key = StaticSecret::new(OsRng);
-        Self(key.to_bytes())
+        let mut bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut bytes);
+
+        // Apply key clamping.
+        bytes[0] &= 248;
+        bytes[31] &= 127;
+        bytes[31] |= 64;
+        Self(bytes)
     }
 
     /// Generates and returns a new preshared key.
@@ -414,13 +421,12 @@ impl Key {
 
     /// Generates a public key for this private key.
     pub fn generate_public(&self) -> Self {
-        use x25519_dalek::{PublicKey, StaticSecret};
+        use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 
-        let mut public_bytes = [0u8; 32];
-        let private_key = StaticSecret::from(self.0);
-        let public_key = PublicKey::from(&private_key);
-        public_bytes.copy_from_slice(public_key.as_bytes());
-        Self(public_bytes)
+        // https://github.com/dalek-cryptography/x25519-dalek/blob/1c39ff92e0dfc0b24aa02d694f26f3b9539322a5/src/x25519.rs#L150
+        let point = (&ED25519_BASEPOINT_TABLE * &Scalar::from_bits(self.0)).to_montgomery();
+
+        Self(point.to_bytes())
     }
 
     /// Generates an all-zero key.
@@ -464,5 +470,43 @@ impl Key {
         let mut sized_bytes = [0u8; 32];
         hex::decode_to_slice(hex_str, &mut sized_bytes).map_err(|_| InvalidKey)?;
         Ok(Self(sized_bytes))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_pubkey_generation() {
+        let privkey = "SGb+ojrRNDuMePufwtIYhXzA//k6wF3R21tEBgKlzlM=";
+        let pubkey = "DD5yKRfzExcV5+kDnTroDgCU15latdMjiQ59j1hEuk8=";
+
+        let private = Key::from_base64(privkey).unwrap();
+        let public = Key::generate_public(&private);
+
+        assert_eq!(public.to_base64(), pubkey);
+    }
+
+    #[test]
+    fn test_rng_sanity_private() {
+        let first = Key::generate_private();
+        assert!(!first.is_zero());
+        for _ in 0..100_000 {
+            let key = Key::generate_private();
+            assert!(first != key);
+            assert!(!key.is_zero());
+        }
+    }
+
+    #[test]
+    fn test_rng_sanity_preshared() {
+        let first = Key::generate_preshared();
+        assert!(!first.is_zero());
+        for _ in 0..100_000 {
+            let key = Key::generate_preshared();
+            assert!(first != key);
+            assert!(!key.is_zero());
+        }
     }
 }

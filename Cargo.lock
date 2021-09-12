@@ -211,8 +211,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "3.0.2"
-source = "git+https://github.com/mcginty/curve25519-dalek?branch=main#2028ad6ee8783af2f260efb0390680f639c22c7e"
+version = "4.0.0-pre.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4033478fbf70d6acf2655ac70da91ee65852d69daf7a67bf7a2f518fb47aafcf"
 dependencies = [
  "byteorder",
  "digest",
@@ -1102,18 +1103,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "synstructure"
-version = "0.12.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "474aaa926faa1603c40b7885a9eaea29b444d1cb2850cb7c0e37bb1a4182f4fa"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "unicode-xid",
-]
-
-[[package]]
 name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1374,12 +1363,12 @@ name = "wgctrl"
 version = "1.4.1"
 dependencies = [
  "base64",
+ "curve25519-dalek",
  "hex",
  "libc",
  "rand_core",
  "subtle",
  "wgctrl-sys",
- "x25519-dalek",
 ]
 
 [[package]]
@@ -1429,32 +1418,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85e60b0d1b5f99db2556934e21937020776a5d31520bf169e851ac44e6420214"
 
 [[package]]
-name = "x25519-dalek"
-version = "1.1.0"
-source = "git+https://github.com/mcginty/x25519-dalek?branch=master#8edb77eda328f09f19f8ba9d33b114c5afafa457"
-dependencies = [
- "curve25519-dalek",
- "rand_core",
- "zeroize",
-]
-
-[[package]]
 name = "zeroize"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "377db0846015f7ae377174787dd452e1c5f5a9050bc6f954911d01f116daa0cd"
-dependencies = [
- "zeroize_derive",
-]
-
-[[package]]
-name = "zeroize_derive"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2c1e130bebaeab2f23886bf9acbaca14b092408c452543c857f66399cd6dab1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
-]
