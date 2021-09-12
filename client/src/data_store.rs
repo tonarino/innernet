@@ -1,7 +1,9 @@
 use crate::Error;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use shared::{CLIENT_DATA_DIR, Cidr, IoErrorContext, Peer, WrappedIoError, chmod, ensure_dirs_exist};
+use shared::{
+    chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_DIR,
+};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},

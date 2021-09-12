@@ -191,13 +191,10 @@ impl Server {
         } else {
             format!("http://{}{}", WG_MANAGE_PEER_IP, path)
         };
-        Request::builder()
-            .uri(path)
-            .method(verb)
-            .header(
-                shared::INNERNET_PUBKEY_HEADER,
-                HeaderValue::from_str(&self.public_key.to_base64()).unwrap(),
-            )
+        Request::builder().uri(path).method(verb).header(
+            shared::INNERNET_PUBKEY_HEADER,
+            HeaderValue::from_str(&self.public_key.to_base64()).unwrap(),
+        )
     }
 
     pub async fn request(&self, ip_str: &str, verb: &str, path: &str) -> Response<Body> {

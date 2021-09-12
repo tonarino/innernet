@@ -384,7 +384,8 @@ fn install(
             interface = iface.to_string().yellow(),
             daemon_mode = "innernet up -d --interval 60".yellow());
     } else {
-        eprintdoc!("
+        eprintdoc!(
+            "
             It's recommended to now keep the interface automatically refreshing via whatever service
             system your distribution provides.
 
@@ -393,7 +394,8 @@ fn install(
                 {daemon_mode} {interface}
         ",
             interface = iface.to_string().yellow(),
-            daemon_mode = "innernet up -d --interval 60".yellow());
+            daemon_mode = "innernet up -d --interval 60".yellow()
+        );
     }
     Ok(())
 }

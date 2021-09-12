@@ -1,6 +1,12 @@
 pub use anyhow::Error;
 use lazy_static::lazy_static;
-use std::{fs::{self, File, Permissions}, io, os::unix::fs::PermissionsExt, path::Path, time::Duration};
+use std::{
+    fs::{self, File, Permissions},
+    io,
+    os::unix::fs::PermissionsExt,
+    path::Path,
+    time::Duration,
+};
 
 pub mod interface_config;
 #[cfg(target_os = "linux")]

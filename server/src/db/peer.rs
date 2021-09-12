@@ -103,7 +103,10 @@ impl DatabasePeer {
         }
 
         if !cidr.cidr.is_assignable(*ip) {
-            println!("Peer IP {} is not unicast assignable in CIDR {}", ip, cidr.cidr);
+            println!(
+                "Peer IP {} is not unicast assignable in CIDR {}",
+                ip, cidr.cidr
+            );
             return Err(ServerError::InvalidQuery);
         }
 
