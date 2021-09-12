@@ -311,8 +311,8 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 
     let mut request = String::from("set=1\n");
 
-    if let Some(Key(k)) = builder.private_key {
-        request.push_str(&format!("private_key={}\n", hex::encode(k)));
+    if let Some(ref k) = builder.private_key {
+        request.push_str(&format!("private_key={}\n", hex::encode(k.as_bytes())));
     }
 
     if let Some(f) = builder.fwmark {
@@ -328,7 +328,7 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     }
 
     for peer in &builder.peers {
-        request.push_str(&format!("public_key={}\n", hex::encode(peer.public_key.0)));
+        request.push_str(&format!("public_key={}\n", hex::encode(peer.public_key.as_bytes())));
 
         if peer.replace_allowed_ips {
             request.push_str("replace_allowed_ips=true\n");
@@ -338,8 +338,8 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
             request.push_str("remove=true\n");
         }
 
-        if let Some(Key(preshared_key)) = peer.preshared_key {
-            request.push_str(&format!("preshared_key={}\n", hex::encode(preshared_key)));
+        if let Some(ref k) = peer.preshared_key {
+            request.push_str(&format!("preshared_key={}\n", hex::encode(k.as_bytes())));
         }
 
         if let Some(endpoint) = peer.endpoint {
