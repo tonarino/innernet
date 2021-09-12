@@ -591,6 +591,7 @@ fn uninstall(interface: &InterfaceName, network: NetworkOpt) -> Result<(), Error
             interface.as_str_lossy().yellow()
         ))
         .default(false)
+        .wait_for_newline(true)
         .interact()?
     {
         log::info!("bringing down interface (if up).");
