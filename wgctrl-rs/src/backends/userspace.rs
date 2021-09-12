@@ -1,4 +1,5 @@
 use curve25519_dalek::scalar::Scalar;
+use subtle::ConstantTimeEq;
 
 use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
 
@@ -392,7 +393,13 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 /// `Key`s, especially ones created from external data.
 #[cfg(not(target_os = "linux"))]
 #[derive(PartialEq, Eq, Clone)]
-pub struct Key(pub [u8; 32]);
+pub struct Key([u8; 32]);
+
+impl ConstantTimeEq for Key {
+    fn ct_eq(&self, other: &Self) -> subtle::Choice {
+        self.0.ct_eq(&other.0).into()
+    }
+}
 
 #[cfg(not(target_os = "linux"))]
 impl Key {
@@ -436,9 +443,7 @@ impl Key {
 
     /// Checks if this key is all-zero.
     pub fn is_zero(&self) -> bool {
-        use subtle::ConstantTimeEq;
-
-        self.0.ct_eq(&[0u8; 32]).into()
+        self.ct_eq(&Self::zero()).into()
     }
 
     /// Converts the key to a standardized base64 representation, as used by the `wg` utility and `wg-quick`.

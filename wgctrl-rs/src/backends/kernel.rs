@@ -418,7 +418,7 @@ pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
 /// `Key`s, especially ones created from external data.
 #[cfg(target_os = "linux")]
 #[derive(PartialEq, Eq, Clone)]
-pub struct Key(pub wgctrl_sys::wg_key);
+pub struct Key(wgctrl_sys::wg_key);
 
 #[cfg(target_os = "linux")]
 impl Key {
