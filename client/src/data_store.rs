@@ -1,7 +1,7 @@
 use crate::Error;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use shared::{ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_DIR};
+use shared::{CLIENT_DATA_DIR, Cidr, IoErrorContext, Peer, WrappedIoError, chmod, ensure_dirs_exist};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},
@@ -28,6 +28,8 @@ impl DataStore {
         create: bool,
     ) -> Result<Self, WrappedIoError> {
         let path = path.as_ref();
+        let is_existing_file = path.exists();
+
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -35,7 +37,11 @@ impl DataStore {
             .open(path)
             .with_path(path)?;
 
-        shared::warn_on_dangerous_mode(path).with_path(path)?;
+        if is_existing_file {
+            shared::warn_on_dangerous_mode(path).with_path(path)?;
+        } else {
+            chmod(&file, 0o600).with_path(path)?;
+        }
 
         let mut json = String::new();
         file.read_to_string(&mut json).with_path(path)?;
