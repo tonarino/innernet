@@ -73,11 +73,8 @@ mod tests {
     fn test_key_zero() {
         use crate::key::Key;
 
-        let key = Key::zero();
-        assert!(key.is_zero());
-
         let key = Key::generate_preshared();
-        assert!(!key.is_zero());
+        assert_ne!(key.as_bytes(), &[0u8; 32]);
     }
 
     #[test]

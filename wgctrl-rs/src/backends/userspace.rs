@@ -1,6 +1,3 @@
-use curve25519_dalek::scalar::Scalar;
-use subtle::ConstantTimeEq;
-
 use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
 
 #[cfg(target_os = "linux")]
@@ -395,12 +392,6 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 #[derive(PartialEq, Eq, Clone)]
 pub struct Key([u8; 32]);
 
-impl ConstantTimeEq for Key {
-    fn ct_eq(&self, other: &Self) -> subtle::Choice {
-        self.0.ct_eq(&other.0).into()
-    }
-}
-
 #[cfg(not(target_os = "linux"))]
 impl Key {
     /// Generates and returns a new private key.
@@ -428,6 +419,8 @@ impl Key {
 
     /// Generates a public key for this private key.
     pub fn generate_public(&self) -> Self {
+        use curve25519_dalek::scalar::Scalar;
+
         use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 
         // https://github.com/dalek-cryptography/x25519-dalek/blob/1c39ff92e0dfc0b24aa02d694f26f3b9539322a5/src/x25519.rs#L150
@@ -441,9 +434,8 @@ impl Key {
         Self([0u8; 32])
     }
 
-    /// Checks if this key is all-zero.
-    pub fn is_zero(&self) -> bool {
-        self.ct_eq(&Self::zero()).into()
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
     }
 
     /// Converts the key to a standardized base64 representation, as used by the `wg` utility and `wg-quick`.
@@ -496,22 +488,22 @@ mod test {
     #[test]
     fn test_rng_sanity_private() {
         let first = Key::generate_private();
-        assert!(!first.is_zero());
+        assert!(first.as_bytes() != &[0u8; 32]);
         for _ in 0..100_000 {
             let key = Key::generate_private();
             assert!(first != key);
-            assert!(!key.is_zero());
+            assert!(key.as_bytes() != &[0u8; 32]);
         }
     }
 
     #[test]
     fn test_rng_sanity_preshared() {
         let first = Key::generate_preshared();
-        assert!(!first.is_zero());
+        assert!(first.as_bytes() != &[0u8; 32]);
         for _ in 0..100_000 {
             let key = Key::generate_preshared();
             assert!(first != key);
-            assert!(!key.is_zero());
+            assert!(key.as_bytes() != &[0u8; 32]);
         }
     }
 }

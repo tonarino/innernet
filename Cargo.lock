@@ -1367,7 +1367,6 @@ dependencies = [
  "hex",
  "libc",
  "rand_core",
- "subtle",
  "wgctrl-sys",
 ]
 

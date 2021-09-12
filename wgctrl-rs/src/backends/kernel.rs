@@ -468,9 +468,8 @@ impl Key {
         Self(wgctrl_sys::wg_key::default())
     }
 
-    /// Checks if this key is all-zero.
-    pub fn is_zero(&self) -> bool {
-        unsafe { wgctrl_sys::wg_key_is_zero(&self.0 as *const u8 as *mut u8) }
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
     }
 
     /// Converts the key to a standardized base64 representation, as used by the `wg` utility and `wg-quick`.
