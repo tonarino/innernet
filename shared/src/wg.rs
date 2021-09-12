@@ -171,7 +171,6 @@ pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
     use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
 
     let addrs = nix::ifaddrs::getifaddrs()?
-        .inspect(|addr| println!("{:?}", addr))
         .filter(|addr| {
             addr.flags.contains(InterfaceFlags::IFF_UP)
                 && !addr.flags.intersects(

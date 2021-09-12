@@ -161,6 +161,7 @@ mod tests {
             }
         }];
     }
+
     fn setup_basic_store(dir: &Path) {
         let mut store = DataStore::open_with_path(&dir.join("peer_store.json"), true).unwrap();
 
