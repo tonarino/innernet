@@ -1,12 +1,6 @@
 pub use anyhow::Error;
 use lazy_static::lazy_static;
-use std::{
-    fs::{self, File},
-    io,
-    os::unix::fs::PermissionsExt,
-    path::Path,
-    time::Duration,
-};
+use std::{fs::{self, File, Permissions}, io, os::unix::fs::PermissionsExt, path::Path, time::Duration};
 
 pub mod interface_config;
 #[cfg(target_os = "linux")]
@@ -31,11 +25,15 @@ pub const INNERNET_PUBKEY_HEADER: &str = "X-Innernet-Server-Key";
 pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
     for dir in dirs {
         match fs::create_dir(dir).with_path(dir) {
-            Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
-                return Err(e);
+            Ok(()) => {
+                log::debug!("created dir {}", dir.to_string_lossy());
+                std::fs::set_permissions(dir, Permissions::from_mode(0o700)).with_path(dir)?;
             },
-            _ => {
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
                 warn_on_dangerous_mode(dir).with_path(dir)?;
+            },
+            Err(e) => {
+                return Err(e);
             },
         }
     }
