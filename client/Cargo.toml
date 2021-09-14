@@ -44,6 +44,7 @@ assets = [
   ["../doc/innernet.completions.zsh", "usr/share/zsh/site-functions/_innernet", "644"],
 ]
 depends = "libc6, libgcc1, systemd"
+recommends = "wireguard"
 extended-description = "innernet client binary for fetching peer information and conducting admin tasks such as adding a new peer."
 maintainer = "tonari <hey@tonari.no>"
 name = "innernet"
