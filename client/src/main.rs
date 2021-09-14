@@ -1006,7 +1006,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     let PeerState { peer, info } = peer;
     if short {
         let connected = info
-            .map(|info| !info.is_recently_connected())
+            .map(|info| info.is_recently_connected())
             .unwrap_or_default();
 
         println_pad!(
