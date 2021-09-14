@@ -507,6 +507,7 @@ async fn serve(
         .map(|addr| SocketAddr::from((addr, config.listen_port)).into())
         .take(10)
         .collect::<Vec<Endpoint>>();
+    let num_candidates = candidates.len();
     let myself = peers
         .iter_mut()
         .find(|peer| peer.ip == config.address)
@@ -521,7 +522,7 @@ async fn serve(
 
     log::info!(
         "{} local candidates added to server peer config.",
-        peers.len()
+        num_candidates
     );
 
     let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
