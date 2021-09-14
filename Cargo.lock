@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "1.4.1"
+version = "1.5.0-beta.1"
 dependencies = [
  "anyhow",
  "colored",
@@ -975,7 +975,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "1.4.1"
+version = "1.5.0-beta.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1008,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "1.4.1"
+version = "1.5.0-beta.1"
 dependencies = [
  "anyhow",
  "atty",
@@ -1360,7 +1360,7 @@ checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
 name = "wgctrl"
-version = "1.4.1"
+version = "1.5.0-beta.1"
 dependencies = [
  "base64",
  "curve25519-dalek",
@@ -1372,7 +1372,7 @@ dependencies = [
 
 [[package]]
 name = "wgctrl-sys"
-version = "1.4.1"
+version = "1.5.0-beta.1"
 dependencies = [
  "bindgen",
  "cc",
