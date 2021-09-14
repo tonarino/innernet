@@ -328,7 +328,10 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     }
 
     for peer in &builder.peers {
-        request.push_str(&format!("public_key={}\n", hex::encode(peer.public_key.as_bytes())));
+        request.push_str(&format!(
+            "public_key={}\n",
+            hex::encode(peer.public_key.as_bytes())
+        ));
 
         if peer.replace_allowed_ips {
             request.push_str("replace_allowed_ips=true\n");

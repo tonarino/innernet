@@ -615,7 +615,11 @@ fn get_session(
         .ok_or(ServerError::Unauthorized)?;
     let pubkey = pubkey.to_str().map_err(|_| ServerError::Unauthorized)?;
     let pubkey = Key::from_base64(pubkey).map_err(|_| ServerError::Unauthorized)?;
-    if pubkey.as_bytes().ct_eq(&context.public_key.as_bytes()).into() {
+    if pubkey
+        .as_bytes()
+        .ct_eq(context.public_key.as_bytes())
+        .into()
+    {
         let peer = DatabasePeer::get_from_ip(&context.db.lock(), addr).map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => ServerError::Unauthorized,
             e => ServerError::Database(e),
