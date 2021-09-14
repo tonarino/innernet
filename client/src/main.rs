@@ -1033,10 +1033,10 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             &peer.public_key[..10].yellow(),
         );
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
-        if let Some(ref endpoint) = peer.endpoint {
-            println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
-        }
         if let Some(info) = info {
+            if let Some(endpoint) = info.config.endpoint {
+                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint );
+            }
             if let Some(last_handshake) = info.stats.last_handshake_time {
                 let duration = last_handshake.elapsed().expect("horrible clock problem");
                 println_pad!(
