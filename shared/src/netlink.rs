@@ -203,7 +203,7 @@ pub fn get_local_addrs() -> Result<impl Iterator<Item = IpAddr>, io::Error> {
                 None
             })
         // Only select addresses for helpful links
-        .filter(|nlas| nlas.iter().any(|nla| matches!(nla, address::nlas::Nla::Label(label) if links.contains(label))))
+        .filter(move |nlas| nlas.iter().any(|nla| matches!(nla, address::nlas::Nla::Label(label) if links.contains(label))))
         .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
             address::nlas::Nla::Address(name) if name.len() == 4 => {
                 let mut addr = [0u8; 4];
@@ -227,6 +227,6 @@ mod tests {
     #[test]
     fn test_local_addrs() {
         let addrs = get_local_addrs().unwrap();
-        println!("{:?}", addrs);
+        println!("{:?}", addrs.collect::<Vec<_>>());
     }
 }
