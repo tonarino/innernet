@@ -1,5 +1,5 @@
 use crate::{
-    ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError, CLIENT_CONFIG_DIR,
+    chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError, CLIENT_CONFIG_DIR,
 };
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
@@ -8,7 +8,6 @@ use std::{
     fs::{File, OpenOptions},
     io::{self, Write},
     net::SocketAddr,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 use wgctrl::InterfaceName;
@@ -61,9 +60,7 @@ impl InterfaceConfig {
         mode: Option<u32>,
     ) -> Result<(), io::Error> {
         if let Some(val) = mode {
-            let metadata = target_file.metadata()?;
-            let mut permissions = metadata.permissions();
-            permissions.set_mode(val);
+            chmod(target_file, val)?;
         }
 
         if comments {
