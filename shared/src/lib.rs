@@ -79,3 +79,28 @@ pub fn chmod(file: &File, new_mode: u32) -> Result<bool, io::Error> {
 
     Ok(updated)
 }
+
+#[cfg(target_os = "macos")]
+pub fn get_local_addrs() -> Result<Vec<std::net::IpAddr>, io::Error> {
+    use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
+
+    let addrs = nix::ifaddrs::getifaddrs()?
+        .filter(|addr| {
+            addr.flags.contains(InterfaceFlags::IFF_UP)
+                && !addr.flags.intersects(
+                    InterfaceFlags::IFF_LOOPBACK
+                        | InterfaceFlags::IFF_POINTOPOINT
+                        | InterfaceFlags::IFF_PROMISC,
+                )
+        })
+        .filter_map(|addr| match addr.address {
+            Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    Ok(addrs)
+}
+
+#[cfg(target_os = "linux")]
+pub use netlink::get_local_addrs;

@@ -4,6 +4,7 @@ use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
 use shared::{
+    get_local_addrs,
     interface_config::InterfaceConfig,
     prompts,
     wg::{DeviceExt, PeerInfoExt},
@@ -550,7 +551,7 @@ fn fetch(
     store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
 
-    let candidates = wg::get_local_addrs()?
+    let candidates = get_local_addrs()?
         .into_iter()
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .take(10)

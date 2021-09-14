@@ -7,7 +7,10 @@ use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use shared::{AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, INNERNET_PUBKEY_HEADER, IoErrorContext, NetworkOpt, PeerContents, RenamePeerOpts};
+use shared::{
+    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
+    NetworkOpt, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -499,12 +502,14 @@ async fn serve(
 
     log::info!("{} peers added to wireguard interface.", peers.len());
 
-    let candidates = wg::get_local_addrs()?
+    let candidates = get_local_addrs()?
         .into_iter()
         .map(|addr| SocketAddr::from((addr, config.listen_port)).into())
         .take(10)
         .collect::<Vec<Endpoint>>();
-    let myself = peers.iter_mut().find(|peer| peer.ip == config.address)
+    let myself = peers
+        .iter_mut()
+        .find(|peer| peer.ip == config.address)
         .expect("Couldn't find server peer in peer list.");
     myself.update(
         &conn,
@@ -513,6 +518,11 @@ async fn serve(
             ..myself.contents.clone()
         },
     )?;
+
+    log::info!(
+        "{} local candidates added to server peer config.",
+        peers.len()
+    );
 
     let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));
@@ -528,7 +538,7 @@ async fn serve(
     };
 
     log::info!("innernet-server {} starting.", VERSION);
-    
+
     let listener = get_listener((config.address, config.listen_port).into(), &interface)?;
 
     let make_svc = hyper::service::make_service_fn(move |socket: &AddrStream| {
