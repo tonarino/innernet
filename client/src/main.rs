@@ -531,7 +531,7 @@ fn fetch(
         .map(PeerConfigBuilder::from)
         .collect::<Vec<_>>();
 
-    if !updates.is_empty() {
+    if !updates.is_empty() || !interface_up {
         DeviceUpdate::new()
             .add_peers(&updates)
             .apply(interface, network.backend)
