@@ -146,6 +146,16 @@ or unset the port and use a randomized port with
 sudo innernet set-listen-port -u <interface>
 ```
 
+### Remove Network
+
+To permanently uninstall a created network, use
+
+```sh
+sudo innernet-server uninstall <interface>
+```
+
+Use with care!
+
 ## Security recommendations
 
 If you're running a service on innernet, there are some important security considerations.
