@@ -19,7 +19,7 @@ git diff --quiet || die 'ERROR: git repo is dirty.'
 
 OLD_VERSION="v$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
-cargo release "$1" --no-confirm --exclude "hostsfile" --exclude "publicip"
+cargo release "$1" --no-confirm --exclude "hostsfile" --exclude "publicip" --execute
 
 # re-stage the manpage commit and the cargo-release commit
 git reset --soft @~1
