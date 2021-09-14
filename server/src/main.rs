@@ -502,11 +502,9 @@ async fn serve(
 
     log::info!("{} peers added to wireguard interface.", peers.len());
 
-    let candidates = get_local_addrs()?
-        .into_iter()
+    let candidates: Vec<Endpoint> = get_local_addrs()?
         .map(|addr| SocketAddr::from((addr, config.listen_port)).into())
-        .take(10)
-        .collect::<Vec<Endpoint>>();
+        .collect();
     let num_candidates = candidates.len();
     let myself = peers
         .iter_mut()

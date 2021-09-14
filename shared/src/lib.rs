@@ -81,7 +81,7 @@ pub fn chmod(file: &File, new_mode: u32) -> Result<bool, io::Error> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn get_local_addrs() -> Result<Vec<std::net::IpAddr>, io::Error> {
+pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
     use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
 
     let addrs = nix::ifaddrs::getifaddrs()?
@@ -96,11 +96,14 @@ pub fn get_local_addrs() -> Result<Vec<std::net::IpAddr>, io::Error> {
         .filter_map(|addr| match addr.address {
             Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
             _ => None,
-        })
-        .collect::<Vec<_>>();
+        });
 
     Ok(addrs)
 }
 
 #[cfg(target_os = "linux")]
-pub use netlink::get_local_addrs;
+pub use netlink::get_local_addrs as _get_local_addrs;
+
+pub fn get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
+    Ok(_get_local_addrs()?.take(10))
+}

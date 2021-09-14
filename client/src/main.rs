@@ -551,10 +551,8 @@ fn fetch(
     store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
 
-    let candidates = get_local_addrs()?
-        .into_iter()
+    let candidates: Vec<Endpoint> = get_local_addrs()?
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
-        .take(10)
         .collect::<Vec<Endpoint>>();
     log::info!(
         "reporting {} interface address{} as NAT traversal candidates...",

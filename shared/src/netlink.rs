@@ -180,7 +180,7 @@ fn get_links() -> Result<Vec<String>, io::Error> {
     Ok(links)
 }
 
-pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
+pub fn get_local_addrs() -> Result<impl Iterator<Item = IpAddr>, io::Error> {
     let links = get_links()?;
     let addr_responses = netlink_call(
         RtnlMessage::GetAddress(AddressMessage::default()),
@@ -216,8 +216,7 @@ pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
                 Some(IpAddr::V6(addr.into()))
             },
             _ => None,
-        }))
-        .collect::<Vec<_>>();
+        }));
     Ok(addrs)
 }
 
