@@ -8,8 +8,8 @@ use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, IoErrorContext, NetworkOpt, RenamePeerOpts,
-    INNERNET_PUBKEY_HEADER,
+    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
+    NetworkOpt, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -479,7 +479,7 @@ async fn serve(
     log::debug!("opening database connection...");
     let conn = open_database_connection(&interface, conf)?;
 
-    let peers = DatabasePeer::list(&conn)?;
+    let mut peers = DatabasePeer::list(&conn)?;
     log::debug!("peers listed...");
     let peer_configs = peers
         .iter()
@@ -501,6 +501,27 @@ async fn serve(
         .apply(&interface, network.backend)?;
 
     log::info!("{} peers added to wireguard interface.", peers.len());
+
+    let candidates: Vec<Endpoint> = get_local_addrs()?
+        .map(|addr| SocketAddr::from((addr, config.listen_port)).into())
+        .collect();
+    let num_candidates = candidates.len();
+    let myself = peers
+        .iter_mut()
+        .find(|peer| peer.ip == config.address)
+        .expect("Couldn't find server peer in peer list.");
+    myself.update(
+        &conn,
+        PeerContents {
+            candidates,
+            ..myself.contents.clone()
+        },
+    )?;
+
+    log::info!(
+        "{} local candidates added to server peer config.",
+        num_candidates
+    );
 
     let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));

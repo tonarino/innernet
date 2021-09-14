@@ -4,6 +4,7 @@ use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
 use shared::{
+    get_local_addrs,
     interface_config::InterfaceConfig,
     prompts,
     wg::{DeviceExt, PeerInfoExt},
@@ -448,7 +449,7 @@ fn redeem_invite(
         target_conf.to_string_lossy().yellow()
     );
 
-    log::info!("Changing keys and waiting for server's WireGuard interface to transition.",);
+    log::info!("Changing keys and waiting 5s for server's WireGuard interface to transition.",);
     DeviceUpdate::new()
         .set_private_key(keypair.private)
         .apply(iface, network.backend)
@@ -550,10 +551,8 @@ fn fetch(
     store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
 
-    let candidates = wg::get_local_addrs()?
-        .into_iter()
+    let candidates: Vec<Endpoint> = get_local_addrs()?
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
-        .take(10)
         .collect::<Vec<Endpoint>>();
     log::info!(
         "reporting {} interface address{} as NAT traversal candidates...",

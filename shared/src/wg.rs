@@ -166,31 +166,6 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
 #[cfg(target_os = "linux")]
 pub use super::netlink::add_route;
 
-#[cfg(target_os = "macos")]
-pub fn get_local_addrs() -> Result<Vec<IpAddr>, io::Error> {
-    use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
-
-    let addrs = nix::ifaddrs::getifaddrs()?
-        .filter(|addr| {
-            addr.flags.contains(InterfaceFlags::IFF_UP)
-                && !addr.flags.intersects(
-                    InterfaceFlags::IFF_LOOPBACK
-                        | InterfaceFlags::IFF_POINTOPOINT
-                        | InterfaceFlags::IFF_PROMISC,
-                )
-        })
-        .filter_map(|addr| match addr.address {
-            Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
-    Ok(addrs)
-}
-
-#[cfg(target_os = "linux")]
-pub use super::netlink::get_local_addrs;
-
 pub trait DeviceExt {
     /// Diff the output of a wgctrl device with a list of server-reported peers.
     fn diff<'a>(&'a self, peers: &'a [Peer]) -> Vec<PeerDiff<'a>>;

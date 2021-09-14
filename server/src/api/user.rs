@@ -106,6 +106,8 @@ mod handlers {
             // This might be avoidable if we were able to run code after we were certain the response
             // had flushed over the TCP socket, but that isn't easily accessible from this high-level
             // web framework.
+            //
+            // Related: https://github.com/hyperium/hyper/issues/2181
             tokio::task::spawn(async move {
                 tokio::time::sleep(*REDEEM_TRANSITION_WAIT).await;
                 log::info!(
