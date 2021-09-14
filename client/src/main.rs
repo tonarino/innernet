@@ -1009,17 +1009,19 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             .map(|info| info.is_recently_connected())
             .unwrap_or_default();
 
+        let is_you = info.is_none();
+
         println_pad!(
             pad,
             "| {} {}: {} ({}{}…)",
-            if connected {
+            if connected || is_you {
                 "◉".bold()
             } else {
                 "◯".dimmed()
             },
             peer.ip.to_string().yellow().bold(),
             peer.name.yellow(),
-            if info.is_none() { "you, " } else { "" },
+            if is_you { "you, " } else { "" },
             &peer.public_key[..6].dimmed(),
         );
     } else {
