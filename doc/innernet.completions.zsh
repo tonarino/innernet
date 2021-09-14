@@ -15,7 +15,7 @@ _innernet() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(kernel userspace)' \
+'--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(userspace)' \
 '--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]' \
 '*-v[Verbose output, use -vv for even higher verbositude]' \
 '*--verbose[Verbose output, use -vv for even higher verbositude]' \
