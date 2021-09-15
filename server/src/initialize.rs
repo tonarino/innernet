@@ -139,16 +139,6 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .interact()?
     };
 
-    let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
-        endpoint
-    } else if opts.auto_external_endpoint {
-        let ip = publicip::get_any(Preference::Ipv4)
-            .ok_or_else(|| anyhow!("couldn't get external IP"))?;
-        SocketAddr::new(ip, 51820).into()
-    } else {
-        prompts::ask_endpoint()?
-    };
-
     let listen_port: u16 = if let Some(listen_port) = opts.listen_port {
         listen_port
     } else {
@@ -157,6 +147,18 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .default(51820)
             .interact()
             .map_err(|_| anyhow!("failed to get listen port."))?
+    };
+
+    log::info!("listen port: {}", listen_port);
+
+    let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
+        endpoint
+    } else if opts.auto_external_endpoint {
+        let ip = publicip::get_any(Preference::Ipv4)
+            .ok_or_else(|| anyhow!("couldn't get external IP"))?;
+        SocketAddr::new(ip, listen_port).into()
+    } else {
+        prompts::ask_endpoint(listen_port)?
     };
 
     let our_ip = root_cidr

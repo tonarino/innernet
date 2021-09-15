@@ -459,7 +459,7 @@ pub fn set_listen_port(
     }
 }
 
-pub fn ask_endpoint() -> Result<Endpoint, Error> {
+pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
     println!("getting external IP address.");
 
     let external_ip = if Confirm::with_theme(&*THEME)
@@ -475,26 +475,23 @@ pub fn ask_endpoint() -> Result<Endpoint, Error> {
     Ok(input(
         "External endpoint",
         match external_ip {
-            Some(ip) => Prefill::Editable(SocketAddr::new(ip, 51820).to_string()),
+            Some(ip) => Prefill::Editable(SocketAddr::new(ip, listen_port).to_string()),
             None => Prefill::None,
         },
     )?)
 }
 
-pub fn override_endpoint(unset: bool) -> Result<Option<Option<Endpoint>>, Error> {
-    let endpoint = if !unset { Some(ask_endpoint()?) } else { None };
+pub fn override_endpoint(listen_port: u16) -> Result<Option<Endpoint>, Error> {
+    let endpoint = ask_endpoint(listen_port)?;
+    if confirm(&format!("Set external endpoint to {}?", endpoint))? {
+        Ok(Some(endpoint))
+    } else {
+        Ok(None)
+    }
+}
 
-    Ok(
-        if confirm(
-            &(if let Some(endpoint) = &endpoint {
-                format!("Set external endpoint to {}?", endpoint)
-            } else {
-                "Unset external endpoint to enable automatic endpoint discovery?".to_string()
-            }),
-        )? {
-            Some(endpoint)
-        } else {
-            None
-        },
-    )
+pub fn unset_override_endpoint() -> Result<bool, Error> {
+    Ok(confirm(
+        "Unset external endpoint to enable automatic endpoint discovery?",
+    )?)
 }

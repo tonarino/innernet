@@ -839,10 +839,11 @@ fn set_listen_port(
     interface: &InterfaceName,
     unset: bool,
     network: NetworkOpt,
-) -> Result<(), Error> {
+) -> Result<Option<u16>, Error> {
     let mut config = InterfaceConfig::from_interface(interface)?;
 
-    if let Some(listen_port) = prompts::set_listen_port(&config.interface, unset)? {
+    let listen_port = prompts::set_listen_port(&config.interface, unset)?;
+    if let Some(listen_port) = listen_port {
         wg::set_listen_port(interface, listen_port, network.backend)?;
         log::info!("the interface is updated");
 
@@ -853,7 +854,7 @@ fn set_listen_port(
         log::info!("exiting without updating the listen port.");
     }
 
-    Ok(())
+    Ok(listen_port.flatten())
 }
 
 fn override_endpoint(
@@ -862,20 +863,32 @@ fn override_endpoint(
     network: NetworkOpt,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
-    if !unset && config.interface.listen_port.is_none() {
-        println!(
-            "{}: you need to set a listen port for your interface first.",
-            "note".bold().yellow()
-        );
-        set_listen_port(interface, unset, network)?;
-    }
+    let endpoint_contents = if unset {
+        prompts::unset_override_endpoint()?.then(|| EndpointContents::Unset)
+    } else {
+        let listen_port = if let Some(listen_port) = config.interface.listen_port {
+            Some(listen_port)
+        } else {
+            println!(
+                "{}: you need to set a listen port for your interface first.",
+                "note".bold().yellow()
+            );
+            set_listen_port(interface, unset, network)?
+        };
+        let endpoint = if let Some(port) = listen_port {
+            prompts::override_endpoint(port)?
+        } else {
+            None
+        };
+        endpoint.map(|endpoint| EndpointContents::Set(endpoint))
+    };
 
-    if let Some(endpoint) = prompts::override_endpoint(unset)? {
+    if let Some(contents) = endpoint_contents {
         log::info!("Updating endpoint.");
         Api::new(&config.server).http_form(
             "PUT",
             "/user/endpoint",
-            EndpointContents::from(endpoint),
+            contents,
         )?;
     } else {
         log::info!("exiting without overriding endpoint.");
@@ -1119,10 +1132,10 @@ fn run(opt: Opts) -> Result<(), Error> {
         Command::DeleteAssociation { interface } => delete_association(&interface)?,
         Command::ListAssociations { interface } => list_associations(&interface)?,
         Command::SetListenPort { interface, unset } => {
-            set_listen_port(&interface, unset, opt.network)?
+            set_listen_port(&interface, unset, opt.network)?;
         },
         Command::OverrideEndpoint { interface, unset } => {
-            override_endpoint(&interface, unset, opt.network)?
+            override_endpoint(&interface, unset, opt.network)?;
         },
         Command::Completions { shell } => {
             Opts::clap().gen_completions_to("innernet", shell, &mut std::io::stdout());
