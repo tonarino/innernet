@@ -25,7 +25,7 @@ use std::{
 };
 use structopt::{clap::AppSettings, StructOpt};
 use subtle::ConstantTimeEq;
-use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
+use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
 pub mod api;
 pub mod db;
@@ -523,7 +523,7 @@ async fn serve(
         num_candidates
     );
 
-    let public_key = wgctrl::Key::from_base64(&config.private_key)?.generate_public();
+    let public_key = wireguard_control::Key::from_base64(&config.private_key)?.generate_public();
     let db = Arc::new(Mutex::new(conn));
     let endpoints = spawn_endpoint_refresher(interface, network);
     spawn_expired_invite_sweeper(db.clone());

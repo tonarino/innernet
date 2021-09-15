@@ -2,7 +2,7 @@ use crate::{
     device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName,
     InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
-use wgctrl_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
+use wireguard_control_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
 
 use std::{
     ffi::{CStr, CString},
@@ -13,8 +13,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-impl<'a> From<&'a wgctrl_sys::wg_allowedip> for AllowedIp {
-    fn from(raw: &wgctrl_sys::wg_allowedip) -> AllowedIp {
+impl<'a> From<&'a wireguard_control_sys::wg_allowedip> for AllowedIp {
+    fn from(raw: &wireguard_control_sys::wg_allowedip) -> AllowedIp {
         let addr = match i32::from(raw.family) {
             libc::AF_INET => IpAddr::V4(unsafe { raw.__bindgen_anon_1.ip4.s_addr }.to_be().into()),
             libc::AF_INET6 => {
@@ -30,8 +30,8 @@ impl<'a> From<&'a wgctrl_sys::wg_allowedip> for AllowedIp {
     }
 }
 
-impl<'a> From<&'a wgctrl_sys::wg_peer> for PeerInfo {
-    fn from(raw: &wgctrl_sys::wg_peer) -> PeerInfo {
+impl<'a> From<&'a wireguard_control_sys::wg_peer> for PeerInfo {
+    fn from(raw: &wireguard_control_sys::wg_peer) -> PeerInfo {
         PeerInfo {
             config: PeerConfig {
                 public_key: Key::from_raw(raw.public_key),
@@ -63,8 +63,8 @@ impl<'a> From<&'a wgctrl_sys::wg_peer> for PeerInfo {
     }
 }
 
-impl<'a> From<&'a wgctrl_sys::wg_device> for Device {
-    fn from(raw: &wgctrl_sys::wg_device) -> Device {
+impl<'a> From<&'a wireguard_control_sys::wg_device> for Device {
+    fn from(raw: &wireguard_control_sys::wg_device) -> Device {
         // SAFETY: The name string buffer came directly from wgctrl so its NUL terminated.
         let name = unsafe { InterfaceName::from_wg(raw.name) };
         Device {
@@ -95,7 +95,7 @@ impl<'a> From<&'a wgctrl_sys::wg_device> for Device {
     }
 }
 
-fn parse_peers(dev: &wgctrl_sys::wg_device) -> Vec<PeerInfo> {
+fn parse_peers(dev: &wireguard_control_sys::wg_device) -> Vec<PeerInfo> {
     let mut result = Vec::new();
 
     let mut current_peer = dev.first_peer;
@@ -118,10 +118,10 @@ fn parse_peers(dev: &wgctrl_sys::wg_device) -> Vec<PeerInfo> {
     result
 }
 
-fn parse_allowed_ips(peer: &wgctrl_sys::wg_peer) -> Vec<AllowedIp> {
+fn parse_allowed_ips(peer: &wireguard_control_sys::wg_peer) -> Vec<AllowedIp> {
     let mut result = Vec::new();
 
-    let mut current_ip: *mut wgctrl_sys::wg_allowedip = peer.first_allowedip;
+    let mut current_ip: *mut wireguard_control_sys::wg_allowedip = peer.first_allowedip;
 
     if current_ip.is_null() {
         return result;
@@ -141,7 +141,7 @@ fn parse_allowed_ips(peer: &wgctrl_sys::wg_peer) -> Vec<AllowedIp> {
     result
 }
 
-fn parse_endpoint(endpoint: &wgctrl_sys::wg_peer__bindgen_ty_1) -> Option<SocketAddr> {
+fn parse_endpoint(endpoint: &wireguard_control_sys::wg_peer__bindgen_ty_1) -> Option<SocketAddr> {
     let addr = unsafe { endpoint.addr };
     match i32::from(addr.sa_family) {
         libc::AF_INET => {
@@ -166,16 +166,19 @@ fn parse_endpoint(endpoint: &wgctrl_sys::wg_peer__bindgen_ty_1) -> Option<Socket
 
 fn encode_allowedips(
     allowed_ips: &[AllowedIp],
-) -> (*mut wgctrl_sys::wg_allowedip, *mut wgctrl_sys::wg_allowedip) {
+) -> (
+    *mut wireguard_control_sys::wg_allowedip,
+    *mut wireguard_control_sys::wg_allowedip,
+) {
     if allowed_ips.is_empty() {
         return (ptr::null_mut(), ptr::null_mut());
     }
 
     let mut first_ip = ptr::null_mut();
-    let mut last_ip: *mut wgctrl_sys::wg_allowedip = ptr::null_mut();
+    let mut last_ip: *mut wireguard_control_sys::wg_allowedip = ptr::null_mut();
 
     for ip in allowed_ips {
-        let mut wg_allowedip = Box::new(wgctrl_sys::wg_allowedip {
+        let mut wg_allowedip = Box::new(wireguard_control_sys::wg_allowedip {
             family: 0,
             __bindgen_anon_1: Default::default(),
             cidr: ip.cidr,
@@ -202,13 +205,13 @@ fn encode_allowedips(
     (first_ip, last_ip)
 }
 
-fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen_ty_1 {
+fn encode_endpoint(endpoint: Option<SocketAddr>) -> wireguard_control_sys::wg_peer__bindgen_ty_1 {
     match endpoint {
         Some(SocketAddr::V4(s)) => {
-            let mut peer = wgctrl_sys::wg_peer__bindgen_ty_1::default();
-            peer.addr4 = wgctrl_sys::sockaddr_in {
+            let mut peer = wireguard_control_sys::wg_peer__bindgen_ty_1::default();
+            peer.addr4 = wireguard_control_sys::sockaddr_in {
                 sin_family: libc::AF_INET as u16,
-                sin_addr: wgctrl_sys::in_addr {
+                sin_addr: wireguard_control_sys::in_addr {
                     s_addr: u32::from_be((*s.ip()).into()),
                 },
                 sin_port: u16::to_be(s.port()),
@@ -217,35 +220,38 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wgctrl_sys::wg_peer__bindgen
             peer
         },
         Some(SocketAddr::V6(s)) => {
-            let mut peer = wgctrl_sys::wg_peer__bindgen_ty_1::default();
-            let in6_addr = wgctrl_sys::in6_addr__bindgen_ty_1 {
+            let mut peer = wireguard_control_sys::wg_peer__bindgen_ty_1::default();
+            let in6_addr = wireguard_control_sys::in6_addr__bindgen_ty_1 {
                 __u6_addr8: s.ip().octets(),
             };
-            peer.addr6 = wgctrl_sys::sockaddr_in6 {
+            peer.addr6 = wireguard_control_sys::sockaddr_in6 {
                 sin6_family: libc::AF_INET6 as u16,
-                sin6_addr: wgctrl_sys::in6_addr { __in6_u: in6_addr },
+                sin6_addr: wireguard_control_sys::in6_addr { __in6_u: in6_addr },
                 sin6_port: u16::to_be(s.port()),
                 sin6_flowinfo: 0,
                 sin6_scope_id: 0,
             };
             peer
         },
-        None => wgctrl_sys::wg_peer__bindgen_ty_1::default(),
+        None => wireguard_control_sys::wg_peer__bindgen_ty_1::default(),
     }
 }
 
 fn encode_peers(
     peers: &[PeerConfigBuilder],
-) -> (*mut wgctrl_sys::wg_peer, *mut wgctrl_sys::wg_peer) {
+) -> (
+    *mut wireguard_control_sys::wg_peer,
+    *mut wireguard_control_sys::wg_peer,
+) {
     let mut first_peer = ptr::null_mut();
-    let mut last_peer: *mut wgctrl_sys::wg_peer = ptr::null_mut();
+    let mut last_peer: *mut wireguard_control_sys::wg_peer = ptr::null_mut();
 
     for peer in peers {
         let (first_allowedip, last_allowedip) = encode_allowedips(&peer.allowed_ips);
 
-        let mut wg_peer = Box::new(wgctrl_sys::wg_peer {
+        let mut wg_peer = Box::new(wireguard_control_sys::wg_peer {
             public_key: peer.public_key.0,
-            preshared_key: wgctrl_sys::wg_key::default(),
+            preshared_key: wireguard_control_sys::wg_key::default(),
             endpoint: encode_endpoint(peer.endpoint),
             last_handshake_time: timespec64 {
                 tv_sec: 0,
@@ -288,7 +294,7 @@ fn encode_peers(
 }
 
 pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
-    let base = unsafe { wgctrl_sys::wg_list_device_names() };
+    let base = unsafe { wireguard_control_sys::wg_list_device_names() };
 
     if base.is_null() {
         return Err(io::Error::last_os_error());
@@ -323,17 +329,17 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     let (first_peer, last_peer) = encode_peers(&builder.peers);
 
-    let result = unsafe { wgctrl_sys::wg_add_device(iface.as_ptr()) };
+    let result = unsafe { wireguard_control_sys::wg_add_device(iface.as_ptr()) };
     match result {
         0 | -17 => {},
         _ => return Err(io::Error::last_os_error()),
     };
 
-    let mut wg_device = Box::new(wgctrl_sys::wg_device {
+    let mut wg_device = Box::new(wireguard_control_sys::wg_device {
         name: iface.into_inner(),
         ifindex: 0,
-        public_key: wgctrl_sys::wg_key::default(),
-        private_key: wgctrl_sys::wg_key::default(),
+        public_key: wireguard_control_sys::wg_key::default(),
+        private_key: wireguard_control_sys::wg_key::default(),
         fwmark: 0,
         listen_port: 0,
         first_peer,
@@ -366,9 +372,9 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     }
 
     let ptr = Box::into_raw(wg_device);
-    let result = unsafe { wgctrl_sys::wg_set_device(ptr) };
+    let result = unsafe { wireguard_control_sys::wg_set_device(ptr) };
 
-    unsafe { wgctrl_sys::wg_free_device(ptr) };
+    unsafe { wireguard_control_sys::wg_free_device(ptr) };
 
     if result == 0 {
         Ok(())
@@ -378,11 +384,11 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 }
 
 pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
-    let mut device: *mut wgctrl_sys::wg_device = ptr::null_mut();
+    let mut device: *mut wireguard_control_sys::wg_device = ptr::null_mut();
 
     let result = unsafe {
-        wgctrl_sys::wg_get_device(
-            (&mut device) as *mut _ as *mut *mut wgctrl_sys::wg_device,
+        wireguard_control_sys::wg_get_device(
+            (&mut device) as *mut _ as *mut *mut wireguard_control_sys::wg_device,
             name.as_ptr(),
         )
     };
@@ -393,13 +399,13 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         Err(io::Error::last_os_error())
     };
 
-    unsafe { wgctrl_sys::wg_free_device(device) };
+    unsafe { wireguard_control_sys::wg_free_device(device) };
 
     result
 }
 
 pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
-    let result = unsafe { wgctrl_sys::wg_del_device(iface.as_ptr()) };
+    let result = unsafe { wireguard_control_sys::wg_del_device(iface.as_ptr()) };
 
     if result == 0 {
         Ok(())
@@ -418,21 +424,21 @@ pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
 /// `Key`s, especially ones created from external data.
 #[cfg(target_os = "linux")]
 #[derive(PartialEq, Eq, Clone)]
-pub struct Key(wgctrl_sys::wg_key);
+pub struct Key(wireguard_control_sys::wg_key);
 
 #[cfg(target_os = "linux")]
 impl Key {
     /// Creates a new `Key` from raw bytes.
-    pub fn from_raw(key: wgctrl_sys::wg_key) -> Self {
+    pub fn from_raw(key: wireguard_control_sys::wg_key) -> Self {
         Self(key)
     }
 
     /// Generates and returns a new private key.
     pub fn generate_private() -> Self {
-        let mut private_key = wgctrl_sys::wg_key::default();
+        let mut private_key = wireguard_control_sys::wg_key::default();
 
         unsafe {
-            wgctrl_sys::wg_generate_private_key(private_key.as_mut_ptr());
+            wireguard_control_sys::wg_generate_private_key(private_key.as_mut_ptr());
         }
 
         Self(private_key)
@@ -440,10 +446,10 @@ impl Key {
 
     /// Generates and returns a new preshared key.
     pub fn generate_preshared() -> Self {
-        let mut preshared_key = wgctrl_sys::wg_key::default();
+        let mut preshared_key = wireguard_control_sys::wg_key::default();
 
         unsafe {
-            wgctrl_sys::wg_generate_preshared_key(preshared_key.as_mut_ptr());
+            wireguard_control_sys::wg_generate_preshared_key(preshared_key.as_mut_ptr());
         }
 
         Self(preshared_key)
@@ -451,10 +457,10 @@ impl Key {
 
     /// Generates a public key for this private key.
     pub fn generate_public(&self) -> Self {
-        let mut public_key = wgctrl_sys::wg_key::default();
+        let mut public_key = wireguard_control_sys::wg_key::default();
 
         unsafe {
-            wgctrl_sys::wg_generate_public_key(
+            wireguard_control_sys::wg_generate_public_key(
                 public_key.as_mut_ptr(),
                 &self.0 as *const u8 as *mut u8,
             );
@@ -465,7 +471,7 @@ impl Key {
 
     /// Generates an all-zero key.
     pub fn zero() -> Self {
-        Self(wgctrl_sys::wg_key::default())
+        Self(wireguard_control_sys::wg_key::default())
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -474,9 +480,12 @@ impl Key {
 
     /// Converts the key to a standardized base64 representation, as used by the `wg` utility and `wg-quick`.
     pub fn to_base64(&self) -> String {
-        let mut key_b64: wgctrl_sys::wg_key_b64_string = [0; 45];
+        let mut key_b64: wireguard_control_sys::wg_key_b64_string = [0; 45];
         unsafe {
-            wgctrl_sys::wg_key_to_base64(key_b64.as_mut_ptr(), &self.0 as *const u8 as *mut u8);
+            wireguard_control_sys::wg_key_to_base64(
+                key_b64.as_mut_ptr(),
+                &self.0 as *const u8 as *mut u8,
+            );
 
             str::from_utf8_unchecked(&*(&key_b64[..44] as *const [c_char] as *const [u8])).into()
         }
@@ -487,11 +496,14 @@ impl Key {
     /// This can fail, as not all text input is valid base64 - in this case
     /// `Err(InvalidKey)` is returned.
     pub fn from_base64(key: &str) -> Result<Self, InvalidKey> {
-        let mut decoded = wgctrl_sys::wg_key::default();
+        let mut decoded = wireguard_control_sys::wg_key::default();
 
         let key_str = CString::new(key)?;
         let result = unsafe {
-            wgctrl_sys::wg_key_from_base64(decoded.as_mut_ptr(), key_str.as_ptr() as *mut _)
+            wireguard_control_sys::wg_key_from_base64(
+                decoded.as_mut_ptr(),
+                key_str.as_ptr() as *mut _,
+            )
         };
 
         if result == 0 {

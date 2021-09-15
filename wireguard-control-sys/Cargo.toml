@@ -3,10 +3,9 @@ authors = ["K900 <me@0upti.me>", "Jake McGinty <jake@tonari.no>"]
 categories = ["external-ffi-bindings", "os::unix-apis"]
 description = "Raw bindings to the WireGuard embeddable C library"
 license = "LGPL-2.1-or-later"
-name = "wgctrl-sys"
-publish = false
-readme = "../README.md"
-repository = "https://gitlab.com/K900/wgctrl-rs"
+name = "wireguard-control-sys"
+readme = "README.md"
+repository = "https://github.com/tonarino/innernet"
 version = "1.5.0-beta.4"
 
 [dependencies]

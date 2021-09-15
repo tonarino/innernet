@@ -40,7 +40,7 @@ thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 toml = "0.5"
 url = "2"
-wgctrl = { path = "../wgctrl-rs" }
+wireguard-control = { path = "../wireguard-control" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 socket2 = { version = "0.4", features = ["all"] }

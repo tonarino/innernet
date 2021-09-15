@@ -15,7 +15,7 @@ use std::{
 };
 use structopt::StructOpt;
 use url::Host;
-use wgctrl::{
+use wireguard_control::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
     PeerInfo,
 };
@@ -753,7 +753,7 @@ impl std::error::Error for WrappedIoError {}
 mod tests {
     use super::*;
     use std::net::IpAddr;
-    use wgctrl::{Key, PeerConfigBuilder, PeerStats};
+    use wireguard_control::{Key, PeerConfigBuilder, PeerStats};
 
     #[test]
     fn test_peer_no_diff() {

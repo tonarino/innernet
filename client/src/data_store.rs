@@ -9,7 +9,7 @@ use std::{
     io::{self, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
-use wgctrl::InterfaceName;
+use wireguard_control::InterfaceName;
 
 #[derive(Debug)]
 pub struct DataStore {

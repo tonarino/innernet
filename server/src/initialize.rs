@@ -6,7 +6,7 @@ use indoc::printdoc;
 use publicip::Preference;
 use rusqlite::{params, Connection};
 use shared::{prompts, CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
-use wgctrl::KeyPair;
+use wireguard_control::KeyPair;
 
 fn create_database<P: AsRef<Path>>(
     database_path: P,

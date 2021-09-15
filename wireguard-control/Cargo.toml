@@ -1,12 +1,12 @@
 [package]
-authors = ["K900 <me@0upti.me>"]
+authors = ["K900 <me@0upti.me>", "Jake McGinty <jake@tonari.no>"]
 categories = ["os::unix-apis"]
 description = "High level bindings to the WireGuard embeddable C library"
 edition = "2018"
 license = "LGPL-2.1-or-later"
-name = "wgctrl"
-publish = false
-readme = "../README.md"
+name = "wireguard-control"
+readme = "README.md"
+repository = "https://github.com/tonarino/innernet"
 version = "1.5.0-beta.4"
 
 [dependencies]
@@ -15,7 +15,7 @@ hex = "0.4"
 libc = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-wgctrl-sys = { path = "../wgctrl-sys" }
+wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.0-beta.1" }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 rand_core = "0.6"

@@ -11,7 +11,7 @@ use netlink_packet_route::{
 };
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
 use std::{io, net::IpAddr};
-use wgctrl::InterfaceName;
+use wireguard_control::InterfaceName;
 
 fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
     match unsafe { libc::if_nametoindex(interface.as_ptr()) } {

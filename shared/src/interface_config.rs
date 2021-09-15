@@ -10,7 +10,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
 };
-use wgctrl::InterfaceName;
+use wireguard_control::InterfaceName;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
@@ -133,7 +133,7 @@ impl InterfaceConfig {
 
 impl InterfaceInfo {
     pub fn public_key(&self) -> Result<String, Error> {
-        Ok(wgctrl::Key::from_base64(&self.private_key)?
+        Ok(wireguard_control::Key::from_base64(&self.private_key)?
             .generate_public()
             .to_base64())
     }

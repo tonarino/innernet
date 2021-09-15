@@ -180,7 +180,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "ureq",
- "wgctrl",
+ "wireguard-control",
 ]
 
 [[package]]
@@ -964,9 +964,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.67"
+version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7f9e390c27c3c0ce8bc5d725f6e4d30a29d26659494aa4b17535f7522c5c950"
+checksum = "0f690853975602e1bfe1ccbf50504d67174e3bcf340f23b5ea9992e0587a52d8"
 dependencies = [
  "itoa",
  "ryu",
@@ -1003,7 +1003,7 @@ dependencies = [
  "tokio",
  "toml",
  "url",
- "wgctrl",
+ "wireguard-control",
 ]
 
 [[package]]
@@ -1029,8 +1029,8 @@ dependencies = [
  "structopt",
  "toml",
  "url",
- "wgctrl",
- "wgctrl-sys",
+ "wireguard-control",
+ "wireguard-control-sys",
 ]
 
 [[package]]
@@ -1359,27 +1359,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
-name = "wgctrl"
-version = "1.5.0-beta.4"
-dependencies = [
- "base64",
- "curve25519-dalek",
- "hex",
- "libc",
- "rand_core",
- "wgctrl-sys",
-]
-
-[[package]]
-name = "wgctrl-sys"
-version = "1.5.0-beta.4"
-dependencies = [
- "bindgen",
- "cc",
- "libc",
-]
-
-[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1409,6 +1388,27 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "wireguard-control"
+version = "1.5.0-beta.4"
+dependencies = [
+ "base64",
+ "curve25519-dalek",
+ "hex",
+ "libc",
+ "rand_core",
+ "wireguard-control-sys",
+]
+
+[[package]]
+name = "wireguard-control-sys"
+version = "1.5.0-beta.4"
+dependencies = [
+ "bindgen",
+ "cc",
+ "libc",
+]
 
 [[package]]
 name = "wyz"

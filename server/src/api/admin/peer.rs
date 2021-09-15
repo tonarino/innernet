@@ -8,7 +8,7 @@ use crate::{
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::PeerContents;
-use wgctrl::DeviceUpdate;
+use wireguard_control::DeviceUpdate;
 
 pub async fn routes(
     req: Request<Body>,

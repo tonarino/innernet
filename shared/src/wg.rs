@@ -5,7 +5,9 @@ use std::{
     net::{IpAddr, SocketAddr},
     time::Duration,
 };
-use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
+use wireguard_control::{
+    Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo,
+};
 
 #[cfg(target_os = "macos")]
 fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
@@ -31,7 +33,7 @@ fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
 
 #[cfg(target_os = "macos")]
 pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Error> {
-    let real_interface = wgctrl::backends::userspace::resolve_tun(interface)?;
+    let real_interface = wireguard_control::backends::userspace::resolve_tun(interface)?;
 
     if addr.is_ipv4() {
         cmd(
@@ -56,7 +58,7 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Er
 
 #[cfg(target_os = "macos")]
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
-    let real_interface = wgctrl::backends::userspace::resolve_tun(interface)?;
+    let real_interface = wireguard_control::backends::userspace::resolve_tun(interface)?;
     cmd("ifconfig", &[&real_interface, "mtu", &mtu.to_string()])?;
     Ok(())
 }
@@ -78,23 +80,24 @@ pub fn up(
     let mut device = DeviceUpdate::new();
     if let Some((public_key, address, endpoint)) = peer {
         let prefix = if address.is_ipv4() { 32 } else { 128 };
-        let peer_config =
-            PeerConfigBuilder::new(&wgctrl::Key::from_base64(public_key).map_err(|_| {
+        let peer_config = PeerConfigBuilder::new(
+            &wireguard_control::Key::from_base64(public_key).map_err(|_| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "failed to parse base64 public key",
                 )
-            })?)
-            .add_allowed_ip(address, prefix)
-            .set_persistent_keepalive_interval(25)
-            .set_endpoint(endpoint);
+            })?,
+        )
+        .add_allowed_ip(address, prefix)
+        .set_persistent_keepalive_interval(25)
+        .set_endpoint(endpoint);
         device = device.add_peer(peer_config);
     }
     if let Some(listen_port) = listen_port {
         device = device.set_listen_port(listen_port);
     }
     device
-        .set_private_key(wgctrl::Key::from_base64(private_key).unwrap())
+        .set_private_key(wireguard_control::Key::from_base64(private_key).unwrap())
         .apply(interface, network.backend)?;
     set_addr(interface, address)?;
     set_up(
@@ -137,7 +140,7 @@ pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
 /// true if the route was changed, false if the route already exists.
 #[cfg(target_os = "macos")]
 pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
-    let real_interface = wgctrl::backends::userspace::resolve_tun(interface)?;
+    let real_interface = wireguard_control::backends::userspace::resolve_tun(interface)?;
     let output = cmd(
         "route",
         &[

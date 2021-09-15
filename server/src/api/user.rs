@@ -8,7 +8,7 @@ use crate::{
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::{EndpointContents, PeerContents, RedeemContents, State, REDEEM_TRANSITION_WAIT};
-use wgctrl::DeviceUpdate;
+use wireguard_control::DeviceUpdate;
 
 pub async fn routes(
     req: Request<Body>,
@@ -86,7 +86,7 @@ mod handlers {
         let conn = session.context.db.lock();
         let mut selected_peer = DatabasePeer::get(&conn, session.peer.id)?;
 
-        let old_public_key = wgctrl::Key::from_base64(&selected_peer.public_key)
+        let old_public_key = wireguard_control::Key::from_base64(&selected_peer.public_key)
             .map_err(|_| ServerError::WireGuard)?;
 
         selected_peer.redeem(&conn, &form.public_key)?;

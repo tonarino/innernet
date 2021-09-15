@@ -18,7 +18,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 ///
 /// # Example
 /// ```rust
-/// # use wgctrl::*;
+/// # use wireguard_control::*;
 /// # use std::net::AddrParseError;
 /// # fn try_main() -> Result<(), AddrParseError> {
 /// let peer_keypair = KeyPair::generate();

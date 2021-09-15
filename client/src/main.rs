@@ -21,7 +21,7 @@ use std::{
     time::Duration,
 };
 use structopt::{clap::AppSettings, StructOpt};
-use wgctrl::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
+use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
 mod nat;
@@ -428,7 +428,7 @@ fn redeem_invite(
     .with_str(iface.to_string())?;
 
     log::info!("Generating new keypair.");
-    let keypair = wgctrl::KeyPair::generate();
+    let keypair = wireguard_control::KeyPair::generate();
 
     log::info!(
         "Registering keypair with server (at {}).",

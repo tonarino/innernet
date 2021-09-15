@@ -12,7 +12,7 @@ use serde::Serialize;
 use shared::{Cidr, CidrContents, Error, PeerContents};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
-use wgctrl::{Backend, InterfaceName, Key, KeyPair};
+use wireguard_control::{Backend, InterfaceName, Key, KeyPair};
 
 #[cfg(not(feature = "v6-test"))]
 mod v4 {

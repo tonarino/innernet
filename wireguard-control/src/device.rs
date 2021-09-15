@@ -273,7 +273,7 @@ impl Device {
 ///
 /// # Example
 /// ```rust
-/// # use wgctrl::*;
+/// # use wireguard_control::*;
 /// # use std::net::AddrParseError;
 /// # fn try_main() -> Result<(), AddrParseError> {
 /// let our_keypair = KeyPair::generate();

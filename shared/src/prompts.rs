@@ -17,7 +17,7 @@ use std::{
     str::FromStr,
     time::SystemTime,
 };
-use wgctrl::{InterfaceName, KeyPair};
+use wireguard_control::{InterfaceName, KeyPair};
 
 lazy_static! {
     pub static ref THEME: ColorfulTheme = ColorfulTheme::default();

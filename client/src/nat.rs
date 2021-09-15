@@ -10,7 +10,7 @@ use shared::{
     wg::{DeviceExt, PeerInfoExt},
     Endpoint, Peer, PeerDiff,
 };
-use wgctrl::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
+use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
 const STEP_INTERVAL: Duration = Duration::from_secs(5);
 
