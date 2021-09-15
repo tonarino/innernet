@@ -55,7 +55,7 @@ SERVER_CONTAINER=$(cmd docker create -it --rm \
     --env RUST_LOG=debug \
     --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
-    innernet-server)
+    innernet)
 cmd docker start -a "$SERVER_CONTAINER" &
 
 info "server started as $SERVER_CONTAINER"
@@ -71,7 +71,7 @@ PEER1_CONTAINER=$(cmd docker create --rm -it \
     --env INTERFACE=evilcorp \
     --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
-    innernet)
+    innernet /app/start-client.sh)
 info "peer1 started as $PEER1_CONTAINER"
 cmd docker cp "$tmp_dir/peer1.toml" "$PEER1_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER1_CONTAINER"
@@ -111,7 +111,7 @@ PEER2_CONTAINER=$(docker create --rm -it \
     --cap-add NET_ADMIN \
     --env INTERFACE=evilcorp \
     --env INNERNET_ARGS="$INNERNET_ARGS" \
-    innernet)
+    innernet /app/start-client.sh)
 info "peer2 started as $PEER2_CONTAINER"
 cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER2_CONTAINER"

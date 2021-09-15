@@ -7,8 +7,8 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY . .
-RUN cargo build --release --bin innernet
-RUN strip /app/target/release/innernet
+RUN cargo build
+RUN strip /app/target/debug/innernet /app/target/debug/innernet-server
 
 FROM golang:latest as wireguard
 ARG wg_go_tag=0.0.20210323
@@ -39,7 +39,9 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY ./docker-tests/start-client.sh ./
+COPY ./docker-tests/start-server.sh ./
 COPY --from=wireguard /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
-COPY --from=builder /app/target/release/innernet /usr/bin/
+COPY --from=builder /app/target/debug/innernet /usr/bin/
+COPY --from=builder /app/target/debug/innernet-server /usr/bin/
 
-CMD ["/app/start-client.sh"]
+CMD ["/app/start-server.sh"]
