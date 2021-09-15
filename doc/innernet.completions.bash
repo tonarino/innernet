@@ -94,7 +94,7 @@ _innernet() {
             case "${prev}" in
                 
                 --backend)
-                    COMPREPLY=($(compgen -W "userspace" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)

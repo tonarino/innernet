@@ -15,7 +15,7 @@ _innernet-server() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(userspace)' \
+'--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(kernel userspace)' \
 '--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
 '-h[Prints help information]' \
@@ -81,7 +81,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (serve)
 _arguments "${_arguments_options[@]}" \
-'--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(userspace)' \
+'--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(kernel userspace)' \
 '--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
 '-h[Prints help information]' \
