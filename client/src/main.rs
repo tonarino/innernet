@@ -880,16 +880,12 @@ fn override_endpoint(
         } else {
             None
         };
-        endpoint.map(|endpoint| EndpointContents::Set(endpoint))
+        endpoint.map(EndpointContents::Set)
     };
 
     if let Some(contents) = endpoint_contents {
         log::info!("Updating endpoint.");
-        Api::new(&config.server).http_form(
-            "PUT",
-            "/user/endpoint",
-            contents,
-        )?;
+        Api::new(&config.server).http_form("PUT", "/user/endpoint", contents)?;
     } else {
         log::info!("exiting without overriding endpoint.");
     }
@@ -1048,7 +1044,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
         if let Some(info) = info {
             if let Some(endpoint) = info.config.endpoint {
-                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint );
+                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
             }
             if let Some(last_handshake) = info.stats.last_handshake_time {
                 let duration = last_handshake.elapsed().expect("horrible clock problem");
