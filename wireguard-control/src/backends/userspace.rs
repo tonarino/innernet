@@ -491,22 +491,22 @@ mod test {
     #[test]
     fn test_rng_sanity_private() {
         let first = Key::generate_private();
-        assert!(first.as_bytes() != &[0u8; 32]);
+        assert!(first.as_bytes() != [0u8; 32]);
         for _ in 0..100_000 {
             let key = Key::generate_private();
             assert!(first != key);
-            assert!(key.as_bytes() != &[0u8; 32]);
+            assert!(key.as_bytes() != [0u8; 32]);
         }
     }
 
     #[test]
     fn test_rng_sanity_preshared() {
         let first = Key::generate_preshared();
-        assert!(first.as_bytes() != &[0u8; 32]);
+        assert!(first.as_bytes() != [0u8; 32]);
         for _ in 0..100_000 {
             let key = Key::generate_preshared();
             assert!(first != key);
-            assert!(key.as_bytes() != &[0u8; 32]);
+            assert!(key.as_bytes() != [0u8; 32]);
         }
     }
 }
