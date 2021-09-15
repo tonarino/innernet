@@ -17,7 +17,7 @@ done
 [ "$#" -eq 1 ] || die "usage: ./release.sh [patch|major|minor|rc]"
 git diff --quiet || die 'ERROR: git repo is dirty.'
 
-OLD_VERSION="v$(cargo pkgid -p shared | cut -d '#' -f 2)"
+OLD_VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
 cargo release "$1" --no-confirm --exclude "hostsfile" --exclude "publicip" --execute
 
@@ -34,11 +34,13 @@ for binary in "innernet" "innernet-server"; do
     gzip -fk "doc/$binary.8"
 done
 
-VERSION="v$(cargo pkgid -p shared | cut -d '#' -f 2)"
+VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
-perl -pi -e "s/$OLD_VERSION/$VERSION/g" README.md
+perl -pi -e "s/v$OLD_VERSION/v$VERSION/g" README.md
+perl -pi -e "s/$OLD_VERSION/$VERSION/g" wireguard-control/Cargo.toml
 
 git add doc
 git add README.md
-git commit -m "meta: release $VERSION"
-git tag -f -a "$VERSION" -m "release $VERSION"
+git add wireguard-control/Cargo.toml
+git commit -m "meta: release v$VERSION"
+git tag -f -a "v$VERSION" -m "release v$VERSION"
