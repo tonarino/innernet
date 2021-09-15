@@ -1,29 +1,12 @@
 ####################################################################################################
 ## Builder
 ####################################################################################################
-FROM rust:slim as planner
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential clang libclang-dev libsqlite3-dev
-WORKDIR /app
-RUN cargo install cargo-chef 
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
-
-FROM rust:slim as cacher
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential clang libclang-dev libsqlite3-dev
-WORKDIR /app
-RUN cargo install cargo-chef
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-
 FROM rust:slim as builder
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends build-essential clang libclang-dev libsqlite3-dev
 WORKDIR /app
 
 COPY . .
-COPY --from=cacher /app/target target
 RUN cargo build --release --bin innernet
 RUN strip /app/target/release/innernet
 
