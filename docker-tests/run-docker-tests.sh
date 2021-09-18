@@ -60,7 +60,7 @@ cmd docker start -a "$SERVER_CONTAINER" &
 
 info "server started as $SERVER_CONTAINER"
 info "Waiting for server to initialize."
-cmd sleep 10
+cmd sleep 5
 
 info "Starting first peer."
 cmd docker cp "$SERVER_CONTAINER:/app/peer1.toml" "$tmp_dir"
@@ -125,11 +125,11 @@ cmd docker exec "$PEER1_CONTAINER" innernet \
     --admin false \
     --ip "10.66.2.100" \
     --save-config "/app/peer3.toml" \
-    --invite-expires "5s" \
+    --invite-expires "1s" \
     --yes
 
 info "waiting 15 seconds to see if the server clears out the IP address."
-sleep 15
+sleep 11
 
 info "Re-requesting invite after expiration with the same parameters."
 cmd docker exec "$PEER1_CONTAINER" innernet \
