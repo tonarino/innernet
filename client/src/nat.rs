@@ -87,10 +87,10 @@ impl<'a> NatTraverse<'a> {
     }
 
     pub fn step(&mut self) -> Result<(), Error> {
-        let exhuasted = self.refresh_remaining()?;
+        let exhausted = self.refresh_remaining()?;
 
         // Reset peer endpoints that had no viable candidates back to the server-reported one, if it exists.
-        let reset_updates = exhuasted
+        let reset_updates = exhausted
             .into_iter()
             .filter_map(|peer| set_endpoint(&peer.public_key, peer.endpoint.as_ref()));
 
