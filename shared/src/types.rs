@@ -322,7 +322,7 @@ pub struct AddPeerOpts {
     #[structopt(long)]
     pub save_config: Option<String>,
 
-    /// Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")
+    /// Invite expiration period (eg. '30d', '7w', '2h', '60m', '1000s')
     #[structopt(long)]
     pub invite_expires: Option<Timestring>,
 }
@@ -344,11 +344,11 @@ pub struct RenamePeerOpts {
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct AddCidrOpts {
-    /// The CIDR name (eg. "engineers")
+    /// The CIDR name (eg. 'engineers')
     #[structopt(long)]
     pub name: Option<Hostname>,
 
-    /// The CIDR network (eg. "10.42.5.0/24")
+    /// The CIDR network (eg. '10.42.5.0/24')
     #[structopt(long)]
     pub cidr: Option<IpNetwork>,
 
@@ -363,7 +363,7 @@ pub struct AddCidrOpts {
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct DeleteCidrOpts {
-    /// The CIDR name (eg. "engineers")
+    /// The CIDR name (eg. 'engineers')
     #[structopt(long)]
     pub name: Option<String>,
 
