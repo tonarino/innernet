@@ -133,7 +133,7 @@ enum Command {
     /// Uninstall an innernet network.
     Uninstall { interface: Interface },
 
-    /// Bring down the interface (equivalent to "wg-quick down <interface>")
+    /// Bring down the interface (equivalent to 'wg-quick down <interface>')
     Down { interface: Interface },
 
     /// Add a new peer.
@@ -141,7 +141,7 @@ enum Command {
     /// By default, you'll be prompted interactively to create a peer, but you can
     /// also specify all the options in the command, eg:
     ///
-    /// --name "person" --cidr "humans" --admin false --auto-ip --save-config "person.toml" --yes
+    /// --name 'person' --cidr 'humans' --admin false --auto-ip --save-config 'person.toml' --yes
     AddPeer {
         interface: Interface,
 
@@ -154,7 +154,7 @@ enum Command {
     /// By default, you'll be prompted interactively to select a peer, but you can
     /// also specify all the options in the command, eg:
     ///
-    /// --name "person" --new-name "human"
+    /// --name 'person' --new-name 'human'
     RenamePeer {
         interface: Interface,
 
