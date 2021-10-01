@@ -173,6 +173,7 @@ dependencies = [
  "ipnetwork",
  "lazy_static",
  "log",
+ "netaddr2",
  "regex",
  "serde",
  "serde_json",
@@ -600,6 +601,12 @@ checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
  "winapi",
 ]
+
+[[package]]
+name = "netaddr2"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c786be7ab83e700aaf56af5f1e4b16247182446a7679fe43a4c0eaae31242180"
 
 [[package]]
 name = "netlink-packet-core"

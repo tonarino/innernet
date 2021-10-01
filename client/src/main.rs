@@ -3,6 +3,7 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
+use netaddr2::Contains;
 use shared::{
     get_local_addrs,
     interface_config::InterfaceConfig,
@@ -551,7 +552,13 @@ fn fetch(
     store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
 
+    let ignore_cidr = std::env::var("INNERNET_NAT_EXCLUDE_CIDR")
+        .unwrap_or("0.0.0.0/32".to_string())
+        .parse::<netaddr2::NetAddr>()
+        .unwrap();
+
     let candidates: Vec<Endpoint> = get_local_addrs()?
+        .filter(|ip| !ignore_cidr.contains(ip))
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .collect::<Vec<Endpoint>>();
     log::info!(
