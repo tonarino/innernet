@@ -10,7 +10,7 @@ version = "1.5.0"
 anyhow = "1"
 atty = "0.2"
 colored = "2.0"
-dialoguer = "0.8"
+dialoguer = { version = "0.9", default-features = false }
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork", rev ="393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba" }
 lazy_static = "1"
@@ -27,8 +27,8 @@ wireguard-control = { path = "../wireguard-control" }
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-sys = "0.7"
 netlink-packet-core = "0.2"
-netlink-packet-route = "0.7"
+netlink-packet-route = "0.8"
 wireguard-control-sys = { path = "../wireguard-control-sys" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-nix = "0.22"
+nix = "0.23"

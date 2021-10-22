@@ -19,18 +19,18 @@ v6-test = []
 anyhow = "1"
 bytes = "1"
 colored = "2"
-dialoguer = "0.8"
+dialoguer = { version = "0.9", default-features = false }
 hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork", rev = "393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba" }
 libc = "0.2"
-libsqlite3-sys = "0.22"
+libsqlite3-sys = "0.23"
 log = "0.4"
 parking_lot = "0.11"
 pretty_env_logger = "0.4"
 publicip = { path = "../publicip" }
 regex = { version = "1", default-features = false, features = ["std"] }
-rusqlite = "0.25"
+rusqlite = "0.26"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared = { path = "../shared" }
