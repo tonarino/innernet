@@ -3,16 +3,7 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{self, Display, Formatter},
-    io,
-    net::{IpAddr, SocketAddr, ToSocketAddrs},
-    ops::{Deref, DerefMut},
-    path::Path,
-    str::FromStr,
-    time::{Duration, SystemTime},
-    vec,
-};
+use std::{fmt::{self, Display, Formatter}, io, net::{IpAddr, SocketAddr, ToSocketAddrs}, ops::{Deref, DerefMut}, path::Path, str::FromStr, time::{Duration, SystemTime}, vec};
 use structopt::StructOpt;
 use url::Host;
 use wireguard_control::{
@@ -22,7 +13,7 @@ use wireguard_control::{
 
 use crate::wg::PeerInfoExt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Interface {
     name: InterfaceName,
 }
@@ -46,6 +37,12 @@ impl Deref for Interface {
 
     fn deref(&self) -> &Self::Target {
         &self.name
+    }
+}
+
+impl Display for Interface {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name.to_string())
     }
 }
 

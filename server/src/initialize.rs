@@ -5,7 +5,7 @@ use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use publicip::Preference;
 use rusqlite::{params, Connection};
-use shared::{prompts, CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
+use shared::{CidrContents, Endpoint, PERSISTENT_KEEPALIVE_INTERVAL_SECS, PeerContents, prompts};
 use wireguard_control::KeyPair;
 
 fn create_database<P: AsRef<Path>>(
@@ -26,7 +26,7 @@ fn create_database<P: AsRef<Path>>(
 pub struct InitializeOpts {
     /// The network name (ex: evilcorp)
     #[structopt(long)]
-    pub network_name: Option<InterfaceName>,
+    pub network_name: Option<Interface>,
 
     /// The network CIDR (ex: 10.42.0.0/16)
     #[structopt(long)]
@@ -122,7 +122,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         \n"
     );
 
-    let name: InterfaceName = if let Some(name) = opts.network_name {
+    let name: Interface = if let Some(name) = opts.network_name {
         name
     } else {
         Input::with_theme(&theme)
