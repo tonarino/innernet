@@ -19,16 +19,14 @@ pub struct Interface {
 }
 
 impl FromStr for Interface {
-    type Err = String;
+    type Err = InvalidInterfaceName;
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
         if !Hostname::is_valid(name) {
-            return Err("interface name is not a valid hostname".into());
+            Err(InvalidInterfaceName::InvalidChars)
+        } else {
+            Ok(Self { name: name.parse()? })
         }
-        let name = name
-            .parse()
-            .map_err(|e: InvalidInterfaceName| e.to_string())?;
-        Ok(Self { name })
     }
 }
 
