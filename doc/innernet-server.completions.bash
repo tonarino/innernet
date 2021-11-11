@@ -50,7 +50,7 @@ _innernet-server() {
 
     case "${cmd}" in
         innernet-server)
-            opts=" -h -V  --no-routing --help --version --backend --mtu   new uninstall serve add-peer rename-peer add-cidr delete-cidr completions help  init init"
+            opts=" -h -V  --no-routing --help --version --backend --mtu   new uninstall serve add-peer rename-peer add-cidr delete-cidr completions help  init"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

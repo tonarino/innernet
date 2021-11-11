@@ -64,7 +64,7 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --cidr 'Name of CIDR to add new peer under'
             cand --admin 'Make new peer an admin?'
             cand --save-config 'Save the config to the given location'
-            cand --invite-expires 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")'
+            cand --invite-expires 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')'
             cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
             cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
@@ -82,8 +82,8 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --version 'Prints version information'
         }
         &'innernet-server;add-cidr'= {
-            cand --name 'The CIDR name (eg. "engineers")'
-            cand --cidr 'The CIDR network (eg. "10.42.5.0/24")'
+            cand --name 'The CIDR name (eg. ''engineers'')'
+            cand --cidr 'The CIDR network (eg. ''10.42.5.0/24'')'
             cand --parent 'The CIDR parent name'
             cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
@@ -92,7 +92,7 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --version 'Prints version information'
         }
         &'innernet-server;delete-cidr'= {
-            cand --name 'The CIDR name (eg. "engineers")'
+            cand --name 'The CIDR name (eg. ''engineers'')'
             cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
             cand --help 'Prints help information'

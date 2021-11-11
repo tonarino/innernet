@@ -86,7 +86,7 @@ _innernet() {
 
     case "${cmd}" in
         innernet)
-            opts=" -v -h -V  --verbose --no-routing --help --version --backend --mtu   install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help  redeem redeem  list list"
+            opts=" -v -h -V  --verbose --no-routing --help --version --backend --mtu   install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help  redeem  list"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

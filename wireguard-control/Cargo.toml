@@ -7,7 +7,7 @@ license = "LGPL-2.1-or-later"
 name = "wireguard-control"
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.5.0"
+version = "1.5.1"
 
 [dependencies]
 base64 = "0.13"
@@ -15,7 +15,7 @@ hex = "0.4"
 libc = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.0" }
+wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.1" }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 rand_core = "0.6"

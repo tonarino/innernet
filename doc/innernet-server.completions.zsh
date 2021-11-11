@@ -44,19 +44,6 @@ _arguments "${_arguments_options[@]}" \
 '--version[Prints version information]' \
 && ret=0
 ;;
-(init)
-_arguments "${_arguments_options[@]}" \
-'--network-name=[The network name (ex: evilcorp)]' \
-'--network-cidr=[The network CIDR (ex: 10.42.0.0/16)]' \
-'(--auto-external-endpoint)--external-endpoint=[This server'\''s external endpoint (ex: 100.100.100.100:51820)]' \
-'--listen-port=[Port to listen on (for the WireGuard interface)]' \
-'--auto-external-endpoint[Auto-resolve external endpoint]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
-&& ret=0
-;;
 (new)
 _arguments "${_arguments_options[@]}" \
 '--network-name=[The network name (ex: evilcorp)]' \
@@ -98,7 +85,7 @@ _arguments "${_arguments_options[@]}" \
 '--cidr=[Name of CIDR to add new peer under]' \
 '--admin=[Make new peer an admin?]' \
 '--save-config=[Save the config to the given location]' \
-'--invite-expires=[Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")]' \
+'--invite-expires=[Invite expiration period (eg. '\''30d'\'', '\''7w'\'', '\''2h'\'', '\''60m'\'', '\''1000s'\'')]' \
 '--auto-ip[Auto-assign the peer the first available IP within the CIDR]' \
 '--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
@@ -122,8 +109,8 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (add-cidr)
 _arguments "${_arguments_options[@]}" \
-'--name=[The CIDR name (eg. "engineers")]' \
-'--cidr=[The CIDR network (eg. "10.42.5.0/24")]' \
+'--name=[The CIDR name (eg. '\''engineers'\'')]' \
+'--cidr=[The CIDR network (eg. '\''10.42.5.0/24'\'')]' \
 '--parent=[The CIDR parent name]' \
 '--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
@@ -135,7 +122,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (delete-cidr)
 _arguments "${_arguments_options[@]}" \
-'--name=[The CIDR name (eg. "engineers")]' \
+'--name=[The CIDR name (eg. '\''engineers'\'')]' \
 '--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \

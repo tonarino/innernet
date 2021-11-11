@@ -48,21 +48,6 @@ _arguments "${_arguments_options[@]}" \
 ':invite -- Path to the invitation file:_files' \
 && ret=0
 ;;
-(redeem)
-_arguments "${_arguments_options[@]}" \
-'--hosts-path=[The path to write hosts to]' \
-'(--default-name)--name=[Set a specific interface name]' \
-'(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
-'--default-name[Use the network name inside the invitation as the interface name]' \
-'-d[Delete the invitation after a successful install]' \
-'--delete-invite[Delete the invitation after a successful install]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
-':invite -- Path to the invitation file:_files' \
-&& ret=0
-;;
 (install)
 _arguments "${_arguments_options[@]}" \
 '--hosts-path=[The path to write hosts to]' \
@@ -76,19 +61,6 @@ _arguments "${_arguments_options[@]}" \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
 ':invite -- Path to the invitation file:_files' \
-&& ret=0
-;;
-(list)
-_arguments "${_arguments_options[@]}" \
-'-s[One-line peer list]' \
-'--short[One-line peer list]' \
-'-t[Display peers in a tree based on the CIDRs]' \
-'--tree[Display peers in a tree based on the CIDRs]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
-'::interface:_files' \
 && ret=0
 ;;
 (list)
@@ -167,7 +139,7 @@ _arguments "${_arguments_options[@]}" \
 '--cidr=[Name of CIDR to add new peer under]' \
 '--admin=[Make new peer an admin?]' \
 '--save-config=[Save the config to the given location]' \
-'--invite-expires=[Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")]' \
+'--invite-expires=[Invite expiration period (eg. '\''30d'\'', '\''7w'\'', '\''2h'\'', '\''60m'\'', '\''1000s'\'')]' \
 '--auto-ip[Auto-assign the peer the first available IP within the CIDR]' \
 '--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
@@ -191,8 +163,8 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (add-cidr)
 _arguments "${_arguments_options[@]}" \
-'--name=[The CIDR name (eg. "engineers")]' \
-'--cidr=[The CIDR network (eg. "10.42.5.0/24")]' \
+'--name=[The CIDR name (eg. '\''engineers'\'')]' \
+'--cidr=[The CIDR network (eg. '\''10.42.5.0/24'\'')]' \
 '--parent=[The CIDR parent name]' \
 '--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
@@ -204,7 +176,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (delete-cidr)
 _arguments "${_arguments_options[@]}" \
-'--name=[The CIDR name (eg. "engineers")]' \
+'--name=[The CIDR name (eg. '\''engineers'\'')]' \
 '--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
@@ -323,7 +295,7 @@ _innernet_commands() {
 "up:Bring up your local interface, and update it with latest peer list" \
 "fetch:Fetch and update your local interface with the latest peer list" \
 "uninstall:Uninstall an innernet network" \
-"down:Bring down the interface (equivalent to "wg-quick down <interface>")" \
+"down:Bring down the interface (equivalent to 'wg-quick down <interface>')" \
 "add-peer:Add a new peer" \
 "rename-peer:Rename a peer" \
 "add-cidr:Add a new CIDR" \

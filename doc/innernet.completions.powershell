@@ -34,7 +34,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('up', 'up', [CompletionResultType]::ParameterValue, 'Bring up your local interface, and update it with latest peer list')
             [CompletionResult]::new('fetch', 'fetch', [CompletionResultType]::ParameterValue, 'Fetch and update your local interface with the latest peer list')
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Uninstall an innernet network')
-            [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to "wg-quick down <interface>")')
+            [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to ''wg-quick down <interface>'')')
             [CompletionResult]::new('add-peer', 'add-peer', [CompletionResultType]::ParameterValue, 'Add a new peer')
             [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename a peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR')
@@ -116,7 +116,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'Name of CIDR to add new peer under')
             [CompletionResult]::new('--admin', 'admin', [CompletionResultType]::ParameterName, 'Make new peer an admin?')
             [CompletionResult]::new('--save-config', 'save-config', [CompletionResultType]::ParameterName, 'Save the config to the given location')
-            [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")')
+            [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')')
             [CompletionResult]::new('--auto-ip', 'auto-ip', [CompletionResultType]::ParameterName, 'Auto-assign the peer the first available IP within the CIDR')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
@@ -136,8 +136,8 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             break
         }
         'innernet;add-cidr' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. "engineers")')
-            [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. "10.42.5.0/24")')
+            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
+            [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. ''10.42.5.0/24'')')
             [CompletionResult]::new('--parent', 'parent', [CompletionResultType]::ParameterName, 'The CIDR parent name')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
@@ -147,7 +147,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             break
         }
         'innernet;delete-cidr' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. "engineers")')
+            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')

@@ -73,7 +73,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'Name of CIDR to add new peer under')
             [CompletionResult]::new('--admin', 'admin', [CompletionResultType]::ParameterName, 'Make new peer an admin?')
             [CompletionResult]::new('--save-config', 'save-config', [CompletionResultType]::ParameterName, 'Save the config to the given location')
-            [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. "30d", "7w", "2h", "60m", "1000s")')
+            [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')')
             [CompletionResult]::new('--auto-ip', 'auto-ip', [CompletionResultType]::ParameterName, 'Auto-assign the peer the first available IP within the CIDR')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
@@ -93,8 +93,8 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             break
         }
         'innernet-server;add-cidr' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. "engineers")')
-            [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. "10.42.5.0/24")')
+            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
+            [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. ''10.42.5.0/24'')')
             [CompletionResult]::new('--parent', 'parent', [CompletionResultType]::ParameterName, 'The CIDR parent name')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
@@ -104,7 +104,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             break
         }
         'innernet-server;delete-cidr' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. "engineers")')
+            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
