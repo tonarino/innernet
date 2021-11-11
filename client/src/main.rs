@@ -18,7 +18,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use structopt::{clap::AppSettings, StructOpt};
 use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
@@ -546,6 +546,7 @@ fn fetch(
     } else {
         log::info!("{}", "peers are already up to date.".green());
     }
+    let interface_updated_time = Instant::now();
 
     store.set_cidrs(cidrs);
     store.update_peers(&peers)?;
@@ -559,7 +560,6 @@ fn fetch(
         candidates.len(),
         if candidates.len() == 1 { "" } else { "es" }
     );
-    log::debug!("candidates: {:?}", candidates);
     match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
         Err(ureq::Error::Status(404, _)) => {
             log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
@@ -567,10 +567,13 @@ fn fetch(
         Err(e) => return Err(e.into()),
         _ => {},
     }
-
-    log::debug!("viable ICE candidates: {:?}", candidates);
+    log::debug!("reported candidates: {:?}", candidates);
 
     let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications)?;
+
+    if !nat_traverse.is_finished() {
+        thread::sleep(nat::STEP_INTERVAL - interface_updated_time.elapsed());
+    }
     loop {
         if nat_traverse.is_finished() {
             break;

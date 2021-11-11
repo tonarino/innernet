@@ -12,7 +12,7 @@ use shared::{
 };
 use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
-const STEP_INTERVAL: Duration = Duration::from_secs(5);
+pub const STEP_INTERVAL: Duration = Duration::from_secs(5);
 
 pub struct NatTraverse<'a> {
     interface: &'a InterfaceName,
@@ -26,6 +26,7 @@ impl<'a> NatTraverse<'a> {
         backend: Backend,
         diffs: &[PeerDiff],
     ) -> Result<Self, Error> {
+        // Filter out removed peers from diffs list.
         let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
 
         for peer in &mut remaining {
@@ -97,6 +98,9 @@ impl<'a> NatTraverse<'a> {
         // Set all peers' endpoints to their next available candidate.
         let candidate_updates = self.remaining.iter_mut().filter_map(|peer| {
             let endpoint = peer.candidates.pop();
+            if let Some(endpoint) = &endpoint {
+                log::debug!("trying endpoint {} for peer {}", endpoint, peer.name);
+            }
             set_endpoint(&peer.public_key, endpoint.as_ref())
         });
 

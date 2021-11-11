@@ -3,7 +3,16 @@ use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{fmt::{self, Display, Formatter}, io, net::{IpAddr, SocketAddr, ToSocketAddrs}, ops::{Deref, DerefMut}, path::Path, str::FromStr, time::{Duration, SystemTime}, vec};
+use std::{
+    fmt::{self, Display, Formatter},
+    io,
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
+    ops::{Deref, DerefMut},
+    path::Path,
+    str::FromStr,
+    time::{Duration, SystemTime},
+    vec,
+};
 use structopt::StructOpt;
 use url::Host;
 use wireguard_control::{
@@ -25,7 +34,9 @@ impl FromStr for Interface {
         if !Hostname::is_valid(name) {
             Err(InvalidInterfaceName::InvalidChars)
         } else {
-            Ok(Self { name: name.parse()? })
+            Ok(Self {
+                name: name.parse()?,
+            })
         }
     }
 }

@@ -5,7 +5,7 @@ use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use publicip::Preference;
 use rusqlite::{params, Connection};
-use shared::{CidrContents, Endpoint, PERSISTENT_KEEPALIVE_INTERVAL_SECS, PeerContents, prompts};
+use shared::{prompts, CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use wireguard_control::KeyPair;
 
 fn create_database<P: AsRef<Path>>(
