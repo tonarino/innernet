@@ -9,7 +9,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
     get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
-    NetworkOpt, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -51,7 +51,7 @@ struct Opt {
     command: Command,
 
     #[structopt(flatten)]
-    network: NetworkOpt,
+    network: NetworkOpts,
 }
 
 #[derive(Debug, StructOpt)]
@@ -71,7 +71,7 @@ enum Command {
         interface: Interface,
 
         #[structopt(flatten)]
-        network: NetworkOpt,
+        network: NetworkOpts,
     },
 
     /// Add a peer to an existing network.
@@ -282,7 +282,7 @@ fn add_peer(
     interface: &InterfaceName,
     conf: &ServerConfig,
     opts: AddPeerOpts,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(interface))?;
     let conn = open_database_connection(interface, conf)?;
@@ -400,7 +400,7 @@ fn delete_cidr(
 fn uninstall(
     interface: &InterfaceName,
     conf: &ServerConfig,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
@@ -431,7 +431,7 @@ fn uninstall(
     Ok(())
 }
 
-fn spawn_endpoint_refresher(interface: InterfaceName, network: NetworkOpt) -> Endpoints {
+fn spawn_endpoint_refresher(interface: InterfaceName, network: NetworkOpts) -> Endpoints {
     let endpoints = Arc::new(RwLock::new(HashMap::new()));
     tokio::task::spawn({
         let endpoints = endpoints.clone();
@@ -473,7 +473,7 @@ fn spawn_expired_invite_sweeper(db: Db) {
 async fn serve(
     interface: InterfaceName,
     conf: &ServerConfig,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
     log::debug!("opening database connection...");

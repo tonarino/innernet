@@ -34,7 +34,7 @@ fn netlink_call(
     req.serialize(&mut buf);
     let len = req.buffer_len();
 
-    log::debug!("netlink request: {:?}", req);
+    log::trace!("netlink request: {:?}", req);
     let socket = Socket::new(NETLINK_ROUTE)?;
     let kernel_addr = SocketAddr::new(0, 0);
     socket.connect(&kernel_addr)?;
@@ -66,7 +66,6 @@ fn netlink_call(
             if offset == n_received || response.header.length == 0 {
                 // We've fully parsed the datagram, but there may be further datagrams
                 // with additional netlink response parts.
-                log::debug!("breaking inner loop");
                 break;
             }
         }

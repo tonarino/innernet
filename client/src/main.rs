@@ -9,8 +9,8 @@ use shared::{
     prompts,
     wg::{DeviceExt, PeerInfoExt},
     AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
-    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext, NetworkOpt,
-    Peer, RedeemContents, RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR,
+    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext, NatOpts,
+    NetworkOpts, Peer, RedeemContents, RenamePeerOpts, State, WrappedIoError, CLIENT_CONFIG_DIR,
     REDEEM_TRANSITION_WAIT,
 };
 use std::{
@@ -55,7 +55,7 @@ struct Opts {
     verbose: u64,
 
     #[structopt(flatten)]
-    network: NetworkOpt,
+    network: NetworkOpts,
 }
 
 #[derive(Debug, StructOpt)]
@@ -88,6 +88,9 @@ enum Command {
 
         #[structopt(flatten)]
         opts: InstallOpts,
+
+        #[structopt(flatten)]
+        nat: NatOpts,
     },
 
     /// Enumerate all innernet connections.
@@ -119,6 +122,9 @@ enum Command {
         #[structopt(flatten)]
         hosts: HostsOpt,
 
+        #[structopt(flatten)]
+        nat: NatOpts,
+
         interface: Interface,
     },
 
@@ -128,6 +134,9 @@ enum Command {
 
         #[structopt(flatten)]
         hosts: HostsOpt,
+
+        #[structopt(flatten)]
+        nat: NatOpts,
     },
 
     /// Uninstall an innernet network.
@@ -273,7 +282,8 @@ fn install(
     invite: &Path,
     hosts_file: Option<PathBuf>,
     opts: InstallOpts,
-    network: NetworkOpt,
+    network: NetworkOpts,
+    nat: &NatOpts,
 ) -> Result<(), Error> {
     shared::ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
     let config = InterfaceConfig::from_file(invite)?;
@@ -320,7 +330,15 @@ fn install(
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, true, hosts_file.clone(), network).is_ok() {
+        if fetch(
+            &iface,
+            true,
+            hosts_file.clone(),
+            network,
+            nat,
+        )
+        .is_ok()
+        {
             fetch_success = true;
             break;
         }
@@ -405,7 +423,7 @@ fn redeem_invite(
     iface: &InterfaceName,
     mut config: InterfaceConfig,
     target_conf: PathBuf,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     log::info!("bringing up the interface.");
     let resolved_endpoint = config
@@ -463,10 +481,11 @@ fn up(
     interface: &InterfaceName,
     loop_interval: Option<Duration>,
     hosts_path: Option<PathBuf>,
-    routing: NetworkOpt,
+    routing: NetworkOpts,
+    nat: &NatOpts,
 ) -> Result<(), Error> {
     loop {
-        fetch(interface, true, hosts_path.clone(), routing)?;
+        fetch(interface, true, hosts_path.clone(), routing, nat)?;
         match loop_interval {
             Some(interval) => thread::sleep(interval),
             None => break,
@@ -480,7 +499,8 @@ fn fetch(
     interface: &InterfaceName,
     bring_up_interface: bool,
     hosts_path: Option<PathBuf>,
-    network: NetworkOpt,
+    network: NetworkOpts,
+    nat: &NatOpts,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     let interface_up = match Device::list(network.backend) {
@@ -553,6 +573,7 @@ fn fetch(
     store.write().with_str(interface.to_string())?;
 
     let candidates: Vec<Endpoint> = get_local_addrs()?
+        .filter(|ip| !nat.is_excluded(*ip))
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .collect::<Vec<Endpoint>>();
     log::info!(
@@ -569,26 +590,31 @@ fn fetch(
     }
     log::debug!("reported candidates: {:?}", candidates);
 
-    let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications)?;
+    if nat.no_nat_traversal {
+        log::debug!("NAT traversal explicitly disabled, not attempting.");
+    } else {
+        let mut nat_traverse = NatTraverse::new(interface, network.backend, &modifications)?;
 
-    if !nat_traverse.is_finished() {
-        thread::sleep(nat::STEP_INTERVAL - interface_updated_time.elapsed());
-    }
-    loop {
-        if nat_traverse.is_finished() {
-            break;
+        // Give time for handshakes with recently changed endpoints to complete before attempting traversal.
+        if !nat_traverse.is_finished() {
+            thread::sleep(nat::STEP_INTERVAL - interface_updated_time.elapsed());
         }
-        log::info!(
-            "Attempting to establish connection with {} remaining unconnected peers...",
-            nat_traverse.remaining()
-        );
-        nat_traverse.step()?;
+        loop {
+            if nat_traverse.is_finished() {
+                break;
+            }
+            log::info!(
+                "Attempting to establish connection with {} remaining unconnected peers...",
+                nat_traverse.remaining()
+            );
+            nat_traverse.step()?;
+        }
     }
 
     Ok(())
 }
 
-fn uninstall(interface: &InterfaceName, network: NetworkOpt) -> Result<(), Error> {
+fn uninstall(interface: &InterfaceName, network: NetworkOpts) -> Result<(), Error> {
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
@@ -841,7 +867,7 @@ fn list_associations(interface: &InterfaceName) -> Result<(), Error> {
 fn set_listen_port(
     interface: &InterfaceName,
     unset: bool,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<Option<u16>, Error> {
     let mut config = InterfaceConfig::from_interface(interface)?;
 
@@ -863,7 +889,7 @@ fn set_listen_port(
 fn override_endpoint(
     interface: &InterfaceName,
     unset: bool,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(interface)?;
     let endpoint_contents = if unset {
@@ -900,7 +926,7 @@ fn show(
     short: bool,
     tree: bool,
     interface: Option<Interface>,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     let interfaces = interface.map_or_else(
         || Device::list(network.backend),
@@ -1100,23 +1126,30 @@ fn run(opt: Opts) -> Result<(), Error> {
             invite,
             hosts,
             opts,
-        } => install(&invite, hosts.into(), opts, opt.network)?,
+            nat,
+        } => install(&invite, hosts.into(), opts, opt.network, &nat)?,
         Command::Show {
             short,
             tree,
             interface,
         } => show(short, tree, interface, opt.network)?,
-        Command::Fetch { interface, hosts } => fetch(&interface, false, hosts.into(), opt.network)?,
+        Command::Fetch {
+            interface,
+            hosts,
+            nat,
+        } => fetch(&interface, false, hosts.into(), opt.network, &nat)?,
         Command::Up {
             interface,
             daemon,
             hosts,
+            nat,
             interval,
         } => up(
             &interface,
             daemon.then(|| Duration::from_secs(interval)),
             hosts.into(),
             opt.network,
+            &nat,
         )?,
         Command::Down { interface } => wg::down(&interface, opt.network.backend)?,
         Command::Uninstall { interface } => uninstall(&interface, opt.network)?,

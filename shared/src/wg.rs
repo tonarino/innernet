@@ -1,4 +1,4 @@
-use crate::{Error, IoErrorContext, NetworkOpt, Peer, PeerDiff};
+use crate::{Error, IoErrorContext, NetworkOpts, Peer, PeerDiff};
 use ipnetwork::IpNetwork;
 use std::{
     io,
@@ -75,7 +75,7 @@ pub fn up(
     address: IpNetwork,
     listen_port: Option<u16>,
     peer: Option<(&str, IpAddr, SocketAddr)>,
-    network: NetworkOpt,
+    network: NetworkOpts,
 ) -> Result<(), io::Error> {
     let mut device = DeviceUpdate::new();
     if let Some((public_key, address, endpoint)) = peer {

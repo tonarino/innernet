@@ -387,8 +387,44 @@ pub struct AddAssociationOpts {
     pub cidr2: Option<String>,
 }
 
+#[derive(Debug, Clone, StructOpt)]
+pub struct NatOpts {
+    #[structopt(long)]
+    /// Don't attempt NAT traversal. Note that this still will report candidates
+    /// unless you also specify to exclude all NAT candidates.
+    pub no_nat_traversal: bool,
+
+    #[structopt(long)]
+    /// Exclude one or more CIDRs from NAT candidate reporting.
+    /// ex. --exclude-nat-candidates '0/0' would report no candidates.
+    pub exclude_nat_candidates: Vec<IpNetwork>,
+
+    #[structopt(long, conflicts_with = "exclude-nat-candidates")]
+    /// Don't report any candidates to coordinating server.
+    /// Shorthand for --exclude-nat-candidates '0.0.0.0/0'.
+    pub no_nat_candidates: bool,
+}
+
+impl NatOpts {
+    pub fn all_disabled() -> Self {
+        Self {
+            no_nat_traversal: true,
+            exclude_nat_candidates: vec![],
+            no_nat_candidates: true,
+        }
+    }
+    /// Check if an IP is allowed to be reported as a candidate.
+    pub fn is_excluded(&self, ip: IpAddr) -> bool {
+        self.no_nat_candidates
+            || self
+                .exclude_nat_candidates
+                .iter()
+                .any(|network| network.contains(ip))
+    }
+}
+
 #[derive(Debug, Clone, Copy, StructOpt)]
-pub struct NetworkOpt {
+pub struct NetworkOpts {
     #[structopt(long)]
     /// Whether the routing should be done by innernet or is done by an
     /// external tool like e.g. babeld.
