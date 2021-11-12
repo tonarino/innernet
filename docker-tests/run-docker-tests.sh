@@ -147,6 +147,53 @@ cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
 cmd docker start "$PEER2_CONTAINER"
 sleep 10
 
+info "Creating invitation for fourth and fifth peer from first peer."
+cmd docker exec "$PEER1_CONTAINER" innernet \
+    add-peer evilcorp \
+    --name "peer4" \
+    --cidr "robots" \
+    --admin false \
+    --auto-ip \
+    --save-config "/app/peer4.toml" \
+    --invite-expires "30s" \
+    --yes
+cmd docker cp "$PEER1_CONTAINER:/app/peer4.toml" "$tmp_dir"
+cmd docker exec "$PEER1_CONTAINER" innernet \
+    add-peer evilcorp \
+    --name "peer5" \
+    --cidr "robots" \
+    --admin false \
+    --auto-ip \
+    --save-config "/app/peer5.toml" \
+    --invite-expires "30s" \
+    --yes
+cmd docker cp "$PEER1_CONTAINER:/app/peer5.toml" "$tmp_dir"
+
+info "Starting fourth and fifth peer and redeeming simultaneously."
+PEER4_CONTAINER=$(docker create --rm -it \
+    --network "$NETWORK" \
+    --ip 172.18.1.4 \
+    --volume /dev/net/tun:/dev/net/tun \
+    --cap-add NET_ADMIN \
+    --env INTERFACE=evilcorp \
+    --env INNERNET_ARGS="$INNERNET_ARGS" \
+    innernet /app/start-client.sh)
+cmd docker cp "$tmp_dir/peer4.toml" "$PEER4_CONTAINER:/app/invite.toml"
+PEER5_CONTAINER=$(docker create --rm -it \
+    --network "$NETWORK" \
+    --ip 172.18.1.5 \
+    --volume /dev/net/tun:/dev/net/tun \
+    --cap-add NET_ADMIN \
+    --env INTERFACE=evilcorp \
+    --env INNERNET_ARGS="$INNERNET_ARGS" \
+    innernet /app/start-client.sh)
+cmd docker cp "$tmp_dir/peer5.toml" "$PEER5_CONTAINER:/app/invite.toml"
+
+cmd docker start "$PEER4_CONTAINER"
+info "peer4 started as $PEER4_CONTAINER"
+cmd docker start -a "$PEER5_CONTAINER" &
+info "peer5 started as $PEER5_CONTAINER"
+
 info "Checking connectivity betweeen peers."
 cmd docker exec "$PEER2_CONTAINER" ping -c3 10.66.0.1
 cmd docker exec "$PEER2_CONTAINER" ping -c3 10.66.1.1

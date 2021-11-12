@@ -539,7 +539,8 @@ fn fetch(
 
     log::info!("fetching state from server.");
     let mut store = DataStore::open_or_create(interface)?;
-    let State { peers, cidrs } = Api::new(&config.server).http("GET", "/user/state")?;
+    let api = Api::new(&config.server);
+    let State { peers, cidrs } = api.http("GET", "/user/state")?;
 
     let device = Device::get(interface, network.backend)?;
     let modifications = device.diff(&peers);
@@ -581,7 +582,7 @@ fn fetch(
         candidates.len(),
         if candidates.len() == 1 { "" } else { "es" }
     );
-    match Api::new(&config.server).http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
+    match api.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
         Err(ureq::Error::Status(404, _)) => {
             log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
         },
