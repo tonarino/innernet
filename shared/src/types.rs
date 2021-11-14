@@ -396,7 +396,7 @@ pub struct NatOpts {
 
     #[structopt(long)]
     /// Exclude one or more CIDRs from NAT candidate reporting.
-    /// ex. --exclude-nat-candidates '0/0' would report no candidates.
+    /// ex. --exclude-nat-candidates '0.0.0.0/0' would report no candidates.
     pub exclude_nat_candidates: Vec<IpNetwork>,
 
     #[structopt(long, conflicts_with = "exclude-nat-candidates")]
