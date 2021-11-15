@@ -470,7 +470,7 @@ fn redeem_invite(
         .set_private_key(keypair.private)
         .apply(iface, network.backend)
         .with_str(iface.to_string())?;
-    thread::sleep(*REDEEM_TRANSITION_WAIT);
+    thread::sleep(REDEEM_TRANSITION_WAIT);
 
     Ok(())
 }

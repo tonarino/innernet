@@ -109,7 +109,7 @@ mod handlers {
             //
             // Related: https://github.com/hyperium/hyper/issues/2181
             tokio::task::spawn(async move {
-                tokio::time::sleep(*REDEEM_TRANSITION_WAIT).await;
+                tokio::time::sleep(REDEEM_TRANSITION_WAIT).await;
                 log::info!(
                     "WireGuard: adding new peer {}, removing old pubkey {}",
                     &*selected_peer,

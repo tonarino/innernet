@@ -1,5 +1,4 @@
 pub use anyhow::Error;
-use lazy_static::lazy_static;
 use std::{
     fs::{self, File, Permissions},
     io,
@@ -17,10 +16,7 @@ pub mod wg;
 
 pub use types::*;
 
-lazy_static! {
-    pub static ref REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
-}
-
+pub const REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
 pub const PERSISTENT_KEEPALIVE_INTERVAL_SECS: u16 = 25;
 pub const INNERNET_PUBKEY_HEADER: &str = "X-Innernet-Server-Key";
 
