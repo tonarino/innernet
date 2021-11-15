@@ -4,7 +4,7 @@ use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
 use shared::{interface_config::ServerInfo, PeerDiff, INNERNET_PUBKEY_HEADER};
-use std::{io, time::Duration};
+use std::{io, path::Path, time::Duration};
 use ureq::{Agent, AgentBuilder};
 
 static LOGGER: Logger = Logger;
@@ -102,7 +102,7 @@ pub fn human_size(bytes: u64) -> String {
     }
 }
 
-pub fn permissions_helptext(e: &io::Error) {
+pub fn permissions_helptext(config_dir: &Path, data_dir: &Path, e: &io::Error) {
     if e.raw_os_error() == Some(1) {
         let current_exe = std::env::current_exe()
             .ok()
@@ -131,8 +131,8 @@ pub fn permissions_helptext(e: &io::Error) {
                     sudo chmod -R g+rwX {config} {data}
             ",
             "ERROR".bold().red(),
-            config = shared::CLIENT_CONFIG_DIR.to_string_lossy(),
-            data = shared::CLIENT_DATA_DIR.to_string_lossy(),
+            config = config_dir.to_string_lossy(),
+            data = data_dir.to_string_lossy(),
         );
     }
 }
