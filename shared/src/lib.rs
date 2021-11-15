@@ -1,5 +1,4 @@
 pub use anyhow::Error;
-use lazy_static::lazy_static;
 use std::{
     fs::{self, File, Permissions},
     io,
@@ -17,14 +16,7 @@ pub mod wg;
 
 pub use types::*;
 
-lazy_static! {
-    pub static ref CLIENT_CONFIG_DIR: &'static Path = Path::new("/etc/innernet");
-    pub static ref CLIENT_DATA_DIR: &'static Path = Path::new("/var/lib/innernet");
-    pub static ref SERVER_CONFIG_DIR: &'static Path = Path::new("/etc/innernet-server");
-    pub static ref SERVER_DATABASE_DIR: &'static Path = Path::new("/var/lib/innernet-server");
-    pub static ref REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
-}
-
+pub const REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
 pub const PERSISTENT_KEEPALIVE_INTERVAL_SECS: u16 = 25;
 pub const INNERNET_PUBKEY_HEADER: &str = "X-Innernet-Server-Key";
 

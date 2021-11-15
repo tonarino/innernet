@@ -1,6 +1,4 @@
-use crate::{
-    chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError, CLIENT_CONFIG_DIR,
-};
+use crate::{chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError};
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
@@ -101,8 +99,12 @@ impl InterfaceConfig {
     }
 
     /// Overwrites the config file if it already exists.
-    pub fn write_to_interface(&self, interface: &InterfaceName) -> Result<PathBuf, Error> {
-        let path = Self::build_config_file_path(interface)?;
+    pub fn write_to_interface(
+        &self,
+        config_dir: &Path,
+        interface: &InterfaceName,
+    ) -> Result<PathBuf, Error> {
+        let path = Self::build_config_file_path(config_dir, interface)?;
         File::create(&path)
             .with_path(&path)?
             .write_all(toml::to_string(self).unwrap().as_bytes())?;
@@ -113,21 +115,24 @@ impl InterfaceConfig {
         Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
     }
 
-    pub fn from_interface(interface: &InterfaceName) -> Result<Self, Error> {
-        let path = Self::build_config_file_path(interface)?;
+    pub fn from_interface(config_dir: &Path, interface: &InterfaceName) -> Result<Self, Error> {
+        let path = Self::build_config_file_path(config_dir, interface)?;
         crate::warn_on_dangerous_mode(&path).with_path(&path)?;
         Self::from_file(path)
     }
 
-    pub fn get_path(interface: &InterfaceName) -> PathBuf {
-        CLIENT_CONFIG_DIR
+    pub fn get_path(config_dir: &Path, interface: &InterfaceName) -> PathBuf {
+        config_dir
             .join(interface.to_string())
             .with_extension("conf")
     }
 
-    fn build_config_file_path(interface: &InterfaceName) -> Result<PathBuf, WrappedIoError> {
-        ensure_dirs_exist(&[*CLIENT_CONFIG_DIR])?;
-        Ok(Self::get_path(interface))
+    fn build_config_file_path(
+        config_dir: &Path,
+        interface: &InterfaceName,
+    ) -> Result<PathBuf, WrappedIoError> {
+        ensure_dirs_exist(&[config_dir])?;
+        Ok(Self::get_path(config_dir, interface))
     }
 }
 

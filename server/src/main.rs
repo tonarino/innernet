@@ -39,16 +39,22 @@ mod initialize;
 use db::{DatabaseCidr, DatabasePeer};
 pub use error::ServerError;
 use initialize::InitializeOpts;
-use shared::{prompts, wg, CidrTree, Error, Interface, SERVER_CONFIG_DIR, SERVER_DATABASE_DIR};
+use shared::{prompts, wg, CidrTree, Error, Interface};
 pub use shared::{Association, AssociationContents};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "innernet-server", about, global_settings(&[AppSettings::ColoredHelp, AppSettings::DeriveDisplayOrder, AppSettings::VersionlessSubcommands, AppSettings::UnifiedHelpMessage]))]
-struct Opt {
+struct Opts {
     #[structopt(subcommand)]
     command: Command,
+
+    #[structopt(short, long, default_value = "/etc/innernet-server")]
+    config_dir: PathBuf,
+
+    #[structopt(short, long, default_value = "/var/lib/innernet-server")]
+    data_dir: PathBuf,
 
     #[structopt(flatten)]
     network: NetworkOpts,
@@ -184,17 +190,22 @@ impl ConfigFile {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ServerConfig {
-    wg_manage_dir_override: Option<PathBuf>,
-    wg_dir_override: Option<PathBuf>,
+    pub config_dir: PathBuf,
+    pub data_dir: PathBuf,
 }
 
 impl ServerConfig {
+    pub fn new(config_dir: PathBuf, data_dir: PathBuf) -> Self {
+        Self {
+            config_dir,
+            data_dir,
+        }
+    }
+
     fn database_dir(&self) -> &Path {
-        self.wg_manage_dir_override
-            .as_deref()
-            .unwrap_or(*SERVER_DATABASE_DIR)
+        &self.data_dir
     }
 
     fn database_path(&self, interface: &InterfaceName) -> PathBuf {
@@ -205,9 +216,7 @@ impl ServerConfig {
     }
 
     fn config_dir(&self) -> &Path {
-        self.wg_dir_override
-            .as_deref()
-            .unwrap_or(*SERVER_CONFIG_DIR)
+        &self.config_dir
     }
 
     fn config_path(&self, interface: &InterfaceName) -> PathBuf {
@@ -226,32 +235,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     pretty_env_logger::init();
-    let opt = Opt::from_args();
+    let opts = Opts::from_args();
 
-    if unsafe { libc::getuid() } != 0 && !matches!(opt.command, Command::Completions { .. }) {
+    if unsafe { libc::getuid() } != 0 && !matches!(opts.command, Command::Completions { .. }) {
         return Err("innernet-server must run as root.".into());
     }
 
-    let conf = ServerConfig::default();
+    let conf = ServerConfig::new(opts.config_dir, opts.data_dir);
 
-    match opt.command {
+    match opts.command {
         Command::New { opts } => {
             if let Err(e) = initialize::init_wizard(&conf, opts) {
                 eprintln!("{}: {}.", "creation failed".red(), e);
                 std::process::exit(1);
             }
         },
-        Command::Uninstall { interface } => uninstall(&interface, &conf, opt.network)?,
+        Command::Uninstall { interface } => uninstall(&interface, &conf, opts.network)?,
         Command::Serve {
             interface,
             network: routing,
         } => serve(*interface, &conf, routing).await?,
-        Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opt.network)?,
+        Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
         Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
-            Opt::clap().gen_completions_to("innernet-server", shell, &mut std::io::stdout());
+            Opts::clap().gen_completions_to("innernet-server", shell, &mut std::io::stdout());
             std::process::exit(0);
         },
     }

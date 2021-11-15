@@ -1,9 +1,7 @@
 use crate::Error;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use shared::{
-    chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError, CLIENT_DATA_DIR,
-};
+use shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},
@@ -55,23 +53,28 @@ impl DataStore {
         Ok(Self { file, contents })
     }
 
-    pub fn get_path(interface: &InterfaceName) -> PathBuf {
-        CLIENT_DATA_DIR
-            .join(interface.to_string())
-            .with_extension("json")
+    pub fn get_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
+        data_dir.join(interface.to_string()).with_extension("json")
     }
 
-    fn _open(interface: &InterfaceName, create: bool) -> Result<Self, WrappedIoError> {
-        ensure_dirs_exist(&[*CLIENT_DATA_DIR])?;
-        Self::open_with_path(Self::get_path(interface), create)
+    fn _open(
+        data_dir: &Path,
+        interface: &InterfaceName,
+        create: bool,
+    ) -> Result<Self, WrappedIoError> {
+        ensure_dirs_exist(&[data_dir])?;
+        Self::open_with_path(Self::get_path(data_dir, interface), create)
     }
 
-    pub fn open(interface: &InterfaceName) -> Result<Self, WrappedIoError> {
-        Self::_open(interface, false)
+    pub fn open(data_dir: &Path, interface: &InterfaceName) -> Result<Self, WrappedIoError> {
+        Self::_open(data_dir, interface, false)
     }
 
-    pub fn open_or_create(interface: &InterfaceName) -> Result<Self, WrappedIoError> {
-        Self::_open(interface, true)
+    pub fn open_or_create(
+        data_dir: &Path,
+        interface: &InterfaceName,
+    ) -> Result<Self, WrappedIoError> {
+        Self::_open(data_dir, interface, true)
     }
 
     pub fn peers(&self) -> &[Peer] {
