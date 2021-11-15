@@ -413,6 +413,7 @@ impl NatOpts {
             no_nat_candidates: true,
         }
     }
+
     /// Check if an IP is allowed to be reported as a candidate.
     pub fn is_excluded(&self, ip: IpAddr) -> bool {
         self.no_nat_candidates

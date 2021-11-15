@@ -199,7 +199,8 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn new(config_dir: PathBuf, data_dir: PathBuf) -> Self {
         Self {
-            config_dir, data_dir
+            config_dir,
+            data_dir,
         }
     }
 

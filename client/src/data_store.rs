@@ -1,9 +1,7 @@
 use crate::Error;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use shared::{
-    chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError,
-};
+use shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},
@@ -56,12 +54,14 @@ impl DataStore {
     }
 
     pub fn get_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
-        data_dir
-            .join(interface.to_string())
-            .with_extension("json")
+        data_dir.join(interface.to_string()).with_extension("json")
     }
 
-    fn _open(data_dir: &Path, interface: &InterfaceName, create: bool) -> Result<Self, WrappedIoError> {
+    fn _open(
+        data_dir: &Path,
+        interface: &InterfaceName,
+        create: bool,
+    ) -> Result<Self, WrappedIoError> {
         ensure_dirs_exist(&[data_dir])?;
         Self::open_with_path(Self::get_path(data_dir, interface), create)
     }
@@ -70,7 +70,10 @@ impl DataStore {
         Self::_open(data_dir, interface, false)
     }
 
-    pub fn open_or_create(data_dir: &Path, interface: &InterfaceName) -> Result<Self, WrappedIoError> {
+    pub fn open_or_create(
+        data_dir: &Path,
+        interface: &InterfaceName,
+    ) -> Result<Self, WrappedIoError> {
         Self::_open(data_dir, interface, true)
     }
 

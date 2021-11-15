@@ -336,15 +336,7 @@ fn install(
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(
-            &iface,
-            opts,
-            true,
-            hosts_file.clone(),
-            nat,
-        )
-        .is_ok()
-        {
+        if fetch(&iface, opts, true, hosts_file.clone(), nat).is_ok() {
             fetch_success = true;
             break;
         }
@@ -652,7 +644,8 @@ fn uninstall(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
 }
 
 fn add_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: AddCidrOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     log::info!("Fetching CIDRs");
     let api = Api::new(&server);
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
@@ -679,8 +672,13 @@ fn add_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: AddCidrOpts) -> Re
     Ok(())
 }
 
-fn delete_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: DeleteCidrOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+fn delete_cidr(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: DeleteCidrOpts,
+) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     println!("Fetching eligible CIDRs");
     let api = Api::new(&server);
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
@@ -712,7 +710,8 @@ fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), 
 }
 
 fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
 
     log::info!("Fetching CIDRs");
@@ -742,8 +741,13 @@ fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Re
     Ok(())
 }
 
-fn rename_peer(interface: &InterfaceName, opts: &Opts, sub_opts: RenamePeerOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+fn rename_peer(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: RenamePeerOpts,
+) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
 
     log::info!("Fetching peers");
@@ -768,8 +772,13 @@ fn rename_peer(interface: &InterfaceName, opts: &Opts, sub_opts: RenamePeerOpts)
     Ok(())
 }
 
-fn enable_or_disable_peer(interface: &InterfaceName, opts: &Opts, enable: bool) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+fn enable_or_disable_peer(
+    interface: &InterfaceName,
+    opts: &Opts,
+    enable: bool,
+) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
 
     log::info!("Fetching peers.");
@@ -786,8 +795,13 @@ fn enable_or_disable_peer(interface: &InterfaceName, opts: &Opts, enable: bool) 
     Ok(())
 }
 
-fn add_association(interface: &InterfaceName, opts: &Opts, sub_opts: AddAssociationOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+fn add_association(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: AddAssociationOpts,
+) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
 
     log::info!("Fetching CIDRs");
@@ -823,7 +837,8 @@ fn add_association(interface: &InterfaceName, opts: &Opts, sub_opts: AddAssociat
 }
 
 fn delete_association(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
 
     log::info!("Fetching CIDRs");
@@ -841,7 +856,8 @@ fn delete_association(interface: &InterfaceName, opts: &Opts) -> Result<(), Erro
 }
 
 fn list_associations(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
 
     log::info!("Fetching CIDRs");
@@ -893,11 +909,7 @@ fn set_listen_port(
     Ok(listen_port.flatten())
 }
 
-fn override_endpoint(
-    interface: &InterfaceName,
-    opts: &Opts,
-    unset: bool,
-) -> Result<(), Error> {
+fn override_endpoint(interface: &InterfaceName, opts: &Opts, unset: bool) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let endpoint_contents = if unset {
         prompts::unset_override_endpoint()?.then(|| EndpointContents::Unset)
@@ -929,12 +941,7 @@ fn override_endpoint(
     Ok(())
 }
 
-fn show(
-    opts: &Opts,
-    short: bool,
-    tree: bool,
-    interface: Option<Interface>,
-) -> Result<(), Error> {
+fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
     let interfaces = interface.map_or_else(
         || Device::list(opts.network.backend),
         |interface| Ok(vec![*interface]),
@@ -945,7 +952,8 @@ fn show(
         .filter_map(|name| {
             match DataStore::open(&opts.data_dir, &name) {
                 Ok(store) => {
-                    let device = Device::get(&name, opts.network.backend).with_str(name.as_str_lossy());
+                    let device =
+                        Device::get(&name, opts.network.backend).with_str(name.as_str_lossy());
                     Some(device.map(|device| (device, store)))
                 },
                 // Skip WireGuard interfaces that aren't managed by innernet.
@@ -1134,17 +1142,17 @@ fn run(opts: &Opts) -> Result<(), Error> {
             hosts,
             install_opts,
             nat,
-        } => install(&opts, &invite, hosts.into(), install_opts, &nat)?,
+        } => install(opts, &invite, hosts.into(), install_opts, &nat)?,
         Command::Show {
             short,
             tree,
             interface,
-        } => show(&opts, short, tree, interface)?,
+        } => show(opts, short, tree, interface)?,
         Command::Fetch {
             interface,
             hosts,
             nat,
-        } => fetch(&interface, &opts, false, hosts.into(), &nat)?,
+        } => fetch(&interface, opts, false, hosts.into(), &nat)?,
         Command::Up {
             interface,
             daemon,
@@ -1153,28 +1161,43 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interval,
         } => up(
             &interface,
-            &opts,
+            opts,
             daemon.then(|| Duration::from_secs(interval)),
             hosts.into(),
             &nat,
         )?,
         Command::Down { interface } => wg::down(&interface, opts.network.backend)?,
-        Command::Uninstall { interface } => uninstall(&interface, &opts)?,
-        Command::AddPeer { interface, sub_opts } => add_peer(&interface, &opts, sub_opts)?,
-        Command::RenamePeer { interface, sub_opts } => rename_peer(&interface, &opts, sub_opts)?,
-        Command::AddCidr { interface, sub_opts } => add_cidr(&interface, &opts, sub_opts)?,
-        Command::DeleteCidr { interface, sub_opts } => delete_cidr(&interface, &opts, sub_opts)?,
-        Command::ListCidrs { interface, tree } => list_cidrs(&interface, &opts, tree)?,
-        Command::DisablePeer { interface } => enable_or_disable_peer(&interface, &opts, false)?,
-        Command::EnablePeer { interface } => enable_or_disable_peer(&interface, &opts, true)?,
-        Command::AddAssociation { interface, sub_opts } => add_association(&interface, &opts, sub_opts)?,
-        Command::DeleteAssociation { interface } => delete_association(&interface, &opts)?,
-        Command::ListAssociations { interface } => list_associations(&interface, &opts)?,
+        Command::Uninstall { interface } => uninstall(&interface, opts)?,
+        Command::AddPeer {
+            interface,
+            sub_opts,
+        } => add_peer(&interface, opts, sub_opts)?,
+        Command::RenamePeer {
+            interface,
+            sub_opts,
+        } => rename_peer(&interface, opts, sub_opts)?,
+        Command::AddCidr {
+            interface,
+            sub_opts,
+        } => add_cidr(&interface, opts, sub_opts)?,
+        Command::DeleteCidr {
+            interface,
+            sub_opts,
+        } => delete_cidr(&interface, opts, sub_opts)?,
+        Command::ListCidrs { interface, tree } => list_cidrs(&interface, opts, tree)?,
+        Command::DisablePeer { interface } => enable_or_disable_peer(&interface, opts, false)?,
+        Command::EnablePeer { interface } => enable_or_disable_peer(&interface, opts, true)?,
+        Command::AddAssociation {
+            interface,
+            sub_opts,
+        } => add_association(&interface, opts, sub_opts)?,
+        Command::DeleteAssociation { interface } => delete_association(&interface, opts)?,
+        Command::ListAssociations { interface } => list_associations(&interface, opts)?,
         Command::SetListenPort { interface, unset } => {
-            set_listen_port(&interface, &opts, unset)?;
+            set_listen_port(&interface, opts, unset)?;
         },
         Command::OverrideEndpoint { interface, unset } => {
-            override_endpoint(&interface, &opts, unset)?;
+            override_endpoint(&interface, opts, unset)?;
         },
         Command::Completions { shell } => {
             Opts::clap().gen_completions_to("innernet", shell, &mut std::io::stdout());

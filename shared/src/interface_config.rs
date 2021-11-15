@@ -1,6 +1,4 @@
-use crate::{
-    chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError,
-};
+use crate::{chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError};
 use indoc::writedoc;
 use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
@@ -101,7 +99,11 @@ impl InterfaceConfig {
     }
 
     /// Overwrites the config file if it already exists.
-    pub fn write_to_interface(&self, config_dir: &Path, interface: &InterfaceName) -> Result<PathBuf, Error> {
+    pub fn write_to_interface(
+        &self,
+        config_dir: &Path,
+        interface: &InterfaceName,
+    ) -> Result<PathBuf, Error> {
         let path = Self::build_config_file_path(config_dir, interface)?;
         File::create(&path)
             .with_path(&path)?
@@ -125,7 +127,10 @@ impl InterfaceConfig {
             .with_extension("conf")
     }
 
-    fn build_config_file_path(config_dir: &Path, interface: &InterfaceName) -> Result<PathBuf, WrappedIoError> {
+    fn build_config_file_path(
+        config_dir: &Path,
+        interface: &InterfaceName,
+    ) -> Result<PathBuf, WrappedIoError> {
         ensure_dirs_exist(&[config_dir])?;
         Ok(Self::get_path(config_dir, interface))
     }
