@@ -18,8 +18,6 @@ pub mod wg;
 pub use types::*;
 
 lazy_static! {
-    pub static ref SERVER_CONFIG_DIR: &'static Path = Path::new("/etc/innernet-server");
-    pub static ref SERVER_DATABASE_DIR: &'static Path = Path::new("/var/lib/innernet-server");
     pub static ref REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
 }
 

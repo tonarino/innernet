@@ -88,8 +88,8 @@ impl Server {
         // cidrs and peers.
         let interface = "test".to_string();
         let conf = ServerConfig {
-            wg_manage_dir_override: Some(test_dir_path.to_path_buf()),
-            wg_dir_override: Some(test_dir_path.to_path_buf()),
+            config_dir: test_dir_path.to_path_buf(),
+            data_dir: test_dir_path.to_path_buf(),
         };
 
         let opts = InitializeOpts {
