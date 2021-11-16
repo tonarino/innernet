@@ -1,7 +1,8 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
     AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, Endpoint,
-    Error, Hostname, Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    Error, Hostname, ListenPortOpts, OverrideEndpointOpts, Peer, PeerContents, RenamePeerOpts,
+    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -426,16 +427,18 @@ pub fn write_peer_invitation(
 
 pub fn set_listen_port(
     interface: &InterfaceInfo,
-    unset: bool,
+    args: ListenPortOpts,
 ) -> Result<Option<Option<u16>>, Error> {
-    let listen_port = (!unset)
-        .then(|| {
-            input(
-                "Listen port",
-                Prefill::Default(interface.listen_port.unwrap_or(51820)),
-            )
-        })
-        .transpose()?;
+    let listen_port = if let Some(listen_port) = args.listen_port {
+        Some(listen_port)
+    } else if !args.unset {
+        Some(input(
+            "Listen port",
+            Prefill::Default(interface.listen_port.unwrap_or(51820)),
+        )?)
+    } else {
+        None
+    };
 
     let mut confirmation = Confirm::with_theme(&*THEME);
     confirmation
@@ -452,7 +455,7 @@ pub fn set_listen_port(
     if listen_port == interface.listen_port {
         println!("No change necessary - interface already has this setting.");
         Ok(None)
-    } else if confirmation.interact()? {
+    } else if args.yes || confirmation.interact()? {
         Ok(Some(listen_port))
     } else {
         Ok(None)
@@ -464,7 +467,7 @@ pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
 
     let external_ip = if Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
-        .with_prompt("Auto-fill public IP address (using a DNS query to 1.1.1.1)?")
+        .with_prompt("Auto-fill public IP address (via a DNS query to 1.1.1.1)?")
         .interact()?
     {
         publicip::get_any(Preference::Ipv4)
@@ -481,17 +484,21 @@ pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
     )?)
 }
 
-pub fn override_endpoint(listen_port: u16) -> Result<Option<Endpoint>, Error> {
-    let endpoint = ask_endpoint(listen_port)?;
-    if confirm(&format!("Set external endpoint to {}?", endpoint))? {
+pub fn override_endpoint(
+    args: &OverrideEndpointOpts,
+    listen_port: u16,
+) -> Result<Option<Endpoint>, Error> {
+    let endpoint = match &args.endpoint {
+        Some(endpoint) => endpoint.clone(),
+        None => ask_endpoint(listen_port)?,
+    };
+    if args.yes || confirm(&format!("Set external endpoint to {}?", endpoint))? {
         Ok(Some(endpoint))
     } else {
         Ok(None)
     }
 }
 
-pub fn unset_override_endpoint() -> Result<bool, Error> {
-    Ok(confirm(
-        "Unset external endpoint to enable automatic endpoint discovery?",
-    )?)
+pub fn unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, Error> {
+    Ok(args.yes || confirm("Unset external endpoint to enable automatic endpoint discovery?")?)
 }

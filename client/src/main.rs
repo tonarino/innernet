@@ -9,9 +9,9 @@ use shared::{
     prompts,
     wg::{DeviceExt, PeerInfoExt},
     AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
-    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext, NatOpts,
-    NetworkOpts, Peer, RedeemContents, RenamePeerOpts, State, WrappedIoError,
-    REDEEM_TRANSITION_WAIT,
+    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext,
+    ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer, RedeemContents,
+    RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
@@ -50,7 +50,7 @@ struct Opts {
     #[structopt(subcommand)]
     command: Option<Command>,
 
-    /// Verbose output, use -vv for even higher verbositude.
+    /// Verbose output, use -vv for even higher verbositude
     #[structopt(short, long, parse(from_occurrences))]
     verbose: u64,
 
@@ -66,11 +66,11 @@ struct Opts {
 
 #[derive(Clone, Debug, StructOpt)]
 struct HostsOpt {
-    /// The path to write hosts to.
+    /// The path to write hosts to
     #[structopt(long = "hosts-path", default_value = "/etc/hosts")]
     hosts_path: PathBuf,
 
-    /// Don't write to any hosts files.
+    /// Don't write to any hosts files
     #[structopt(long = "no-write-hosts", conflicts_with = "hosts-path")]
     no_write_hosts: bool,
 }
@@ -83,7 +83,7 @@ impl From<HostsOpt> for Option<PathBuf> {
 
 #[derive(Clone, Debug, StructOpt)]
 enum Command {
-    /// Install a new innernet config.
+    /// Install a new innernet config
     #[structopt(alias = "redeem")]
     Install {
         /// Path to the invitation file
@@ -99,7 +99,7 @@ enum Command {
         nat: NatOpts,
     },
 
-    /// Enumerate all innernet connections.
+    /// Enumerate all innernet connections
     #[structopt(alias = "list")]
     Show {
         /// One-line peer list
@@ -113,15 +113,15 @@ enum Command {
         interface: Option<Interface>,
     },
 
-    /// Bring up your local interface, and update it with latest peer list.
+    /// Bring up your local interface, and update it with latest peer list
     Up {
         /// Enable daemon mode i.e. keep the process running, while fetching
-        /// the latest peer list periodically.
+        /// the latest peer list periodically
         #[structopt(short, long)]
         daemon: bool,
 
         /// Keep fetching the latest peer list at the specified interval in
-        /// seconds. Valid only in daemon mode.
+        /// seconds. Valid only in daemon mode
         #[structopt(long, default_value = "60")]
         interval: u64,
 
@@ -134,7 +134,7 @@ enum Command {
         interface: Interface,
     },
 
-    /// Fetch and update your local interface with the latest peer list.
+    /// Fetch and update your local interface with the latest peer list
     Fetch {
         interface: Interface,
 
@@ -151,7 +151,7 @@ enum Command {
     /// Bring down the interface (equivalent to 'wg-quick down <interface>')
     Down { interface: Interface },
 
-    /// Add a new peer.
+    /// Add a new peer
     ///
     /// By default, you'll be prompted interactively to create a peer, but you can
     /// also specify all the options in the command, eg:
@@ -164,7 +164,7 @@ enum Command {
         sub_opts: AddPeerOpts,
     },
 
-    /// Rename a peer.
+    /// Rename a peer
     ///
     /// By default, you'll be prompted interactively to select a peer, but you can
     /// also specify all the options in the command, eg:
@@ -177,7 +177,7 @@ enum Command {
         sub_opts: RenamePeerOpts,
     },
 
-    /// Add a new CIDR.
+    /// Add a new CIDR
     AddCidr {
         interface: Interface,
 
@@ -185,7 +185,7 @@ enum Command {
         sub_opts: AddCidrOpts,
     },
 
-    /// Delete a CIDR.
+    /// Delete a CIDR
     DeleteCidr {
         interface: Interface,
 
@@ -193,7 +193,7 @@ enum Command {
         sub_opts: DeleteCidrOpts,
     },
 
-    /// List CIDRs.
+    /// List CIDRs
     ListCidrs {
         interface: Interface,
 
@@ -202,13 +202,13 @@ enum Command {
         tree: bool,
     },
 
-    /// Disable an enabled peer.
+    /// Disable an enabled peer
     DisablePeer { interface: Interface },
 
-    /// Enable a disabled peer.
+    /// Enable a disabled peer
     EnablePeer { interface: Interface },
 
-    /// Add an association between CIDRs.
+    /// Add an association between CIDRs
     AddAssociation {
         interface: Interface,
 
@@ -216,28 +216,26 @@ enum Command {
         sub_opts: AddAssociationOpts,
     },
 
-    /// Delete an association between CIDRs.
+    /// Delete an association between CIDRs
     DeleteAssociation { interface: Interface },
 
-    /// List existing assocations between CIDRs.
+    /// List existing assocations between CIDRs
     ListAssociations { interface: Interface },
 
     /// Set the local listen port.
     SetListenPort {
         interface: Interface,
 
-        /// Unset the local listen port to use a randomized port.
-        #[structopt(short, long)]
-        unset: bool,
+        #[structopt(flatten)]
+        sub_opts: ListenPortOpts,
     },
 
-    /// Override your external endpoint that the server sends to other peers.
+    /// Override your external endpoint that the server sends to other peers
     OverrideEndpoint {
         interface: Interface,
 
-        /// Unset an existing override to use the automatic endpoint discovery.
-        #[structopt(short, long)]
-        unset: bool,
+        #[structopt(flatten)]
+        sub_opts: OverrideEndpointOpts,
     },
 
     /// Generate shell completion scripts
@@ -535,7 +533,7 @@ fn fetch(
         .with_str(interface.to_string())?;
     }
 
-    log::info!("fetching state from server.");
+    log::info!("fetching state from server...");
     let mut store = DataStore::open_or_create(&opts.data_dir, interface)?;
     let api = Api::new(&config.server);
     let State { peers, cidrs } = api.http("GET", "/user/state")?;
@@ -563,7 +561,7 @@ fn fetch(
         println!();
         log::info!("updated interface {}\n", interface.as_str_lossy().yellow());
     } else {
-        log::info!("{}", "peers are already up to date.".green());
+        log::info!("{}", "peers are already up to date".green());
     }
     let interface_updated_time = Instant::now();
 
@@ -890,11 +888,11 @@ fn list_associations(interface: &InterfaceName, opts: &Opts) -> Result<(), Error
 fn set_listen_port(
     interface: &InterfaceName,
     opts: &Opts,
-    unset: bool,
+    sub_opts: ListenPortOpts,
 ) -> Result<Option<u16>, Error> {
     let mut config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
 
-    let listen_port = prompts::set_listen_port(&config.interface, unset)?;
+    let listen_port = prompts::set_listen_port(&config.interface, sub_opts)?;
     if let Some(listen_port) = listen_port {
         wg::set_listen_port(interface, listen_port, opts.network.backend)?;
         log::info!("the interface is updated");
@@ -909,33 +907,33 @@ fn set_listen_port(
     Ok(listen_port.flatten())
 }
 
-fn override_endpoint(interface: &InterfaceName, opts: &Opts, unset: bool) -> Result<(), Error> {
+fn override_endpoint(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: OverrideEndpointOpts,
+) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let endpoint_contents = if unset {
-        prompts::unset_override_endpoint()?.then(|| EndpointContents::Unset)
+    let port = match config.interface.listen_port {
+        Some(port) => port,
+        None => bail!("you need to set a listen port with set-listen-port before overriding the endpoint (otherwise port randomization on the interface would make it useless).")
+    };
+
+    let endpoint_contents = if sub_opts.unset {
+        prompts::unset_override_endpoint(&sub_opts)?.then(|| EndpointContents::Unset)
     } else {
-        let listen_port = if let Some(listen_port) = config.interface.listen_port {
-            Some(listen_port)
-        } else {
-            println!(
-                "{}: you need to set a listen port for your interface first.",
-                "note".bold().yellow()
-            );
-            set_listen_port(interface, opts, unset)?
-        };
-        let endpoint = if let Some(port) = listen_port {
-            prompts::override_endpoint(port)?
-        } else {
-            None
-        };
+        let endpoint = prompts::override_endpoint(&sub_opts, port)?;
         endpoint.map(EndpointContents::Set)
     };
 
     if let Some(contents) = endpoint_contents {
-        log::info!("Updating endpoint.");
+        log::info!("requesting endpoint update...");
         Api::new(&config.server).http_form("PUT", "/user/endpoint", contents)?;
+        log::info!(
+            "endpoint override {}",
+            if sub_opts.unset { "unset" } else { "set" }
+        );
     } else {
-        log::info!("exiting without overriding endpoint.");
+        log::info!("exiting without overriding endpoint");
     }
 
     Ok(())
@@ -1193,11 +1191,17 @@ fn run(opts: &Opts) -> Result<(), Error> {
         } => add_association(&interface, opts, sub_opts)?,
         Command::DeleteAssociation { interface } => delete_association(&interface, opts)?,
         Command::ListAssociations { interface } => list_associations(&interface, opts)?,
-        Command::SetListenPort { interface, unset } => {
-            set_listen_port(&interface, opts, unset)?;
+        Command::SetListenPort {
+            interface,
+            sub_opts,
+        } => {
+            set_listen_port(&interface, opts, sub_opts)?;
         },
-        Command::OverrideEndpoint { interface, unset } => {
-            override_endpoint(&interface, opts, unset)?;
+        Command::OverrideEndpoint {
+            interface,
+            sub_opts,
+        } => {
+            override_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
             Opts::clap().gen_completions_to("innernet", shell, &mut std::io::stdout());

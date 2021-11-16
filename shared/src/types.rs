@@ -387,6 +387,36 @@ pub struct AddAssociationOpts {
     pub cidr2: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct ListenPortOpts {
+    /// The listen port you'd like to set for the interface
+    #[structopt(short, long)]
+    pub listen_port: Option<u16>,
+
+    /// Unset the local listen port to use a randomized port
+    #[structopt(short, long, conflicts_with = "listen-port")]
+    pub unset: bool,
+
+    /// Bypass confirmation
+    #[structopt(long)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, StructOpt)]
+pub struct OverrideEndpointOpts {
+    /// The listen port you'd like to set for the interface
+    #[structopt(short, long)]
+    pub endpoint: Option<Endpoint>,
+
+    /// Unset an existing override to use the automatic endpoint discovery
+    #[structopt(short, long, conflicts_with = "endpoint")]
+    pub unset: bool,
+
+    /// Bypass confirmation
+    #[structopt(long)]
+    pub yes: bool,
+}
+
 #[derive(Debug, Clone, StructOpt)]
 pub struct NatOpts {
     #[structopt(long)]
