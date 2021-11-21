@@ -7,7 +7,7 @@ mod linux {
 
         #[cfg(feature = "buildtime_bindgen")]
         {
-           let bindings = bindgen::Builder::default()
+            let bindings = bindgen::Builder::default()
                 .rust_target(bindgen::RustTarget::Stable_1_40)
                 .derive_default(true)
                 .header("c/wireguard.h")
