@@ -141,7 +141,7 @@ fn parse_allowed_ips(peer: &wireguard_control_sys::wg_peer) -> Vec<AllowedIp> {
     result
 }
 
-fn parse_endpoint(endpoint: &wireguard_control_sys::wg_peer__bindgen_ty_1) -> Option<SocketAddr> {
+fn parse_endpoint(endpoint: &wireguard_control_sys::wg_endpoint) -> Option<SocketAddr> {
     let addr = unsafe { endpoint.addr };
     match i32::from(addr.sa_family) {
         libc::AF_INET => {
@@ -205,10 +205,10 @@ fn encode_allowedips(
     (first_ip, last_ip)
 }
 
-fn encode_endpoint(endpoint: Option<SocketAddr>) -> wireguard_control_sys::wg_peer__bindgen_ty_1 {
+fn encode_endpoint(endpoint: Option<SocketAddr>) -> wireguard_control_sys::wg_endpoint {
     match endpoint {
         Some(SocketAddr::V4(s)) => {
-            let mut peer = wireguard_control_sys::wg_peer__bindgen_ty_1::default();
+            let mut peer = wireguard_control_sys::wg_endpoint::default();
             peer.addr4 = wireguard_control_sys::sockaddr_in {
                 sin_family: libc::AF_INET as u16,
                 sin_addr: wireguard_control_sys::in_addr {
@@ -220,7 +220,7 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wireguard_control_sys::wg_pe
             peer
         },
         Some(SocketAddr::V6(s)) => {
-            let mut peer = wireguard_control_sys::wg_peer__bindgen_ty_1::default();
+            let mut peer = wireguard_control_sys::wg_endpoint::default();
             let in6_addr = wireguard_control_sys::in6_addr__bindgen_ty_1 {
                 __u6_addr8: s.ip().octets(),
             };
@@ -233,7 +233,7 @@ fn encode_endpoint(endpoint: Option<SocketAddr>) -> wireguard_control_sys::wg_pe
             };
             peer
         },
-        None => wireguard_control_sys::wg_peer__bindgen_ty_1::default(),
+        None => wireguard_control_sys::wg_endpoint::default(),
     }
 }
 

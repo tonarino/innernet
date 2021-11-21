@@ -539,70 +539,55 @@ impl ::std::ops::BitAndAssign for wg_peer_flags {
 pub struct wg_peer_flags(pub ::std::os::raw::c_uint);
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct wg_peer {
-    pub flags: wg_peer_flags,
-    pub public_key: wg_key,
-    pub preshared_key: wg_key,
-    pub endpoint: wg_peer__bindgen_ty_1,
-    pub last_handshake_time: timespec64,
-    pub rx_bytes: u64,
-    pub tx_bytes: u64,
-    pub persistent_keepalive_interval: u16,
-    pub first_allowedip: *mut wg_allowedip,
-    pub last_allowedip: *mut wg_allowedip,
-    pub next_peer: *mut wg_peer,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union wg_peer__bindgen_ty_1 {
+pub union wg_endpoint {
     pub addr: sockaddr,
     pub addr4: sockaddr_in,
     pub addr6: sockaddr_in6,
 }
 #[test]
-fn bindgen_test_layout_wg_peer__bindgen_ty_1() {
+fn bindgen_test_layout_wg_endpoint() {
     assert_eq!(
-        ::std::mem::size_of::<wg_peer__bindgen_ty_1>(),
+        ::std::mem::size_of::<wg_endpoint>(),
         28usize,
-        concat!("Size of: ", stringify!(wg_peer__bindgen_ty_1))
+        concat!("Size of: ", stringify!(wg_endpoint))
     );
     assert_eq!(
-        ::std::mem::align_of::<wg_peer__bindgen_ty_1>(),
+        ::std::mem::align_of::<wg_endpoint>(),
         4usize,
-        concat!("Alignment of ", stringify!(wg_peer__bindgen_ty_1))
+        concat!("Alignment of ", stringify!(wg_endpoint))
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<wg_peer__bindgen_ty_1>())).addr as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<wg_endpoint>())).addr as *const _ as usize },
         0usize,
         concat!(
             "Offset of field: ",
-            stringify!(wg_peer__bindgen_ty_1),
+            stringify!(wg_endpoint),
             "::",
             stringify!(addr)
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<wg_peer__bindgen_ty_1>())).addr4 as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<wg_endpoint>())).addr4 as *const _ as usize },
         0usize,
         concat!(
             "Offset of field: ",
-            stringify!(wg_peer__bindgen_ty_1),
+            stringify!(wg_endpoint),
             "::",
             stringify!(addr4)
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<wg_peer__bindgen_ty_1>())).addr6 as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<wg_endpoint>())).addr6 as *const _ as usize },
         0usize,
         concat!(
             "Offset of field: ",
-            stringify!(wg_peer__bindgen_ty_1),
+            stringify!(wg_endpoint),
             "::",
             stringify!(addr6)
         )
     );
 }
-impl Default for wg_peer__bindgen_ty_1 {
+impl Default for wg_endpoint {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
         unsafe {
@@ -611,10 +596,25 @@ impl Default for wg_peer__bindgen_ty_1 {
         }
     }
 }
-impl ::std::fmt::Debug for wg_peer__bindgen_ty_1 {
+impl ::std::fmt::Debug for wg_endpoint {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        write!(f, "wg_peer__bindgen_ty_1 {{ union }}")
+        write!(f, "wg_endpoint {{ union }}")
     }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct wg_peer {
+    pub flags: wg_peer_flags,
+    pub public_key: wg_key,
+    pub preshared_key: wg_key,
+    pub endpoint: wg_endpoint,
+    pub last_handshake_time: timespec64,
+    pub rx_bytes: u64,
+    pub tx_bytes: u64,
+    pub persistent_keepalive_interval: u16,
+    pub first_allowedip: *mut wg_allowedip,
+    pub last_allowedip: *mut wg_allowedip,
+    pub next_peer: *mut wg_peer,
 }
 #[test]
 fn bindgen_test_layout_wg_peer() {
