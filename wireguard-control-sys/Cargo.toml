@@ -11,6 +11,9 @@ version = "1.5.1"
 [dependencies]
 libc = "0.2"
 
+[features]
+buildtime_bindgen = ["bindgen"]
+
 [build-dependencies]
-bindgen = { version = "0", default-features = false }
+bindgen = { version = "0", default-features = false, optional = true }
 cc = "1.0"
