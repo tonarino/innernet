@@ -3,8 +3,8 @@ use colored::*;
 use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
-use shared::{interface_config::ServerInfo, PeerDiff, INNERNET_PUBKEY_HEADER};
-use std::{io, path::Path, time::Duration};
+use shared::{interface_config::ServerInfo, PeerDiff, INNERNET_PUBKEY_HEADER, Interface};
+use std::{io, path::Path, time::Duration, ffi::OsStr};
 use ureq::{Agent, AgentBuilder};
 
 static LOGGER: Logger = Logger;
@@ -168,6 +168,32 @@ pub fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
     for change in diff.changes() {
         log::debug!("    {}", change);
     }
+}
+
+pub fn all_installed(config_dir: &Path) -> Result<Vec<Interface>, std::io::Error> {
+    // All errors are bubbled up when enumerating a directory
+    let entries: Vec<_> = std::fs::read_dir(config_dir)?
+        .into_iter()
+        .collect::<Result<_, _>>()?;
+
+    let installed: Vec<_> = entries.into_iter()
+        .filter(|entry| match entry.file_type() {
+            Ok(f) => f.is_file(),
+            _ => false
+        })
+        .filter_map(|entry| {
+            let path = entry.path();
+            match (path.extension(), path.file_stem()) {
+                (Some(extension), Some(stem)) if extension == OsStr::new("conf") => {
+                    Some(stem.to_string_lossy().to_string())
+                }
+                _ => None
+            }
+        })
+        .map(|name| name.parse())
+        .collect::<Result<_, _>>()?;
+
+    Ok(installed)
 }
 
 pub struct Api<'a> {

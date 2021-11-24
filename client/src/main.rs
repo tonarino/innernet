@@ -32,6 +32,8 @@ use nat::NatTraverse;
 use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
 
+use crate::util::all_installed;
+
 struct PeerState<'a> {
     peer: &'a Peer,
     info: Option<&'a PeerInfo>,
@@ -131,7 +133,7 @@ enum Command {
         #[structopt(flatten)]
         nat: NatOpts,
 
-        interface: Interface,
+        interface: Option<Interface>,
     },
 
     /// Fetch and update your local interface with the latest peer list
@@ -421,7 +423,7 @@ fn redeem_invite(
     target_conf: PathBuf,
     network: NetworkOpts,
 ) -> Result<(), Error> {
-    log::info!("bringing up the interface.");
+    log::info!("bringing up interface {}.", iface.as_str_lossy().yellow());
     let resolved_endpoint = config
         .server
         .external_endpoint
@@ -474,14 +476,22 @@ fn redeem_invite(
 }
 
 fn up(
-    interface: &InterfaceName,
+    interface: Option<Interface>,
     opts: &Opts,
     loop_interval: Option<Duration>,
     hosts_path: Option<PathBuf>,
     nat: &NatOpts,
 ) -> Result<(), Error> {
     loop {
-        fetch(interface, opts, true, hosts_path.clone(), nat)?;
+        let interfaces = match &interface {
+            Some(iface) => vec![iface.clone()],
+            None => all_installed(&opts.config_dir)?,
+        };
+
+        for iface in interfaces {
+            fetch(&*iface, opts, true, hosts_path.clone(), nat)?;
+        }
+
         match loop_interval {
             Some(interval) => thread::sleep(interval),
             None => break,
@@ -512,7 +522,7 @@ fn fetch(
             );
         }
 
-        log::info!("bringing up the interface.");
+        log::info!("bringing up interface {}.", interface.as_str_lossy().yellow());
         let resolved_endpoint = config
             .server
             .external_endpoint
@@ -533,7 +543,7 @@ fn fetch(
         .with_str(interface.to_string())?;
     }
 
-    log::info!("fetching state from server...");
+    log::info!("fetching state for {} from server...", interface.as_str_lossy().yellow());
     let mut store = DataStore::open_or_create(&opts.data_dir, interface)?;
     let api = Api::new(&config.server);
     let State { peers, cidrs } = api.http("GET", "/user/state")?;
@@ -1158,7 +1168,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             nat,
             interval,
         } => up(
-            &interface,
+            interface,
             opts,
             daemon.then(|| Duration::from_secs(interval)),
             hosts.into(),
