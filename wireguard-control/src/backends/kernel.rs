@@ -386,14 +386,14 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
     let mut device: *mut wireguard_control_sys::wg_device = ptr::null_mut();
 
-    let result = unsafe {
+    let ret = unsafe {
         wireguard_control_sys::wg_get_device(
             (&mut device) as *mut _ as *mut *mut wireguard_control_sys::wg_device,
             name.as_ptr(),
         )
     };
 
-    let result = if result == 0 {
+    let result = if ret == 0 && !device.is_null() {
         Ok(Device::from(unsafe { &*device }))
     } else {
         Err(io::Error::last_os_error())
