@@ -49,7 +49,7 @@ Let's assume the invitation file generated in the steps above have been transfer
 You can initialize the client with
 
 ```sh
-sudo inn install /path/to/invitation.toml
+sudo innernet install /path/to/invitation.toml
 ```
 
 You can customize the network name if you want to, or leave it at the default. `innernet` will then connect to the `innernet` server via WireGuard, generate a new key pair, and register that pair with the server. The private key in the invitation file can no longer be used.
@@ -57,13 +57,13 @@ You can customize the network name if you want to, or leave it at the default. `
 If everything was successful, the new peer is on the network. You can run things like
 
 ```sh
-sudo inn list
+sudo innernet list
 ```
 
 or
 
 ```sh
-sudo inn list --tree
+sudo innernet list --tree
 ```
 
 to view the current network and all CIDRs visible to this peer.
@@ -77,7 +77,7 @@ In order for peers from one CIDR to be able to contact peers in another CIDR, th
 With the admin peer we created above, let's add a new CIDR for some theoretical CI servers we have.
 
 ```sh
-sudo inn add-cidr <interface>
+sudo innernet add-cidr <interface>
 ```
 
 The name is `ci-servers` and the CIDR is `10.60.64.0/24`, but for this example it can be anything.
@@ -85,7 +85,7 @@ The name is `ci-servers` and the CIDR is `10.60.64.0/24`, but for this example i
 For now, we want peers in the `humans` CIDR to be able to access peers in the `ci-servers` CIDR.
 
 ```sh
-sudo inn add-association <interface>
+sudo innernet add-association <interface>
 ```
 
 The CLI will ask you to select the two CIDRs you want to associate. That's all it takes to allow peers in two different CIDRs to communicate!
@@ -93,13 +93,13 @@ The CLI will ask you to select the two CIDRs you want to associate. That's all i
 You can verify the association with
 
 ```sh
-sudo inn list-associations <interface>
+sudo innernet list-associations <interface>
 ```
 
 and associations can be deleted with
 
 ```sh
-sudo inn delete-associations <interface>
+sudo innernet delete-associations <interface>
 ```
 
 ### Enabling/Disabling Peers
@@ -109,13 +109,13 @@ For security reasons, IP addresses cannot be re-used by new peers, and therefore
 Disable a peer with
 
 ```su
-sudo inn disable-peer <interface>
+sudo innernet disable-peer <interface>
 ```
 
 Or re-enable a peer with
 
 ```su
-sudo inn enable-peer <interface>
+sudo innernet enable-peer <interface>
 ```
 
 ### Specifying a Manual Endpoint
@@ -123,13 +123,13 @@ sudo inn enable-peer <interface>
 The `innernet` server will try to use the internet endpoint it sees from a peer so other peers can connect to that peer as well. This doesn't always work and you may want to set an endpoint explicitly. To set an endpoint, use
 
 ```sh
-sudo inn override-endpoint <interface>
+sudo innernet override-endpoint <interface>
 ```
 
 You can go back to automatic endpoint discovery with
 
 ```sh
-sudo inn override-endpoint -u <interface>
+sudo innernet override-endpoint -u <interface>
 ```
 
 ### Setting the Local WireGuard Listen Port
@@ -137,7 +137,7 @@ sudo inn override-endpoint -u <interface>
 If you want to change the port which WireGuard listens on, use
 
 ```sh
-sudo inn set-listen-port <interface>
+sudo innernet set-listen-port <interface>
 ```
 
 or unset the port and use a randomized port with
