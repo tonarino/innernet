@@ -43,6 +43,9 @@ mod linux {
 fn main() {
     linux::build_bindings();
     linux::build_library();
+
+    println!("cargo:rerun-if-changed=c/wireguard.c");
+    println!("cargo:rerun-if-changed=c/wireguard.h");
 }
 
 #[cfg(not(target_os = "linux"))]
