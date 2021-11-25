@@ -1330,6 +1330,7 @@ static int parse_peers(const struct nlattr *attr, void *data)
 	if (!ret)
 		return ret;
 	if (!(new_peer->flags & WGPEER_HAS_PUBLIC_KEY)) {
+		printf("netlink validity error: peer doesn't have public key (required)");
 		errno = ENXIO;
 		return MNL_CB_ERROR;
 	}
@@ -1415,11 +1416,14 @@ int wg_get_device(wg_device **device, const char *device_name)
 
 try_again:
 	*device = calloc(1, sizeof(wg_device));
-	if (!*device)
+	if (!*device) {
+		printf("failed to calloc device struct");
 		return -errno;
+	}
 
 	nlg = mnlg_socket_open(WG_GENL_NAME, WG_GENL_VERSION);
 	if (!nlg) {
+		printf("failed to open netlink socket");
 		wg_free_device(*device);
 		*device = NULL;
 		return -errno;
@@ -1428,11 +1432,13 @@ try_again:
 	nlh = mnlg_msg_prepare(nlg, WG_CMD_GET_DEVICE, NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP);
 	mnl_attr_put_strz(nlh, WGDEVICE_A_IFNAME, device_name);
 	if (mnlg_socket_send(nlg, nlh) < 0) {
+		printf("failed to send netlink request");
 		ret = -errno;
 		goto out;
 	}
 	errno = 0;
 	if (mnlg_socket_recv_run(nlg, read_device_cb, *device) < 0) {
+		printf("failed to receive netlink response");
 		ret = errno ? -errno : -EINVAL;
 		goto out;
 	}
@@ -1442,9 +1448,12 @@ out:
 	if (nlg)
 		mnlg_socket_close(nlg);
 	if (ret) {
+		printf("out: ret was non-zero (%d)", ret);
 		wg_free_device(*device);
-		if (ret == -EINTR)
+		if (ret == -EINTR) {
+			printf("out: trying again");
 			goto try_again;
+		}
 		*device = NULL;
 	}
 	errno = -ret;

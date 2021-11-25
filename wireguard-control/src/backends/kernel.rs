@@ -243,6 +243,7 @@ fn encode_peers(
     *mut wireguard_control_sys::wg_peer,
     *mut wireguard_control_sys::wg_peer,
 ) {
+    println!("encoding {} peers", peers.len());
     let mut first_peer = ptr::null_mut();
     let mut last_peer: *mut wireguard_control_sys::wg_peer = ptr::null_mut();
 
@@ -253,10 +254,7 @@ fn encode_peers(
             public_key: peer.public_key.0,
             preshared_key: wireguard_control_sys::wg_key::default(),
             endpoint: encode_endpoint(peer.endpoint),
-            last_handshake_time: timespec64 {
-                tv_sec: 0,
-                tv_nsec: 0,
-            },
+            last_handshake_time: timespec64::default(),
             tx_bytes: 0,
             rx_bytes: 0,
             persistent_keepalive_interval: 0,
@@ -396,7 +394,9 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
     let result = if ret == 0 && !device.is_null() {
         Ok(Device::from(unsafe { &*device }))
     } else {
-        Err(io::Error::last_os_error())
+        let last_error = io::Error::last_os_error();
+        println!("FFI ret code was {}, &device is {:p}, last OS error: {:?}", ret, device, last_error.raw_os_error());
+        Err(last_error)
     };
 
     unsafe { wireguard_control_sys::wg_free_device(device) };
