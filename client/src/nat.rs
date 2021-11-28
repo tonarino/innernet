@@ -128,6 +128,7 @@ fn set_endpoint(public_key: &str, endpoint: Option<&Endpoint>) -> Option<PeerCon
     endpoint
         .and_then(|endpoint| endpoint.resolve().ok())
         .map(|addr| {
+            log::trace!("set_endpoint({}, {})", public_key, addr);
             PeerConfigBuilder::new(&Key::from_base64(public_key).unwrap()).set_endpoint(addr)
         })
 }
