@@ -26,6 +26,7 @@ impl<'a> NatTraverse<'a> {
         backend: Backend,
         diffs: &[PeerDiff],
     ) -> Result<Self, Error> {
+        log::trace!("NatTraverse::new()");
         // Filter out removed peers from diffs list.
         let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
 
@@ -59,7 +60,9 @@ impl<'a> NatTraverse<'a> {
     /// the peers that have been exhausted of all options (not included are
     /// peers that have successfully connected, or peers removed from the interface).
     fn refresh_remaining(&mut self) -> Result<Vec<Peer>, Error> {
+        log::trace!("NatTraverse::refresh_remaining()");
         let device = Device::get(self.interface, self.backend)?;
+        log::trace!("NatTraverse: retrieved device info.");
         // Remove connected and missing peers
         self.remaining.retain(|peer| {
             if let Some(peer_info) = device.get_peer(&peer.public_key) {
@@ -84,10 +87,12 @@ impl<'a> NatTraverse<'a> {
             .drain(..)
             .partition(|peer| peer.candidates.is_empty());
         self.remaining = remaining;
+        log::trace!("new remaining: {:?}", &self.remaining);
         Ok(exhausted)
     }
 
     pub fn step(&mut self) -> Result<(), Error> {
+        log::trace!("NatTraverse::step()");
         let exhausted = self.refresh_remaining()?;
 
         // Reset peer endpoints that had no viable candidates back to the server-reported one, if it exists.
@@ -106,9 +111,11 @@ impl<'a> NatTraverse<'a> {
 
         let updates: Vec<_> = reset_updates.chain(candidate_updates).collect();
 
+        log::trace!("NatTraverse: applying changes to device...");
         DeviceUpdate::new()
             .add_peers(&updates)
             .apply(self.interface, self.backend)?;
+        log::trace!("NatTraverse: applied changes to device.");
 
         let start = Instant::now();
         while start.elapsed() < STEP_INTERVAL {
