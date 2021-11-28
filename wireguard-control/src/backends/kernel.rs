@@ -391,12 +391,14 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         )
     };
 
+    let last_error = io::Error::last_os_error();
+    println!("kernel get_by_name: FFI ret code was {}, &device is {:p}, last OS error: {:?}", ret, device, last_error.raw_os_error());
+
     let result = if ret == 0 && !device.is_null() {
         println!("kernel get_by_name: wg FFI ret code was normal.");
         Ok(Device::from(unsafe { &*device }))
     } else {
-        let last_error = io::Error::last_os_error();
-        println!("kernel get_by_name: FFI ret code was {}, &device is {:p}, last OS error: {:?}", ret, device, last_error.raw_os_error());
+        println!("kernel get_by_name: error.");
         Err(last_error)
     };
 
