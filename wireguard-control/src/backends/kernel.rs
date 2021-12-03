@@ -3,6 +3,18 @@ use crate::{
     InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use wireguard_control_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
+use netlink_packet_core::{
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+};
+use netlink_packet_route::{
+    address,
+    constants::*,
+    link::{self, nlas::{State, Info, InfoKind}},
+    route, AddressHeader, AddressMessage, LinkHeader, LinkMessage, RouteHeader, RouteMessage,
+    RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN,
+};
+use netlink_sys::{protocols::NETLINK_ROUTE, Socket};
+use netlink_packet_wireguard;
 
 use std::{
     ffi::{CStr, CString},
@@ -293,37 +305,84 @@ fn encode_peers(
     (first_peer, last_peer)
 }
 
-pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
-    let base = unsafe { wireguard_control_sys::wg_list_device_names() };
+fn netlink_call(
+    message: RtnlMessage,
+    flags: Option<u16>,
+) -> Result<Vec<NetlinkMessage<RtnlMessage>>, io::Error> {
+    let mut req = NetlinkMessage::from(message);
+    req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
+    req.finalize();
+    let mut buf = [0; 4096];
+    req.serialize(&mut buf);
+    let len = req.buffer_len();
 
-    if base.is_null() {
-        return Err(io::Error::last_os_error());
+    let socket = Socket::new(NETLINK_ROUTE)?;
+    let kernel_addr = netlink_sys::SocketAddr::new(0, 0);
+    socket.connect(&kernel_addr)?;
+    let n_sent = socket.send(&buf[..len], 0)?;
+    if n_sent != len {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "failed to send netlink request",
+        ));
     }
 
-    let mut current = base;
-    let mut result = Vec::new();
-
+    let mut responses = vec![];
     loop {
-        let next_dev = unsafe { CStr::from_ptr(current).to_bytes() };
-
-        let len = next_dev.len();
-
-        if len == 0 {
-            break;
+        let n_received = socket.recv(&mut buf[..], 0)?;
+        let mut offset = 0;
+        loop {
+            let bytes = &buf[offset..];
+            let response = NetlinkMessage::<RtnlMessage>::deserialize(bytes)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            responses.push(response.clone());
+            match response.payload {
+                // We've parsed all parts of the response and can leave the loop.
+                NetlinkPayload::Ack(_) | NetlinkPayload::Done => return Ok(responses),
+                NetlinkPayload::Error(e) => return Err(e.into()),
+                _ => {},
+            }
+            offset += response.header.length as usize;
+            if offset == n_received || response.header.length == 0 {
+                // We've fully parsed the datagram, but there may be further datagrams
+                // with additional netlink response parts.
+                break;
+            }
         }
-
-        current = unsafe { current.add(len + 1) };
-
-        let interface: InterfaceName = str::from_utf8(next_dev)
-            .map_err(|_| InvalidInterfaceName::InvalidChars)?
-            .parse()?;
-
-        result.push(interface);
     }
+}
 
-    unsafe { libc::free(base as *mut libc::c_void) };
+pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
+    let link_responses = netlink_call(
+        RtnlMessage::GetLink(LinkMessage::default()),
+        Some(NLM_F_DUMP | NLM_F_REQUEST),
+    )?;
+    let links = link_responses
+        .into_iter()
+        // Filter out non-link messages
+        .filter_map(|response| match response {
+            NetlinkMessage {
+                payload: NetlinkPayload::InnerMessage(RtnlMessage::NewLink(link)),
+                ..
+            } => Some(link),
+            _ => None,
+        })
+        .filter(|link| {
+            for nla in link.nlas.iter() {
+                if let link::nlas::Nla::Info(infos) = nla {
+                    return infos.iter().any(|info| info == &Info::Kind(InfoKind::Wireguard))
+                }
+            }
+            false
+        })
+        .filter_map(|link| link.nlas.iter().find_map(|nla| match nla {
+            link::nlas::Nla::IfName(name) => Some(name.clone()),
+            _ => None,
+        }))
+        .filter_map(|name| name.parse().ok())
+        .collect::<Vec<_>>();
 
-    Ok(result)
+    Ok(links)
 }
 
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {

@@ -612,6 +612,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "netlink-packet-generic"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9988c370bd04827d9b29c0a54e5a460c3e54618d4c811cfa37a3c2b47808aaf"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "libc",
+ "netlink-packet-core",
+ "netlink-packet-utils",
+]
+
+[[package]]
 name = "netlink-packet-route"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -635,6 +648,19 @@ dependencies = [
  "byteorder",
  "paste",
  "thiserror",
+]
+
+[[package]]
+name = "netlink-packet-wireguard"
+version = "0.1.0"
+source = "git+https://github.com/little-dude/netlink?branch=master#8a47322d157c506f17e6acbdd032485264d8e706"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "libc",
+ "log",
+ "netlink-packet-generic",
+ "netlink-packet-utils",
 ]
 
 [[package]]
@@ -1395,6 +1421,10 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "libc",
+ "netlink-packet-core",
+ "netlink-packet-route",
+ "netlink-packet-wireguard",
+ "netlink-sys",
  "rand_core",
  "wireguard-control-sys",
 ]
