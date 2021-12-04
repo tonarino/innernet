@@ -653,7 +653,7 @@ dependencies = [
 [[package]]
 name = "netlink-packet-wireguard"
 version = "0.1.0"
-source = "git+https://github.com/little-dude/netlink?branch=master#8a47322d157c506f17e6acbdd032485264d8e706"
+source = "git+https://github.com/mcginty/netlink?branch=wireguard-flags#d799b062ae4612617c7838a595bd86757773f380"
 dependencies = [
  "anyhow",
  "byteorder",

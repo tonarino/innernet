@@ -163,12 +163,6 @@ impl InterfaceName {
     pub fn as_ptr(&self) -> *const c_char {
         self.0.as_ptr()
     }
-
-    #[cfg(target_os = "linux")]
-    /// Consumes this interface name, returning its raw byte buffer.
-    pub(crate) fn into_inner(self) -> RawInterfaceName {
-        self.0
-    }
 }
 
 impl fmt::Debug for InterfaceName {
