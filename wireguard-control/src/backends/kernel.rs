@@ -1,6 +1,6 @@
 use crate::{
-    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidKey, PeerConfig,
-    PeerConfigBuilder, PeerInfo, PeerStats,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, PeerConfig,
+    PeerConfigBuilder, PeerInfo, PeerStats, Key,
 };
 use netlink_packet_core::{
     NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
@@ -23,7 +23,7 @@ use netlink_packet_wireguard::{
 };
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket};
 
-use std::{convert::TryFrom, ffi::CString, io, net::IpAddr, os::raw::c_char, str};
+use std::{convert::TryFrom, io, net::IpAddr};
 
 impl<'a> From<&'a wireguard_control_sys::wg_allowedip> for AllowedIp {
     fn from(raw: &wireguard_control_sys::wg_allowedip) -> AllowedIp {
@@ -319,110 +319,5 @@ pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
         Ok(())
     } else {
         Err(io::Error::last_os_error())
-    }
-}
-
-/// Represents a WireGuard encryption key.
-///
-/// WireGuard makes no meaningful distinction between public,
-/// private and preshared keys - any sequence of 32 bytes
-/// can be used as either of those.
-///
-/// This means that you need to be careful when working with
-/// `Key`s, especially ones created from external data.
-#[cfg(target_os = "linux")]
-#[derive(PartialEq, Eq, Clone)]
-pub struct Key(wireguard_control_sys::wg_key);
-
-#[cfg(target_os = "linux")]
-impl Key {
-    /// Creates a new `Key` from raw bytes.
-    pub fn from_raw(key: wireguard_control_sys::wg_key) -> Self {
-        Self(key)
-    }
-
-    /// Generates and returns a new private key.
-    pub fn generate_private() -> Self {
-        let mut private_key = wireguard_control_sys::wg_key::default();
-
-        unsafe {
-            wireguard_control_sys::wg_generate_private_key(private_key.as_mut_ptr());
-        }
-
-        Self(private_key)
-    }
-
-    /// Generates and returns a new preshared key.
-    pub fn generate_preshared() -> Self {
-        let mut preshared_key = wireguard_control_sys::wg_key::default();
-
-        unsafe {
-            wireguard_control_sys::wg_generate_preshared_key(preshared_key.as_mut_ptr());
-        }
-
-        Self(preshared_key)
-    }
-
-    /// Generates a public key for this private key.
-    pub fn generate_public(&self) -> Self {
-        let mut public_key = wireguard_control_sys::wg_key::default();
-
-        unsafe {
-            wireguard_control_sys::wg_generate_public_key(
-                public_key.as_mut_ptr(),
-                &self.0 as *const u8 as *mut u8,
-            );
-        }
-
-        Self(public_key)
-    }
-
-    /// Generates an all-zero key.
-    pub fn zero() -> Self {
-        Self(wireguard_control_sys::wg_key::default())
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-
-    /// Converts the key to a standardized base64 representation, as used by the `wg` utility and `wg-quick`.
-    pub fn to_base64(&self) -> String {
-        let mut key_b64: wireguard_control_sys::wg_key_b64_string = [0; 45];
-        unsafe {
-            wireguard_control_sys::wg_key_to_base64(
-                key_b64.as_mut_ptr(),
-                &self.0 as *const u8 as *mut u8,
-            );
-
-            str::from_utf8_unchecked(&*(&key_b64[..44] as *const [c_char] as *const [u8])).into()
-        }
-    }
-
-    /// Converts a base64 representation of the key to the raw bytes.
-    ///
-    /// This can fail, as not all text input is valid base64 - in this case
-    /// `Err(InvalidKey)` is returned.
-    pub fn from_base64(key: &str) -> Result<Self, InvalidKey> {
-        let mut decoded = wireguard_control_sys::wg_key::default();
-
-        let key_str = CString::new(key)?;
-        let result = unsafe {
-            wireguard_control_sys::wg_key_from_base64(
-                decoded.as_mut_ptr(),
-                key_str.as_ptr() as *mut _,
-            )
-        };
-
-        if result == 0 {
-            Ok(Self { 0: decoded })
-        } else {
-            Err(InvalidKey)
-        }
-    }
-
-    pub fn from_hex(hex_str: &str) -> Result<Self, InvalidKey> {
-        let bytes = hex::decode(hex_str).map_err(|_| InvalidKey)?;
-        Self::from_base64(&base64::encode(&bytes))
     }
 }

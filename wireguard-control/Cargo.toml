@@ -13,6 +13,8 @@ version = "1.5.2"
 base64 = "0.13"
 hex = "0.4"
 libc = "0.2"
+rand_core = "0.6"
+curve25519-dalek = "4.0.0-pre.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.2" }
@@ -21,7 +23,3 @@ netlink-packet-core = "0.2"
 netlink-packet-generic = "*"
 netlink-packet-route = "0.8"
 netlink-packet-wireguard = { git = "https://github.com/mcginty/netlink", branch = "wireguard-flags" }
-
-[target.'cfg(not(target_os = "linux"))'.dependencies]
-rand_core = "0.6"
-curve25519-dalek = "4.0.0-pre.1"
