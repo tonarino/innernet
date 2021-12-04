@@ -1,28 +1,29 @@
 use crate::{
-    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName,
-    InvalidKey, PeerConfig, PeerInfo, PeerStats, PeerConfigBuilder,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidKey, PeerConfig,
+    PeerConfigBuilder, PeerInfo, PeerStats,
+};
+use netlink_packet_core::{
+    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
+    NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
-use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST, NetlinkSerializable, NetlinkDeserializable,
-};
 use netlink_packet_route::{
     constants::*,
-    link::{self, nlas::{Info, InfoKind}},
-    LinkMessage,
-    RtnlMessage,
+    link::{
+        self,
+        nlas::{Info, InfoKind},
+    },
+    LinkMessage, RtnlMessage,
+};
+use netlink_packet_wireguard::{
+    self,
+    constants::{WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME, WGPEER_F_REPLACE_ALLOWEDIPS},
+    nlas::{WgAllowedIpAttrs, WgDeviceAttrs, WgPeerAttrs},
+    Wireguard, WireguardCmd,
 };
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket};
-use netlink_packet_wireguard::{self, Wireguard, WireguardCmd, nlas::{WgDeviceAttrs, WgPeerAttrs, WgAllowedIpAttrs}, constants::{WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME, WGPEER_F_REPLACE_ALLOWEDIPS}};
 
-use std::{
-    ffi::{CString},
-    io,
-    net::{IpAddr},
-    os::raw::c_char,
-    str,
-    convert::TryFrom,
-};
+use std::{convert::TryFrom, ffi::CString, io, net::IpAddr, os::raw::c_char, str};
 
 impl<'a> From<&'a wireguard_control_sys::wg_allowedip> for AllowedIp {
     fn from(raw: &wireguard_control_sys::wg_allowedip) -> AllowedIp {
@@ -47,7 +48,7 @@ macro_rules! get_nla_value {
             $e::$v(value) => Some(value),
             _ => None,
         })
-    }
+    };
 }
 
 impl<'a> TryFrom<Vec<WgAllowedIpAttrs>> for AllowedIp {
@@ -55,9 +56,11 @@ impl<'a> TryFrom<Vec<WgAllowedIpAttrs>> for AllowedIp {
 
     fn try_from(attrs: Vec<WgAllowedIpAttrs>) -> Result<Self, Self::Error> {
         let address = get_nla_value!(attrs, WgAllowedIpAttrs, IpAddr)
-            .ok_or_else(|| io::ErrorKind::NotFound)?.clone();
+            .ok_or_else(|| io::ErrorKind::NotFound)?
+            .clone();
         let cidr = get_nla_value!(attrs, WgAllowedIpAttrs, Cidr)
-            .ok_or_else(|| io::ErrorKind::NotFound)?.clone();
+            .ok_or_else(|| io::ErrorKind::NotFound)?
+            .clone();
         Ok(AllowedIp { address, cidr })
     }
 }
@@ -65,7 +68,11 @@ impl<'a> TryFrom<Vec<WgAllowedIpAttrs>> for AllowedIp {
 impl AllowedIp {
     fn to_attrs(&self) -> Vec<WgAllowedIpAttrs> {
         vec![
-            WgAllowedIpAttrs::Family(if self.address.is_ipv4() { AF_INET } else { AF_INET6 }),
+            WgAllowedIpAttrs::Family(if self.address.is_ipv4() {
+                AF_INET
+            } else {
+                AF_INET6
+            }),
             WgAllowedIpAttrs::IpAddr(self.address),
             WgAllowedIpAttrs::Cidr(self.cidr),
         ]
@@ -107,17 +114,24 @@ impl<'a> TryFrom<Vec<WgPeerAttrs>> for PeerInfo {
         let public_key = get_nla_value!(attrs, WgPeerAttrs, PublicKey)
             .map(|key| Key(key.clone()))
             .ok_or_else(|| io::ErrorKind::NotFound)?;
-        let preshared_key = get_nla_value!(attrs, WgPeerAttrs, PresharedKey)
-            .map(|key| Key(key.clone()));
+        let preshared_key =
+            get_nla_value!(attrs, WgPeerAttrs, PresharedKey).map(|key| Key(key.clone()));
         let endpoint = get_nla_value!(attrs, WgPeerAttrs, Endpoint).cloned();
-        let persistent_keepalive_interval = get_nla_value!(attrs, WgPeerAttrs, PersistentKeepalive).cloned();
-        let allowed_ips = get_nla_value!(attrs, WgPeerAttrs, AllowedIps).cloned().unwrap_or_default()
+        let persistent_keepalive_interval =
+            get_nla_value!(attrs, WgPeerAttrs, PersistentKeepalive).cloned();
+        let allowed_ips = get_nla_value!(attrs, WgPeerAttrs, AllowedIps)
+            .cloned()
+            .unwrap_or_default()
             .into_iter()
             .map(AllowedIp::try_from)
             .collect::<Result<Vec<_>, _>>()?;
         let last_handshake_time = get_nla_value!(attrs, WgPeerAttrs, LastHandshake).cloned();
-        let rx_bytes = get_nla_value!(attrs, WgPeerAttrs, RxBytes).cloned().unwrap_or_default();
-        let tx_bytes = get_nla_value!(attrs, WgPeerAttrs, TxBytes).cloned().unwrap_or_default();
+        let rx_bytes = get_nla_value!(attrs, WgPeerAttrs, RxBytes)
+            .cloned()
+            .unwrap_or_default();
+        let tx_bytes = get_nla_value!(attrs, WgPeerAttrs, TxBytes)
+            .cloned()
+            .unwrap_or_default();
         Ok(PeerInfo {
             config: PeerConfig {
                 public_key,
@@ -127,7 +141,11 @@ impl<'a> TryFrom<Vec<WgPeerAttrs>> for PeerInfo {
                 allowed_ips,
                 __cant_construct_me: (),
             },
-            stats: PeerStats { last_handshake_time, rx_bytes, tx_bytes },
+            stats: PeerStats {
+                last_handshake_time,
+                rx_bytes,
+                tx_bytes,
+            },
         })
     }
 }
@@ -137,15 +155,17 @@ impl<'a> TryFrom<&'a Wireguard> for Device {
 
     fn try_from(wg: &'a Wireguard) -> Result<Self, Self::Error> {
         let name = get_nla_value!(wg.nlas, WgDeviceAttrs, IfName)
-        .ok_or_else(|| io::ErrorKind::NotFound)?
-        .parse()?;
-        let public_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey)
-            .map(|key| Key(key.clone()));
-        let private_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey)
-            .map(|key| Key(key.clone()));
+            .ok_or_else(|| io::ErrorKind::NotFound)?
+            .parse()?;
+        let public_key =
+            get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey).map(|key| Key(key.clone()));
+        let private_key =
+            get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(key.clone()));
         let listen_port = get_nla_value!(wg.nlas, WgDeviceAttrs, ListenPort).cloned();
         let fwmark = get_nla_value!(wg.nlas, WgDeviceAttrs, Fwmark).cloned();
-        let peers = get_nla_value!(wg.nlas, WgDeviceAttrs, Peers).cloned().unwrap_or_default()
+        let peers = get_nla_value!(wg.nlas, WgDeviceAttrs, Peers)
+            .cloned()
+            .unwrap_or_default()
             .into_iter()
             .map(PeerInfo::try_from)
             .collect::<Result<Vec<_>, _>>()?;
@@ -164,12 +184,10 @@ impl<'a> TryFrom<&'a Wireguard> for Device {
 }
 
 // TODO(jake): refactor - this is the same function in the `shared` crate
-fn netlink_call<I>(
-    message: I,
-    flags: Option<u16>,
-) -> Result<Vec<NetlinkMessage<I>>, io::Error> 
-    where NetlinkPayload<I>: From<I>,
-        I: Clone + std::fmt::Debug + Eq + NetlinkSerializable<I> + NetlinkDeserializable<I>,
+fn netlink_call<I>(message: I, flags: Option<u16>) -> Result<Vec<NetlinkMessage<I>>, io::Error>
+where
+    NetlinkPayload<I>: From<I>,
+    I: Clone + std::fmt::Debug + Eq + NetlinkSerializable<I> + NetlinkDeserializable<I>,
 {
     let mut req = NetlinkMessage::from(message);
     req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
@@ -261,7 +279,11 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     if builder.replace_peers {
         nlas.push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS));
     }
-    let peers: Vec<Vec<_>> = builder.peers.iter().map(PeerConfigBuilder::to_attrs).collect();
+    let peers: Vec<Vec<_>> = builder
+        .peers
+        .iter()
+        .map(PeerConfigBuilder::to_attrs)
+        .collect();
     nlas.push(WgDeviceAttrs::Peers(peers));
     let genlmsg: GenlMessage<Wireguard> = GenlMessage::from_payload(Wireguard {
         cmd: WireguardCmd::SetDevice,
@@ -276,14 +298,17 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         cmd: WireguardCmd::GetDevice,
         nlas: vec![WgDeviceAttrs::IfName(name.as_str_lossy().to_string())],
     });
-    let responses = netlink_call(genlmsg,
-        Some(NLM_F_REQUEST | NLM_F_ACK))?;
+    let responses = netlink_call(genlmsg, Some(NLM_F_REQUEST | NLM_F_ACK))?;
 
     match responses.get(0) {
-        Some(NetlinkMessage { payload: NetlinkPayload::InnerMessage(message), .. }) => {
-            Device::try_from(&message.payload)
-        }
-        _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Unexpected netlink payload"))
+        Some(NetlinkMessage {
+            payload: NetlinkPayload::InnerMessage(message),
+            ..
+        }) => Device::try_from(&message.payload),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Unexpected netlink payload",
+        )),
     }
 }
 

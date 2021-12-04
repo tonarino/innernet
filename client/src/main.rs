@@ -522,7 +522,10 @@ fn fetch(
             );
         }
 
-        log::info!("bringing up interface {}.", interface.as_str_lossy().yellow());
+        log::info!(
+            "bringing up interface {}.",
+            interface.as_str_lossy().yellow()
+        );
         let resolved_endpoint = config
             .server
             .external_endpoint
@@ -543,7 +546,10 @@ fn fetch(
         .with_str(interface.to_string())?;
     }
 
-    log::info!("fetching state for {} from server...", interface.as_str_lossy().yellow());
+    log::info!(
+        "fetching state for {} from server...",
+        interface.as_str_lossy().yellow()
+    );
     let mut store = DataStore::open_or_create(&opts.data_dir, interface)?;
     let api = Api::new(&config.server);
     let State { peers, cidrs } = api.http("GET", "/user/state")?;
