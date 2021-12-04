@@ -23,24 +23,7 @@ use netlink_packet_wireguard::{
 };
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket};
 
-use std::{convert::TryFrom, io, net::IpAddr};
-
-impl<'a> From<&'a wireguard_control_sys::wg_allowedip> for AllowedIp {
-    fn from(raw: &wireguard_control_sys::wg_allowedip) -> AllowedIp {
-        let addr = match i32::from(raw.family) {
-            libc::AF_INET => IpAddr::V4(unsafe { raw.__bindgen_anon_1.ip4.s_addr }.to_be().into()),
-            libc::AF_INET6 => {
-                IpAddr::V6(unsafe { raw.__bindgen_anon_1.ip6.__in6_u.__u6_addr8 }.into())
-            },
-            _ => unreachable!(format!("Unsupported socket family {}!", raw.family)),
-        };
-
-        AllowedIp {
-            address: addr,
-            cidr: raw.cidr,
-        }
-    }
-}
+use std::{convert::TryFrom, io};
 
 macro_rules! get_nla_value {
     ($nlas:expr, $e:ident, $v:ident) => {
