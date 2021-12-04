@@ -18,6 +18,7 @@ libc = "0.2"
 wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.2" }
 netlink-sys = "0.7"
 netlink-packet-core = "0.2"
+netlink-packet-generic = "*"
 netlink-packet-route = "0.8"
 netlink-packet-wireguard = { git = "https://github.com/little-dude/netlink", branch = "master" }
 

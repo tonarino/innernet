@@ -1422,6 +1422,7 @@ dependencies = [
  "hex",
  "libc",
  "netlink-packet-core",
+ "netlink-packet-generic",
  "netlink-packet-route",
  "netlink-packet-wireguard",
  "netlink-sys",

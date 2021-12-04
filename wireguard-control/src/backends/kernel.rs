@@ -1,28 +1,28 @@
 use crate::{
-    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, InvalidInterfaceName,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName,
     InvalidKey, PeerConfig, PeerConfigBuilder, PeerInfo, PeerStats,
 };
+use netlink_packet_generic::GenlMessage;
 use wireguard_control_sys::{timespec64, wg_device_flags as wgdf, wg_peer_flags as wgpf};
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST, NetlinkSerializable, NetlinkDeserializable,
 };
 use netlink_packet_route::{
-    address,
     constants::*,
-    link::{self, nlas::{State, Info, InfoKind}},
-    route, AddressHeader, AddressMessage, LinkHeader, LinkMessage, RouteHeader, RouteMessage,
-    RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN,
+    link::{self, nlas::{Info, InfoKind}},
+    LinkMessage,
+    RtnlMessage,
 };
 use netlink_sys::{protocols::NETLINK_ROUTE, Socket};
-use netlink_packet_wireguard;
+use netlink_packet_wireguard::{self, Wireguard, WireguardCmd, nlas::{WgDeviceAttrs, WgPeerAttrs, WgAllowedIpAttrs}};
 
 use std::{
-    ffi::{CStr, CString},
+    ffi::{CString},
     io,
     net::{IpAddr, SocketAddr},
     os::raw::c_char,
     ptr, str,
-    time::{Duration, SystemTime},
+    convert::TryFrom,
 };
 
 impl<'a> From<&'a wireguard_control_sys::wg_allowedip> for AllowedIp {
@@ -42,137 +42,87 @@ impl<'a> From<&'a wireguard_control_sys::wg_allowedip> for AllowedIp {
     }
 }
 
-impl<'a> From<&'a wireguard_control_sys::wg_peer> for PeerInfo {
-    fn from(raw: &wireguard_control_sys::wg_peer) -> PeerInfo {
-        PeerInfo {
-            config: PeerConfig {
-                public_key: Key::from_raw(raw.public_key),
-                preshared_key: if (raw.flags & wgpf::WGPEER_HAS_PRESHARED_KEY).0 > 0 {
-                    Some(Key::from_raw(raw.preshared_key))
-                } else {
-                    None
-                },
-                endpoint: parse_endpoint(&raw.endpoint),
-                persistent_keepalive_interval: match raw.persistent_keepalive_interval {
-                    0 => None,
-                    x => Some(x),
-                },
-                allowed_ips: parse_allowed_ips(raw),
-                __cant_construct_me: (),
-            },
-            stats: PeerStats {
-                last_handshake_time: match (
-                    raw.last_handshake_time.tv_sec,
-                    raw.last_handshake_time.tv_nsec,
-                ) {
-                    (0, 0) => None,
-                    (s, ns) => Some(SystemTime::UNIX_EPOCH + Duration::new(s as u64, ns as u32)),
-                },
-                rx_bytes: raw.rx_bytes,
-                tx_bytes: raw.tx_bytes,
-            },
-        }
+macro_rules! get_nla_value {
+    ($nlas:expr, $e:ident, $v:ident) => {
+        $nlas.iter().find_map(|attr| match attr {
+            $e::$v(value) => Some(value),
+            _ => None,
+        })
     }
 }
 
-impl<'a> From<&'a wireguard_control_sys::wg_device> for Device {
-    fn from(raw: &wireguard_control_sys::wg_device) -> Device {
-        // SAFETY: The name string buffer came directly from wgctrl so its NUL terminated.
-        let name = unsafe { InterfaceName::from_wg(raw.name) };
-        Device {
+impl<'a> TryFrom<Vec<WgAllowedIpAttrs>> for AllowedIp {
+    type Error = io::Error;
+
+    fn try_from(attrs: Vec<WgAllowedIpAttrs>) -> Result<Self, Self::Error> {
+        let address = get_nla_value!(attrs, WgAllowedIpAttrs, IpAddr)
+            .ok_or_else(|| io::ErrorKind::NotFound)?.clone();
+        let cidr = get_nla_value!(attrs, WgAllowedIpAttrs, Cidr)
+            .ok_or_else(|| io::ErrorKind::NotFound)?.clone();
+        Ok(AllowedIp { address, cidr })
+    }
+}
+
+impl<'a> TryFrom<Vec<WgPeerAttrs>> for PeerInfo {
+    type Error = io::Error;
+
+    fn try_from(attrs: Vec<WgPeerAttrs>) -> Result<Self, Self::Error> {
+        let public_key = get_nla_value!(attrs, WgPeerAttrs, PublicKey)
+            .map(|key| Key(key.clone()))
+            .ok_or_else(|| io::ErrorKind::NotFound)?;
+        let preshared_key = get_nla_value!(attrs, WgPeerAttrs, PresharedKey)
+            .map(|key| Key(key.clone()));
+        let endpoint = get_nla_value!(attrs, WgPeerAttrs, Endpoint).cloned();
+        let persistent_keepalive_interval = get_nla_value!(attrs, WgPeerAttrs, PersistentKeepalive).cloned();
+        let allowed_ips = get_nla_value!(attrs, WgPeerAttrs, AllowedIps).cloned().unwrap_or_default()
+            .into_iter()
+            .map(AllowedIp::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        let last_handshake_time = get_nla_value!(attrs, WgPeerAttrs, LastHandshake).cloned();
+        let rx_bytes = get_nla_value!(attrs, WgPeerAttrs, RxBytes).cloned().unwrap_or_default();
+        let tx_bytes = get_nla_value!(attrs, WgPeerAttrs, TxBytes).cloned().unwrap_or_default();
+        Ok(PeerInfo {
+            config: PeerConfig {
+                public_key,
+                preshared_key,
+                endpoint,
+                persistent_keepalive_interval,
+                allowed_ips,
+                __cant_construct_me: (),
+            },
+            stats: PeerStats { last_handshake_time, rx_bytes, tx_bytes },
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a Wireguard> for Device {
+    type Error = io::Error;
+
+    fn try_from(wg: &'a Wireguard) -> Result<Self, Self::Error> {
+        let name = get_nla_value!(wg.nlas, WgDeviceAttrs, IfName)
+        .ok_or_else(|| io::ErrorKind::NotFound)?
+        .parse()?;
+        let public_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey)
+            .map(|key| Key(key.clone()));
+        let private_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey)
+            .map(|key| Key(key.clone()));
+        let listen_port = get_nla_value!(wg.nlas, WgDeviceAttrs, ListenPort).cloned();
+        let fwmark = get_nla_value!(wg.nlas, WgDeviceAttrs, Fwmark).cloned();
+        let peers = get_nla_value!(wg.nlas, WgDeviceAttrs, Peers).cloned().unwrap_or_default()
+            .into_iter()
+            .map(PeerInfo::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Device {
             name,
-            public_key: if (raw.flags & wgdf::WGDEVICE_HAS_PUBLIC_KEY).0 > 0 {
-                Some(Key::from_raw(raw.public_key))
-            } else {
-                None
-            },
-            private_key: if (raw.flags & wgdf::WGDEVICE_HAS_PRIVATE_KEY).0 > 0 {
-                Some(Key::from_raw(raw.private_key))
-            } else {
-                None
-            },
-            fwmark: match raw.fwmark {
-                0 => None,
-                x => Some(x),
-            },
-            listen_port: match raw.listen_port {
-                0 => None,
-                x => Some(x),
-            },
-            peers: parse_peers(raw),
+            public_key,
+            private_key,
+            listen_port,
+            fwmark,
+            peers,
             linked_name: None,
             backend: Backend::Kernel,
             __cant_construct_me: (),
-        }
-    }
-}
-
-fn parse_peers(dev: &wireguard_control_sys::wg_device) -> Vec<PeerInfo> {
-    let mut result = Vec::new();
-
-    let mut current_peer = dev.first_peer;
-
-    if current_peer.is_null() {
-        return result;
-    }
-
-    loop {
-        let peer = unsafe { &*current_peer };
-
-        result.push(PeerInfo::from(peer));
-
-        if current_peer == dev.last_peer {
-            break;
-        }
-        current_peer = peer.next_peer;
-    }
-
-    result
-}
-
-fn parse_allowed_ips(peer: &wireguard_control_sys::wg_peer) -> Vec<AllowedIp> {
-    let mut result = Vec::new();
-
-    let mut current_ip: *mut wireguard_control_sys::wg_allowedip = peer.first_allowedip;
-
-    if current_ip.is_null() {
-        return result;
-    }
-
-    loop {
-        let ip = unsafe { &*current_ip };
-
-        result.push(AllowedIp::from(ip));
-
-        if current_ip == peer.last_allowedip {
-            break;
-        }
-        current_ip = ip.next_allowedip;
-    }
-
-    result
-}
-
-fn parse_endpoint(endpoint: &wireguard_control_sys::wg_endpoint) -> Option<SocketAddr> {
-    let addr = unsafe { endpoint.addr };
-    match i32::from(addr.sa_family) {
-        libc::AF_INET => {
-            let addr4 = unsafe { endpoint.addr4 };
-            Some(SocketAddr::new(
-                IpAddr::V4(u32::from_be(addr4.sin_addr.s_addr).into()),
-                u16::from_be(addr4.sin_port),
-            ))
-        },
-        libc::AF_INET6 => {
-            let addr6 = unsafe { endpoint.addr6 };
-            let bytes = unsafe { addr6.sin6_addr.__in6_u.__u6_addr8 };
-            Some(SocketAddr::new(
-                IpAddr::V6(bytes.into()),
-                u16::from_be(addr6.sin6_port),
-            ))
-        },
-        0 => None,
-        _ => unreachable!(format!("Unsupported socket family: {}!", addr.sa_family)),
+        })
     }
 }
 
@@ -305,10 +255,14 @@ fn encode_peers(
     (first_peer, last_peer)
 }
 
-fn netlink_call(
-    message: RtnlMessage,
+// TODO(jake): refactor - this is the same function in the `shared` crate
+fn netlink_call<I>(
+    message: I,
     flags: Option<u16>,
-) -> Result<Vec<NetlinkMessage<RtnlMessage>>, io::Error> {
+) -> Result<Vec<NetlinkMessage<I>>, io::Error> 
+    where NetlinkPayload<I>: From<I>,
+        I: Clone + std::fmt::Debug + Eq + NetlinkSerializable<I> + NetlinkDeserializable<I>,
+{
     let mut req = NetlinkMessage::from(message);
     req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
     req.finalize();
@@ -333,7 +287,7 @@ fn netlink_call(
         let mut offset = 0;
         loop {
             let bytes = &buf[offset..];
-            let response = NetlinkMessage::<RtnlMessage>::deserialize(bytes)
+            let response = NetlinkMessage::<I>::deserialize(bytes)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             responses.push(response.clone());
             match response.payload {
@@ -443,24 +397,28 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 }
 
 pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
-    let mut device: *mut wireguard_control_sys::wg_device = ptr::null_mut();
+    let genlmsg: GenlMessage<Wireguard> = GenlMessage::from_payload(Wireguard {
+        cmd: WireguardCmd::GetDevice,
+        nlas: vec![WgDeviceAttrs::IfName(name.as_str_lossy().to_string())],
+    });
+    let responses = netlink_call(genlmsg,
+        Some(NLM_F_REQUEST | NLM_F_ACK))?;
 
-    let result = unsafe {
-        wireguard_control_sys::wg_get_device(
-            (&mut device) as *mut _ as *mut *mut wireguard_control_sys::wg_device,
-            name.as_ptr(),
-        )
-    };
-
-    let result = if result == 0 {
-        Ok(Device::from(unsafe { &*device }))
+    let found_error = responses.iter().find_map(|msg| match msg.payload {
+        NetlinkPayload::Error(ref e) => Some(e.clone()),
+        _ => None,
+    });
+    if let Some(e) = found_error {
+        return Err(e.to_io());
+    }
+    if responses.len() != 1 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "Unexpected number of messages from netlink response"))
+    }
+    if let NetlinkPayload::InnerMessage(message) = &responses[0].payload {
+        Device::try_from(&message.payload)
     } else {
-        Err(io::Error::last_os_error())
-    };
-
-    unsafe { wireguard_control_sys::wg_free_device(device) };
-
-    result
+        Err(io::Error::new(io::ErrorKind::InvalidData, "Unexpected number of messages from netlink response"))
+    }
 }
 
 pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
@@ -581,15 +539,4 @@ impl Key {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_encode_endpoint() -> Result<(), Box<dyn std::error::Error>> {
-        let endpoint = Some("1.2.3.4:51820".parse()?);
-        let endpoint6: Option<SocketAddr> = Some("[2001:db8:1::1]:51820".parse()?);
-        let encoded = encode_endpoint(endpoint);
-        let encoded6 = encode_endpoint(endpoint6);
-        assert_eq!(endpoint, parse_endpoint(&encoded));
-        assert_eq!(endpoint6, parse_endpoint(&encoded6));
-        Ok(())
-    }
 }

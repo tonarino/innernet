@@ -150,16 +150,6 @@ impl FromStr for InterfaceName {
 }
 
 impl InterfaceName {
-    #[cfg(target_os = "linux")]
-    /// Creates a new [InterfaceName](Self).
-    ///
-    /// ## Safety
-    ///
-    /// The caller must ensure that `name` is a valid C string terminated by a NUL.
-    pub(crate) unsafe fn from_wg(name: RawInterfaceName) -> Self {
-        Self(name)
-    }
-
     /// Returns a human-readable form of the device name.
     ///
     /// Only use this when the interface name was constructed from a Rust string.
