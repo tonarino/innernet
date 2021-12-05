@@ -20,6 +20,10 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'innernet' {
+            [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'c')
+            [CompletionResult]::new('--config-dir', 'config-dir', [CompletionResultType]::ParameterName, 'config-dir')
+            [CompletionResult]::new('-d', 'd', [CompletionResultType]::ParameterName, 'd')
+            [CompletionResult]::new('--data-dir', 'data-dir', [CompletionResultType]::ParameterName, 'data-dir')
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
             [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Verbose output, use -vv for even higher verbositude')
@@ -54,10 +58,13 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
         'innernet;install' {
             [CompletionResult]::new('--hosts-path', 'hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
             [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'Set a specific interface name')
+            [CompletionResult]::new('--exclude-nat-candidates', 'exclude-nat-candidates', [CompletionResultType]::ParameterName, 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates')
             [CompletionResult]::new('--no-write-hosts', 'no-write-hosts', [CompletionResultType]::ParameterName, 'Don''t write to any hosts files')
             [CompletionResult]::new('--default-name', 'default-name', [CompletionResultType]::ParameterName, 'Use the network name inside the invitation as the interface name')
             [CompletionResult]::new('-d', 'd', [CompletionResultType]::ParameterName, 'Delete the invitation after a successful install')
             [CompletionResult]::new('--delete-invite', 'delete-invite', [CompletionResultType]::ParameterName, 'Delete the invitation after a successful install')
+            [CompletionResult]::new('--no-nat-traversal', 'no-nat-traversal', [CompletionResultType]::ParameterName, 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates')
+            [CompletionResult]::new('--no-nat-candidates', 'no-nat-candidates', [CompletionResultType]::ParameterName, 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0''')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
@@ -78,9 +85,12 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
         'innernet;up' {
             [CompletionResult]::new('--interval', 'interval', [CompletionResultType]::ParameterName, 'Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode')
             [CompletionResult]::new('--hosts-path', 'hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
+            [CompletionResult]::new('--exclude-nat-candidates', 'exclude-nat-candidates', [CompletionResultType]::ParameterName, 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates')
             [CompletionResult]::new('-d', 'd', [CompletionResultType]::ParameterName, 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically')
             [CompletionResult]::new('--daemon', 'daemon', [CompletionResultType]::ParameterName, 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically')
             [CompletionResult]::new('--no-write-hosts', 'no-write-hosts', [CompletionResultType]::ParameterName, 'Don''t write to any hosts files')
+            [CompletionResult]::new('--no-nat-traversal', 'no-nat-traversal', [CompletionResultType]::ParameterName, 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates')
+            [CompletionResult]::new('--no-nat-candidates', 'no-nat-candidates', [CompletionResultType]::ParameterName, 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0''')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
@@ -89,7 +99,10 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
         }
         'innernet;fetch' {
             [CompletionResult]::new('--hosts-path', 'hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
+            [CompletionResult]::new('--exclude-nat-candidates', 'exclude-nat-candidates', [CompletionResultType]::ParameterName, 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates')
             [CompletionResult]::new('--no-write-hosts', 'no-write-hosts', [CompletionResultType]::ParameterName, 'Don''t write to any hosts files')
+            [CompletionResult]::new('--no-nat-traversal', 'no-nat-traversal', [CompletionResultType]::ParameterName, 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates')
+            [CompletionResult]::new('--no-nat-candidates', 'no-nat-candidates', [CompletionResultType]::ParameterName, 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0''')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
@@ -200,8 +213,11 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             break
         }
         'innernet;set-listen-port' {
+            [CompletionResult]::new('-l', 'l', [CompletionResultType]::ParameterName, 'The listen port you''d like to set for the interface')
+            [CompletionResult]::new('--listen-port', 'listen-port', [CompletionResultType]::ParameterName, 'The listen port you''d like to set for the interface')
             [CompletionResult]::new('-u', 'u', [CompletionResultType]::ParameterName, 'Unset the local listen port to use a randomized port')
             [CompletionResult]::new('--unset', 'unset', [CompletionResultType]::ParameterName, 'Unset the local listen port to use a randomized port')
+            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
@@ -209,8 +225,11 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             break
         }
         'innernet;override-endpoint' {
+            [CompletionResult]::new('-e', 'e', [CompletionResultType]::ParameterName, 'The listen port you''d like to set for the interface')
+            [CompletionResult]::new('--endpoint', 'endpoint', [CompletionResultType]::ParameterName, 'The listen port you''d like to set for the interface')
             [CompletionResult]::new('-u', 'u', [CompletionResultType]::ParameterName, 'Unset an existing override to use the automatic endpoint discovery')
             [CompletionResult]::new('--unset', 'unset', [CompletionResultType]::ParameterName, 'Unset an existing override to use the automatic endpoint discovery')
+            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
             [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')

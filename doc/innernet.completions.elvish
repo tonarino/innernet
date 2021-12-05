@@ -15,6 +15,10 @@ edit:completion:arg-completer[innernet] = [@words]{
     }
     completions = [
         &'innernet'= {
+            cand -c 'c'
+            cand --config-dir 'config-dir'
+            cand -d 'd'
+            cand --data-dir 'data-dir'
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
             cand --mtu 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
             cand -v 'Verbose output, use -vv for even higher verbositude'
@@ -48,10 +52,13 @@ edit:completion:arg-completer[innernet] = [@words]{
         &'innernet;install'= {
             cand --hosts-path 'The path to write hosts to'
             cand --name 'Set a specific interface name'
+            cand --exclude-nat-candidates 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates'
             cand --no-write-hosts 'Don''t write to any hosts files'
             cand --default-name 'Use the network name inside the invitation as the interface name'
             cand -d 'Delete the invitation after a successful install'
             cand --delete-invite 'Delete the invitation after a successful install'
+            cand --no-nat-traversal 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
+            cand --no-nat-candidates 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0'''
             cand -h 'Prints help information'
             cand --help 'Prints help information'
             cand -V 'Prints version information'
@@ -70,9 +77,12 @@ edit:completion:arg-completer[innernet] = [@words]{
         &'innernet;up'= {
             cand --interval 'Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode'
             cand --hosts-path 'The path to write hosts to'
+            cand --exclude-nat-candidates 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates'
             cand -d 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically'
             cand --daemon 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically'
             cand --no-write-hosts 'Don''t write to any hosts files'
+            cand --no-nat-traversal 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
+            cand --no-nat-candidates 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0'''
             cand -h 'Prints help information'
             cand --help 'Prints help information'
             cand -V 'Prints version information'
@@ -80,7 +90,10 @@ edit:completion:arg-completer[innernet] = [@words]{
         }
         &'innernet;fetch'= {
             cand --hosts-path 'The path to write hosts to'
+            cand --exclude-nat-candidates 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates'
             cand --no-write-hosts 'Don''t write to any hosts files'
+            cand --no-nat-traversal 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
+            cand --no-nat-candidates 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0'''
             cand -h 'Prints help information'
             cand --help 'Prints help information'
             cand -V 'Prints version information'
@@ -178,16 +191,22 @@ edit:completion:arg-completer[innernet] = [@words]{
             cand --version 'Prints version information'
         }
         &'innernet;set-listen-port'= {
+            cand -l 'The listen port you''d like to set for the interface'
+            cand --listen-port 'The listen port you''d like to set for the interface'
             cand -u 'Unset the local listen port to use a randomized port'
             cand --unset 'Unset the local listen port to use a randomized port'
+            cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
             cand --help 'Prints help information'
             cand -V 'Prints version information'
             cand --version 'Prints version information'
         }
         &'innernet;override-endpoint'= {
+            cand -e 'The listen port you''d like to set for the interface'
+            cand --endpoint 'The listen port you''d like to set for the interface'
             cand -u 'Unset an existing override to use the automatic endpoint discovery'
             cand --unset 'Unset an existing override to use the automatic endpoint discovery'
+            cand --yes 'Bypass confirmation'
             cand -h 'Prints help information'
             cand --help 'Prints help information'
             cand -V 'Prints version information'

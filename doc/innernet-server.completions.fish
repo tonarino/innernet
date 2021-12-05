@@ -1,3 +1,5 @@
+complete -c innernet-server -n "__fish_use_subcommand" -s c -l config-dir
+complete -c innernet-server -n "__fish_use_subcommand" -s d -l data-dir
 complete -c innernet-server -n "__fish_use_subcommand" -l backend -d 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability' -r -f -a "kernel userspace"
 complete -c innernet-server -n "__fish_use_subcommand" -l mtu -d 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
 complete -c innernet-server -n "__fish_use_subcommand" -l no-routing -d 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'

@@ -50,13 +50,29 @@ _innernet-server() {
 
     case "${cmd}" in
         innernet-server)
-            opts=" -h -V  --no-routing --help --version --backend --mtu   new uninstall serve add-peer rename-peer add-cidr delete-cidr completions help  init"
+            opts=" -h -V -c -d  --no-routing --help --version --config-dir --data-dir --backend --mtu   new uninstall serve add-peer rename-peer add-cidr delete-cidr completions help  init"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 
+                --config-dir)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -c)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --data-dir)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --backend)
                     COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
                     return 0

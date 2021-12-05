@@ -6,7 +6,7 @@ license = "LGPL-2.1-or-later"
 name = "wireguard-control-sys"
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.5.1"
+version = "1.5.2"
 
 [dependencies]
 libc = "0.2"

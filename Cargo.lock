@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "anyhow",
  "colored",
@@ -973,7 +973,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "anyhow",
  "atty",
@@ -1389,7 +1389,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "wireguard-control"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "base64",
  "curve25519-dalek",
@@ -1401,7 +1401,7 @@ dependencies = [
 
 [[package]]
 name = "wireguard-control-sys"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "bindgen",
  "cc",

@@ -15,6 +15,10 @@ _innernet() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
+'-c+[]' \
+'--config-dir=[]' \
+'-d+[]' \
+'--data-dir=[]' \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]: :(kernel userspace)' \
 '--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]' \
 '*-v[Verbose output, use -vv for even higher verbositude]' \
@@ -37,10 +41,13 @@ _innernet() {
 _arguments "${_arguments_options[@]}" \
 '--hosts-path=[The path to write hosts to]' \
 '(--default-name)--name=[Set a specific interface name]' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
 '--default-name[Use the network name inside the invitation as the interface name]' \
 '-d[Delete the invitation after a successful install]' \
 '--delete-invite[Delete the invitation after a successful install]' \
+'--no-nat-traversal[Don'\''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates]' \
+'(--exclude-nat-candidates)--no-nat-candidates[Don'\''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates '\''0.0.0.0/0'\'']' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
@@ -52,10 +59,13 @@ _arguments "${_arguments_options[@]}" \
 _arguments "${_arguments_options[@]}" \
 '--hosts-path=[The path to write hosts to]' \
 '(--default-name)--name=[Set a specific interface name]' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
 '--default-name[Use the network name inside the invitation as the interface name]' \
 '-d[Delete the invitation after a successful install]' \
 '--delete-invite[Delete the invitation after a successful install]' \
+'--no-nat-traversal[Don'\''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates]' \
+'(--exclude-nat-candidates)--no-nat-candidates[Don'\''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates '\''0.0.0.0/0'\'']' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
@@ -93,20 +103,26 @@ _arguments "${_arguments_options[@]}" \
 _arguments "${_arguments_options[@]}" \
 '--interval=[Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode]' \
 '--hosts-path=[The path to write hosts to]' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]' \
 '-d[Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically]' \
 '--daemon[Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically]' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
+'--no-nat-traversal[Don'\''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates]' \
+'(--exclude-nat-candidates)--no-nat-candidates[Don'\''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates '\''0.0.0.0/0'\'']' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
-':interface:_files' \
+'::interface:_files' \
 && ret=0
 ;;
 (fetch)
 _arguments "${_arguments_options[@]}" \
 '--hosts-path=[The path to write hosts to]' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
+'--no-nat-traversal[Don'\''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates]' \
+'(--exclude-nat-candidates)--no-nat-candidates[Don'\''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates '\''0.0.0.0/0'\'']' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
@@ -245,8 +261,11 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (set-listen-port)
 _arguments "${_arguments_options[@]}" \
-'-u[Unset the local listen port to use a randomized port]' \
-'--unset[Unset the local listen port to use a randomized port]' \
+'-l+[The listen port you'\''d like to set for the interface]' \
+'--listen-port=[The listen port you'\''d like to set for the interface]' \
+'(-l --listen-port)-u[Unset the local listen port to use a randomized port]' \
+'(-l --listen-port)--unset[Unset the local listen port to use a randomized port]' \
+'--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
@@ -256,8 +275,11 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (override-endpoint)
 _arguments "${_arguments_options[@]}" \
-'-u[Unset an existing override to use the automatic endpoint discovery]' \
-'--unset[Unset an existing override to use the automatic endpoint discovery]' \
+'-e+[The listen port you'\''d like to set for the interface]' \
+'--endpoint=[The listen port you'\''d like to set for the interface]' \
+'(-e --endpoint)-u[Unset an existing override to use the automatic endpoint discovery]' \
+'(-e --endpoint)--unset[Unset an existing override to use the automatic endpoint discovery]' \
+'--yes[Bypass confirmation]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
