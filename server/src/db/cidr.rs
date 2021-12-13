@@ -46,6 +46,7 @@ impl DatabaseCidr {
             params![parent],
             |row| row.get::<_, u32>(0),
         )?;
+
         if attached_peers > 0 {
             log::warn!("tried to add a CIDR to a parent that has peers assigned to it.");
             return Err(ServerError::InvalidQuery);
@@ -97,7 +98,9 @@ impl DatabaseCidr {
               VALUES (?1, ?2, ?3, ?4)",
             params![name, cidr.ip().to_string(), cidr.prefix() as i32, parent],
         )?;
+
         let id = conn.last_insert_rowid();
+
         Ok(Cidr { id, contents })
     }
 

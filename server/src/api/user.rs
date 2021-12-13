@@ -4,9 +4,13 @@ use crate::{
     api::inject_endpoints,
     db::{DatabaseCidr, DatabasePeer},
     util::{form_body, json_response, status_response},
-    Context, ServerError, Session,
+    ServerError, Session,
 };
-use hyper::{Body, Method, Request, Response, StatusCode};
+use axum::{
+    body::Body,
+    http::{Method, Request},
+    response::Response,
+};
 use shared::{EndpointContents, PeerContents, RedeemContents, State, REDEEM_TRANSITION_WAIT};
 use wireguard_control::DeviceUpdate;
 
@@ -21,33 +25,35 @@ pub async fn routes(
                 return Err(ServerError::Unauthorized);
             }
             handlers::state(session).await
-        },
+        }
         (&Method::POST, Some("redeem")) => {
             if !session.redeemable() {
                 return Err(ServerError::Unauthorized);
             }
             let form = form_body(req).await?;
             handlers::redeem(form, session).await
-        },
+        }
         (&Method::PUT, Some("endpoint")) => {
             if !session.user_capable() {
                 return Err(ServerError::Unauthorized);
             }
             let form = form_body(req).await?;
             handlers::endpoint(form, session).await
-        },
+        }
         (&Method::PUT, Some("candidates")) => {
             if !session.user_capable() {
                 return Err(ServerError::Unauthorized);
             }
             let form = form_body(req).await?;
             handlers::candidates(form, session).await
-        },
+        }
         _ => Err(ServerError::NotFound),
     }
 }
 
 mod handlers {
+    use crate::Context;
+    use axum::http::StatusCode;
     use shared::Endpoint;
 
     use super::*;
@@ -173,6 +179,7 @@ mod tests {
 
     use super::*;
     use crate::{db::DatabaseAssociation, test};
+    use axum::http::StatusCode;
     use bytes::Buf;
     use shared::{AssociationContents, CidrContents, Endpoint, EndpointContents, Error};
 
@@ -186,6 +193,7 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
 
         let whole_body = hyper::body::aggregate(res).await?;
+
         let State { peers, .. } = serde_json::from_reader(whole_body.reader())?;
         let mut peer_names = peers.iter().map(|p| &*p.contents.name).collect::<Vec<_>>();
         peer_names.sort_unstable();

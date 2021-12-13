@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 
-use hyper::{Body, Request, Response};
+use axum::{
+    body::Body,
+    http::{Request, Response},
+};
 
 use crate::{ServerError, Session};
 

@@ -17,20 +17,27 @@ v6-test = []
 
 [dependencies]
 anyhow = "1"
+axum = { version = "0.4", default-features = false, features = [
+  "http1",
+  "headers",
+] }
+axum-debug = "*"
 bytes = "1"
 colored = "2"
 dialoguer = { version = "0.9", default-features = false }
-hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
+hyper = { version = "0.14", default-features = false }
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork", rev = "393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba" }
 libc = "0.2"
 libsqlite3-sys = "0.23"
 log = "0.4"
+mime_guess = "2"
 parking_lot = "0.11"
 pretty_env_logger = "0.4"
 publicip = { path = "../publicip" }
 regex = { version = "1", default-features = false, features = ["std"] }
 rusqlite = "0.26"
+rust-embed = { version = "6.3.0", features = ["compression"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared = { path = "../shared" }
@@ -39,6 +46,7 @@ subtle = "2"
 thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 toml = "0.5"
+tower-http = { version = "0.2.0", features = ["cors"] }
 url = "2"
 wireguard-control = { path = "../wireguard-control" }
 
@@ -51,18 +59,42 @@ tempfile = "3"
 
 [package.metadata.deb]
 assets = [
-  ["target/release/innernet-server", "usr/bin/", "755"],
-  ["innernet-server@.service", "usr/lib/systemd/system/", "644"],
-  ["../doc/innernet-server.8.gz", "usr/share/man/man8/", "644"],
-  ["../doc/innernet-server.completions.zsh", "usr/share/zsh/site-functions/_innernet-server", "644"],
-  ["../doc/innernet-server.completions.bash", "etc/bash_completion.d/innernet-server", "644"],
-  ["../doc/innernet-server.completions.fish", "usr/share/fish/vendor_completions.d/innernet-server.fish", "644"],
+  [
+    "target/release/innernet-server",
+    "usr/bin/",
+    "755",
+  ],
+  [
+    "innernet-server@.service",
+    "usr/lib/systemd/system/",
+    "644",
+  ],
+  [
+    "../doc/innernet-server.8.gz",
+    "usr/share/man/man8/",
+    "644",
+  ],
+  [
+    "../doc/innernet-server.completions.zsh",
+    "usr/share/zsh/site-functions/_innernet-server",
+    "644",
+  ],
+  [
+    "../doc/innernet-server.completions.bash",
+    "etc/bash_completion.d/innernet-server",
+    "644",
+  ],
+  [
+    "../doc/innernet-server.completions.fish",
+    "usr/share/fish/vendor_completions.d/innernet-server.fish",
+    "644",
+  ],
 ]
 depends = "libc6, libgcc1, libsqlite3-0, zlib1g, systemd"
-recommends = "wireguard"
 maintainer = "tonari <hey@tonari.no>"
 name = "innernet-server"
 priority = "optional"
+recommends = "wireguard"
 section = "net"
 
 [package.metadata.rpm]
@@ -73,10 +105,10 @@ buildflags = ["--release"]
 
 [package.metadata.rpm.files]
 "../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet-server.8.gz" }
-"../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
 "../../doc/innernet-server.completions.bash" = { path = "/etc/bash_completion.d/innernet-server" }
-"../../doc/innernet-server.completions.fish" =  { path = "/usr/share/fish/vendor_completions.d/innernet-server.fish" }
-"../../doc/innernet-server.completions.zsh" =  { path = "/usr/share/zsh/site-functions/_innernet-server" }
+"../../doc/innernet-server.completions.fish" = { path = "/usr/share/fish/vendor_completions.d/innernet-server.fish" }
+"../../doc/innernet-server.completions.zsh" = { path = "/usr/share/zsh/site-functions/_innernet-server" }
+"../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
 
 [package.metadata.rpm.targets]
 innernet-server = { path = "/usr/bin/innernet-server" }

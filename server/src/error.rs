@@ -1,6 +1,11 @@
 use std::convert::TryFrom;
 
-use hyper::{http, Body, Response, StatusCode};
+use axum::{
+    body::Body,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,7 +35,10 @@ pub enum ServerError {
     Json(#[from] serde_json::Error),
 
     #[error("Generic HTTP error")]
-    Http(#[from] http::Error),
+    Http(#[from] axum::http::Error),
+
+    #[error("Generic Axum error")]
+    Axum(#[from] axum::Error),
 
     #[error("Generic Hyper error")]
     Hyper(#[from] hyper::Error),
@@ -49,17 +57,26 @@ impl<'a> From<&'a ServerError> for StatusCode {
                 if *code == libsqlite3_sys::ErrorCode::ConstraintViolation =>
             {
                 StatusCode::BAD_REQUEST
-            },
+            }
             Database(rusqlite::Error::QueryReturnedNoRows) => StatusCode::NOT_FOUND,
-            WireGuard | Io(_) | Database(_) | Http(_) | Hyper(_) => {
+            WireGuard | Io(_) | Database(_) | Http(_) | Axum(_) | Hyper(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
-            },
+            }
         }
     }
 }
 
+impl IntoResponse for ServerError {
+    fn into_response(self) -> Response {
+        Response::builder()
+            .status(StatusCode::from(&self))
+            .body(axum::body::boxed(axum::body::Full::from(self.to_string())))
+            .unwrap()
+    }
+}
+
 impl TryFrom<ServerError> for Response<Body> {
-    type Error = http::Error;
+    type Error = axum::http::Error;
 
     fn try_from(e: ServerError) -> Result<Self, Self::Error> {
         Response::builder()

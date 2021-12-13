@@ -3,3 +3,4 @@ target/
 *.conf
 arch/pkg
 arch/innernet-git
+*.vscode

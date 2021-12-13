@@ -1,11 +1,21 @@
 use anyhow::{anyhow, bail};
+use axum::{
+    body::{boxed, Body, Full},
+    extract::{ConnectInfo, Extension},
+    http::{Request, Response, StatusCode},
+    response::IntoResponse,
+    routing::{any, get},
+    AddExtensionLayer, Router,
+};
+use axum_debug::debug_handler;
 use colored::*;
 use dialoguer::Confirm;
-use hyper::{http, server::conn::AddrStream, Body, Request, Response};
+use hyper::{header, Method, Uri};
 use indoc::printdoc;
 use ipnetwork::IpNetwork;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
+use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use shared::{
     get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
@@ -13,7 +23,6 @@ use shared::{
 };
 use std::{
     collections::{HashMap, VecDeque},
-    convert::TryInto,
     env,
     fs::File,
     io::prelude::*,
@@ -25,6 +34,7 @@ use std::{
 };
 use structopt::{clap::AppSettings, StructOpt};
 use subtle::ConstantTimeEq;
+use tower_http::cors::CorsLayer;
 use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
 pub mod api;
@@ -122,7 +132,7 @@ enum Command {
 pub type Db = Arc<Mutex<Connection>>;
 pub type Endpoints = Arc<RwLock<HashMap<String, SocketAddr>>>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Context {
     pub db: Db,
     pub endpoints: Arc<RwLock<HashMap<String, SocketAddr>>>,
@@ -131,6 +141,7 @@ pub struct Context {
     pub public_key: Key,
 }
 
+#[derive(Debug)]
 pub struct Session {
     pub context: Context,
     pub peer: DatabasePeer,
@@ -249,7 +260,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("{}: {}.", "creation failed".red(), e);
                 std::process::exit(1);
             }
-        },
+        }
         Command::Uninstall { interface } => uninstall(&interface, &conf, opts.network)?,
         Command::Serve {
             interface,
@@ -262,7 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Completions { shell } => {
             Opts::clap().gen_completions_to("innernet-server", shell, &mut std::io::stdout());
             std::process::exit(0);
-        },
+        }
     }
 
     Ok(())
@@ -471,9 +482,9 @@ fn spawn_expired_invite_sweeper(db: Db) {
             match DatabasePeer::delete_expired_invites(&db.lock()) {
                 Ok(deleted) if deleted > 0 => {
                     log::info!("Deleted {} expired peer invitations.", deleted)
-                },
+                }
                 Err(e) => log::error!("Failed to delete expired peer invitations: {}", e),
-                _ => {},
+                _ => {}
             }
         }
     });
@@ -549,22 +560,71 @@ async fn serve(
 
     let listener = get_listener((config.address, config.listen_port).into(), &interface)?;
 
-    let make_svc = hyper::service::make_service_fn(move |socket: &AddrStream| {
-        let remote_addr = socket.remote_addr();
-        let context = context.clone();
-        async move {
-            Ok::<_, http::Error>(hyper::service::service_fn(move |req: Request<Body>| {
-                log::debug!("{} - {} {}", &remote_addr, req.method(), req.uri());
-                hyper_service(req, context.clone(), remote_addr)
-            }))
-        }
-    });
+    let shared_context = Arc::new(context);
 
-    let server = hyper::Server::from_tcp(listener)?.serve(make_svc);
+    let app = Router::new()
+        .route("/ui/*_path", get(static_handler))
+        .route("/v1/*_path", any(hyper_service))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(tower_http::cors::any())
+                .allow_methods(vec![
+                    Method::OPTIONS,
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::PATCH,
+                ])
+                .allow_headers(tower_http::cors::any()),
+        )
+        .layer(AddExtensionLayer::new(shared_context));
+
+    let server = axum::Server::from_tcp(listener)?
+        .serve(app.into_make_service_with_connect_info::<SocketAddr, _>());
 
     server.await?;
 
     Ok(())
+}
+
+// Handler that serves the ui from the embeded folder
+async fn static_handler(uri: Uri) -> impl IntoResponse {
+    let mut path = uri.path().trim_start_matches('/').to_string();
+    if path.starts_with("ui/assets/") {
+        path = path.replace("ui/assets/", "assets/");
+    } else {
+        path = "index.html".to_string()
+    }
+    StaticFile(path)
+}
+
+#[derive(RustEmbed)]
+#[folder = "../ui/dist/"]
+struct Asset;
+pub struct StaticFile<T>(pub T);
+
+impl<T> IntoResponse for StaticFile<T>
+where
+    T: Into<String>,
+{
+    fn into_response(self) -> axum::response::Response {
+        let path = self.0.into();
+        match Asset::get(path.as_str()) {
+            Some(content) => {
+                let body = boxed(Full::from(content.data));
+                let mime = mime_guess::from_path(path).first_or_octet_stream();
+                Response::builder()
+                    .header(header::CONTENT_TYPE, mime.as_ref())
+                    .body(body)
+                    .unwrap()
+            }
+            None => Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(boxed(Full::from("404")))
+                .unwrap(),
+        }
+    }
 }
 
 /// This function differs per OS, because different operating systems have
@@ -595,11 +655,12 @@ fn get_listener(addr: SocketAddr, _interface: &InterfaceName) -> Result<TcpListe
     Ok(listener)
 }
 
+#[debug_handler]
 pub(crate) async fn hyper_service(
+    Extension(shared_context): Extension<Arc<Context>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     req: Request<Body>,
-    context: Context,
-    remote_addr: SocketAddr,
-) -> Result<Response<Body>, http::Error> {
+) -> Result<Response<Body>, ServerError> {
     // Break the path into components.
     let components: VecDeque<_> = req
         .uri()
@@ -609,9 +670,7 @@ pub(crate) async fn hyper_service(
         .map(String::from)
         .collect();
 
-    routes(req, context, remote_addr, components)
-        .await
-        .or_else(TryInto::try_into)
+    routes(req, shared_context.as_ref().clone(), addr, components).await
 }
 
 async fn routes(
@@ -668,7 +727,6 @@ mod tests {
     use super::*;
     use crate::test;
     use anyhow::Result;
-    use hyper::StatusCode;
     use std::path::Path;
 
     #[test]

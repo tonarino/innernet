@@ -5,12 +5,16 @@ use crate::{
     Context, Db, Endpoints, ServerConfig,
 };
 use anyhow::anyhow;
-use hyper::{header::HeaderValue, http, Body, Request, Response};
+use axum::{
+    body::Body,
+    extract::{ConnectInfo, Extension},
+    http::{HeaderValue, Request, Response},
+};
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::Serialize;
 use shared::{Cidr, CidrContents, Error, PeerContents};
-use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, convert::TryInto, net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wireguard_control::{Backend, InterfaceName, Key, KeyPair};
 
@@ -86,7 +90,7 @@ impl Server {
         let public_key = Key::generate_private().generate_public();
         // Run the init wizard to initialize the database and create basic
         // cidrs and peers.
-        let interface = "test".to_string();
+        let interface = "test-cargo".to_string();
         let conf = ServerConfig {
             config_dir: test_dir_path.to_path_buf(),
             data_dir: test_dir_path.to_path_buf(),
@@ -177,15 +181,16 @@ impl Server {
     pub async fn raw_request(&self, ip_str: &str, req: Request<Body>) -> Response<Body> {
         let port = 54321u16;
         crate::hyper_service(
+            Extension(Arc::new(self.context())),
+            ConnectInfo(SocketAddr::new(ip_str.parse().unwrap(), port)),
             req,
-            self.context(),
-            SocketAddr::new(ip_str.parse().unwrap(), port),
         )
         .await
+        .or_else(TryInto::try_into)
         .unwrap()
     }
 
-    fn base_request_builder(&self, verb: &str, path: &str) -> http::request::Builder {
+    fn base_request_builder(&self, verb: &str, path: &str) -> axum::http::request::Builder {
         let path = if cfg!(feature = "v6-test") {
             format!("http://[{}]{}", WG_MANAGE_PEER_IP, path)
         } else {

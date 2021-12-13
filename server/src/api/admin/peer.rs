@@ -6,7 +6,10 @@ use crate::{
     util::{form_body, json_response, json_status_response, status_response},
     ServerError, Session,
 };
-use hyper::{Body, Method, Request, Response, StatusCode};
+use axum::{
+    body::Body,
+    http::{Method, Request, Response, StatusCode},
+};
 use shared::PeerContents;
 use wireguard_control::DeviceUpdate;
 
@@ -20,16 +23,16 @@ pub async fn routes(
         (&Method::POST, None) => {
             let form = form_body(req).await?;
             handlers::create(form, session).await
-        },
+        }
         (&Method::PUT, Some(id)) => {
             let id: i64 = id.parse().map_err(|_| ServerError::NotFound)?;
             let form = form_body(req).await?;
             handlers::update(id, form, session).await
-        },
+        }
         (&Method::DELETE, Some(id)) => {
             let id: i64 = id.parse().map_err(|_| ServerError::NotFound)?;
             handlers::delete(id, session).await
-        },
+        }
         _ => Err(ServerError::NotFound),
     }
 }
