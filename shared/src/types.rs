@@ -14,6 +14,7 @@ use std::{
     vec,
 };
 use structopt::StructOpt;
+use ts_rs::TS;
 use url::Host;
 use wireguard_control::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
@@ -55,9 +56,11 @@ impl Display for Interface {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, TS)]
+#[ts(export)]
 /// An external endpoint that supports both IP and domain name hosts.
 pub struct Endpoint {
+    #[ts(type = "string")]
     host: Host,
     port: u16,
 }
@@ -86,7 +89,7 @@ impl FromStr for Endpoint {
                 let port = port.parse().map_err(|_| "couldn't parse port")?;
                 let host = Host::parse(host).map_err(|_| "couldn't parse host")?;
                 Ok(Endpoint { host, port })
-            },
+            }
             _ => Err("couldn't parse in form of 'host:port'"),
         }
     }
@@ -170,13 +173,14 @@ impl From<Option<Endpoint>> for EndpointContents {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, TS)]
 pub struct AssociationContents {
     pub cidr_id_1: i64,
     pub cidr_id_2: i64,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, TS)]
+#[ts(export)]
 pub struct Association {
     pub id: i64,
 
@@ -192,9 +196,10 @@ impl Deref for Association {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord, TS)]
 pub struct CidrContents {
     pub name: String,
+    #[ts(type = "string")]
     pub cidr: IpNetwork,
     pub parent: Option<i64>,
 }
@@ -207,7 +212,8 @@ impl Deref for CidrContents {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord, TS)]
+#[ts(export)]
 pub struct Cidr {
     pub id: i64,
 
@@ -471,9 +477,10 @@ pub struct NetworkOpts {
     pub mtu: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, TS)]
 pub struct PeerContents {
     pub name: Hostname,
+    #[ts(type = "string")]
     pub ip: IpAddr,
     pub cidr_id: i64,
     pub public_key: String,
@@ -482,12 +489,14 @@ pub struct PeerContents {
     pub is_admin: bool,
     pub is_disabled: bool,
     pub is_redeemed: bool,
+    #[ts(type = "string | null")]
     pub invite_expires: Option<SystemTime>,
     #[serde(default)]
     pub candidates: Vec<Endpoint>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, TS)]
+#[ts(export)]
 pub struct Peer {
     pub id: i64,
 
@@ -683,7 +692,8 @@ impl<'a> From<PeerDiff<'a>> for PeerConfigBuilder {
 
 /// This model is sent as a response to the /state endpoint, and is meant
 /// to include all the data a client needs to update its WireGuard interface.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub struct State {
     /// This list will be only the peers visible to the user requesting this
     /// information, not including disabled peers or peers from other CIDRs
@@ -741,7 +751,8 @@ impl From<Timestring> for Duration {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Hostname(String);
 
 lazy_static! {
