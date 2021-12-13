@@ -1,0 +1,6 @@
+node_modules
+
+# leave dist to avoid people having to build the frontend
+#dist
+
+.yarn
