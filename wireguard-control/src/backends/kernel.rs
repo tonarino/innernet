@@ -248,7 +248,24 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     Ok(links)
 }
 
+fn add_del(iface: &InterfaceName, add: bool) -> io::Result<()> {
+    let mut message = LinkMessage::default();
+    message.nlas.push(link::nlas::Nla::IfName(iface.as_str_lossy().to_string()));
+    message.nlas.push(link::nlas::Nla::Info(vec![Info::Kind(link::nlas::InfoKind::Wireguard)]));
+    let extra_flags = if add { NLM_F_CREATE | NLM_F_EXCL } else { 0 };
+    let rtnl_message = if add { RtnlMessage::NewLink(message) } else { RtnlMessage::DelLink(message) };
+    let result = netlink_call(
+        rtnl_message,
+        Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags),
+    );
+    match result {
+        Err(e) if e.kind() != io::ErrorKind::AlreadyExists => Err(e),
+        _ => Ok(())
+    }
+}
+
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
+    add_del(iface, true)?;
     let mut nlas = vec![WgDeviceAttrs::IfName(iface.as_str_lossy().to_string())];
     if let Some(Key(k)) = builder.private_key {
         nlas.push(WgDeviceAttrs::PrivateKey(k));
@@ -296,11 +313,5 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
 }
 
 pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
-    let result = unsafe { wireguard_control_sys::wg_del_device(iface.as_ptr()) };
-
-    if result == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    add_del(iface, false)
 }
