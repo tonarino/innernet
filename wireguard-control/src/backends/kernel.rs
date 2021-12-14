@@ -38,12 +38,10 @@ impl<'a> TryFrom<Vec<WgAllowedIpAttrs>> for AllowedIp {
     type Error = io::Error;
 
     fn try_from(attrs: Vec<WgAllowedIpAttrs>) -> Result<Self, Self::Error> {
-        let address = get_nla_value!(attrs, WgAllowedIpAttrs, IpAddr)
-            .ok_or_else(|| io::ErrorKind::NotFound)?
-            .clone();
-        let cidr = get_nla_value!(attrs, WgAllowedIpAttrs, Cidr)
-            .ok_or_else(|| io::ErrorKind::NotFound)?
-            .clone();
+        let address = *get_nla_value!(attrs, WgAllowedIpAttrs, IpAddr)
+            .ok_or_else(|| io::ErrorKind::NotFound)?;
+        let cidr = *get_nla_value!(attrs, WgAllowedIpAttrs, Cidr)
+            .ok_or_else(|| io::ErrorKind::NotFound)?;
         Ok(AllowedIp { address, cidr })
     }
 }
@@ -70,7 +68,7 @@ impl PeerConfigBuilder {
             attrs.push(WgPeerAttrs::Endpoint(endpoint));
         }
         if let Some(ref key) = self.preshared_key {
-            attrs.push(WgPeerAttrs::PresharedKey(key.0.clone()));
+            attrs.push(WgPeerAttrs::PresharedKey(key.0));
         }
         if let Some(i) = self.persistent_keepalive_interval {
             attrs.push(WgPeerAttrs::PersistentKeepalive(i));
@@ -95,10 +93,10 @@ impl<'a> TryFrom<Vec<WgPeerAttrs>> for PeerInfo {
 
     fn try_from(attrs: Vec<WgPeerAttrs>) -> Result<Self, Self::Error> {
         let public_key = get_nla_value!(attrs, WgPeerAttrs, PublicKey)
-            .map(|key| Key(key.clone()))
-            .ok_or_else(|| io::ErrorKind::NotFound)?;
+            .map(|key| Key(*key))
+            .ok_or(io::ErrorKind::NotFound)?;
         let preshared_key =
-            get_nla_value!(attrs, WgPeerAttrs, PresharedKey).map(|key| Key(key.clone()));
+            get_nla_value!(attrs, WgPeerAttrs, PresharedKey).map(|key| Key(*key));
         let endpoint = get_nla_value!(attrs, WgPeerAttrs, Endpoint).cloned();
         let persistent_keepalive_interval =
             get_nla_value!(attrs, WgPeerAttrs, PersistentKeepalive).cloned();
@@ -141,9 +139,9 @@ impl<'a> TryFrom<&'a Wireguard> for Device {
             .ok_or_else(|| io::ErrorKind::NotFound)?
             .parse()?;
         let public_key =
-            get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey).map(|key| Key(key.clone()));
+            get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey).map(|key| Key(*key));
         let private_key =
-            get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(key.clone()));
+            get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
         let listen_port = get_nla_value!(wg.nlas, WgDeviceAttrs, ListenPort).cloned();
         let fwmark = get_nla_value!(wg.nlas, WgDeviceAttrs, Fwmark).cloned();
         let peers = get_nla_value!(wg.nlas, WgDeviceAttrs, Peers)
