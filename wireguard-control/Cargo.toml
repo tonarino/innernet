@@ -17,7 +17,6 @@ rand_core = "0.6"
 curve25519-dalek = "4.0.0-pre.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.2" }
 netlink-sys = "0.7"
 netlink-packet-core = "0.2"
 netlink-packet-generic = "*"
