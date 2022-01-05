@@ -48,7 +48,7 @@ fn netlink_call(
 
     let mut responses = vec![];
     loop {
-        let n_received = socket.recv(&mut buf[..], 0)?;
+        let n_received = socket.recv(&mut &mut buf[..], 0)?;
         let mut offset = 0;
         loop {
             let bytes = &buf[offset..];
