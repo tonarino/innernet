@@ -3,10 +3,10 @@ use crate::{
     PeerConfigBuilder, PeerInfo, PeerStats, Key,
 };
 use netlink_packet_core::{
-    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK,
     NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
 };
-use netlink_packet_generic::{GenlMessage, ctrl::{GenlCtrl, GenlCtrlCmd, nlas::GenlCtrlAttrs}, GenlFamily};
+use netlink_packet_generic::GenlMessage;
 use netlink_packet_route::{
     constants::*,
     link::{
@@ -21,9 +21,9 @@ use netlink_packet_wireguard::{
     nlas::{WgAllowedIpAttrs, WgDeviceAttrs, WgPeerAttrs},
     Wireguard, WireguardCmd,
 };
-use netlink_sys::{protocols::NETLINK_ROUTE, Socket, constants::NETLINK_GENERIC};
+use netlink_request::{netlink_request_rtnl, netlink_request_genl};
 
-use std::{convert::TryFrom, io, fmt::Debug};
+use std::{convert::TryFrom, io};
 
 macro_rules! get_nla_value {
     ($nlas:expr, $e:ident, $v:ident) => {
@@ -164,146 +164,10 @@ impl<'a> TryFrom<&'a Wireguard> for Device {
     }
 }
 
-fn resolve_family_id<F>(message: &mut GenlMessage<F>) -> Result<(), io::Error> 
-where
-    F: GenlFamily + Clone + Debug + Eq,
-{
-    if message.family_id() == 0 {
-        let genlmsg: GenlMessage<GenlCtrl> = GenlMessage::from_payload(GenlCtrl {
-            cmd: GenlCtrlCmd::GetFamily,
-            nlas: vec![GenlCtrlAttrs::FamilyName("wireguard".to_string())],
-        });        
-        let responses = netlink_call::<GenlMessage<GenlCtrl>>(genlmsg, Some(NLM_F_REQUEST | NLM_F_ACK), None)?;
-
-        match responses.get(0) {
-            Some(NetlinkMessage { payload: NetlinkPayload::InnerMessage(GenlMessage { payload: GenlCtrl { nlas, .. }, ..}), .. }) => {
-                let family_id = get_nla_value!(nlas, GenlCtrlAttrs, FamilyId)
-                    .ok_or_else(|| io::ErrorKind::NotFound)?;
-                message.set_resolved_family_id(*family_id);
-            },
-            _ => return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Unexpected netlink payload",
-            )),
-        };
-    }
-    Ok(())
-}
-
-fn netlink_call<I>(message: I, flags: Option<u16>, socket: Option<isize>) -> Result<Vec<NetlinkMessage<I>>, io::Error>
-where
-    NetlinkPayload<I>: From<I>,
-    I: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
-{
-    let mut req = NetlinkMessage::from(message);
-    req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
-    req.finalize();
-    let mut buf = [0; 4096];
-    println!("request: {:?}", req);
-    req.serialize(&mut buf);
-    let len = req.buffer_len();
-
-    let socket = Socket::new(socket.unwrap_or(NETLINK_GENERIC))?;
-    let kernel_addr = netlink_sys::SocketAddr::new(0, 0);
-    socket.connect(&kernel_addr)?;
-    let n_sent = socket.send(&buf[..len], 0)?;
-    if n_sent != len {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "failed to send netlink request",
-        ));
-    }
-
-    let mut responses = vec![];
-    loop {
-        let n_received = socket.recv(&mut &mut buf[..], 0)?;
-        let mut offset = 0;
-        loop {
-            let bytes = &buf[offset..];
-            let response = NetlinkMessage::<I>::deserialize(bytes)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-            println!("response: {:?}", response);
-            responses.push(response.clone());
-            match response.payload {
-                // We've parsed all parts of the response and can leave the loop.
-                NetlinkPayload::Ack(_) | NetlinkPayload::Done => return Ok(responses),
-                NetlinkPayload::Error(e) => return Err(e.into()),
-                _ => {},
-            }
-            offset += response.header.length as usize;
-            if offset == n_received || response.header.length == 0 {
-                // We've fully parsed the datagram, but there may be further datagrams
-                // with additional netlink response parts.
-                break;
-            }
-        }
-    }
-}
-
-fn netlink_request_generic<F>(mut message: GenlMessage<F>, flags: Option<u16>) -> Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error>
-where
-    F: GenlFamily + Clone + Debug + Eq,
-    GenlMessage<F>: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
-{
-    resolve_family_id(&mut message)?;
-    netlink_request(message, flags, NETLINK_GENERIC)
-}
-
-fn netlink_request<I>(message: I, flags: Option<u16>, socket: isize) -> Result<Vec<NetlinkMessage<I>>, io::Error>
-where
-    NetlinkPayload<I>: From<I>,
-    I: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
-{
-    let mut req = NetlinkMessage::from(message);
-    req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
-    req.finalize();
-    let mut buf = [0; 4096];
-    println!("request: {:?}", req);
-    req.serialize(&mut buf);
-    let len = req.buffer_len();
-
-    let socket = Socket::new(socket)?;
-    let kernel_addr = netlink_sys::SocketAddr::new(0, 0);
-    socket.connect(&kernel_addr)?;
-    let n_sent = socket.send(&buf[..len], 0)?;
-    if n_sent != len {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "failed to send netlink request",
-        ));
-    }
-
-    let mut responses = vec![];
-    loop {
-        let n_received = socket.recv(&mut &mut buf[..], 0)?;
-        let mut offset = 0;
-        loop {
-            let bytes = &buf[offset..];
-            let response = NetlinkMessage::<I>::deserialize(bytes)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-            println!("response: {:?}", response);
-            responses.push(response.clone());
-            match response.payload {
-                // We've parsed all parts of the response and can leave the loop.
-                NetlinkPayload::Ack(_) | NetlinkPayload::Done => return Ok(responses),
-                NetlinkPayload::Error(e) => return Err(e.into()),
-                _ => {},
-            }
-            offset += response.header.length as usize;
-            if offset == n_received || response.header.length == 0 {
-                // We've fully parsed the datagram, but there may be further datagrams
-                // with additional netlink response parts.
-                break;
-            }
-        }
-    }
-}
-
 pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
-    let link_responses = netlink_call(
+    let link_responses = netlink_request_rtnl(
         RtnlMessage::GetLink(LinkMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
-        None
     )?;
     let links = link_responses
         .into_iter()
@@ -339,10 +203,9 @@ fn add_del(iface: &InterfaceName, add: bool) -> io::Result<()> {
     message.nlas.push(link::nlas::Nla::Info(vec![Info::Kind(link::nlas::InfoKind::Wireguard)]));
     let extra_flags = if add { NLM_F_CREATE | NLM_F_EXCL } else { 0 };
     let rtnl_message = if add { RtnlMessage::NewLink(message) } else { RtnlMessage::DelLink(message) };
-    let result = netlink_call(
+    let result = netlink_request_rtnl(
         rtnl_message,
         Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags),
-        Some(NETLINK_ROUTE),
     );
     match result {
         Err(e) if e.kind() != io::ErrorKind::AlreadyExists => Err(e),
@@ -375,7 +238,7 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
         cmd: WireguardCmd::SetDevice,
         nlas,
     });
-    netlink_call(genlmsg, Some(NLM_F_REQUEST | NLM_F_ACK), None)?;
+    netlink_request_genl(genlmsg, Some(NLM_F_REQUEST | NLM_F_ACK))?;
     Ok(())
 }
 
@@ -384,7 +247,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         cmd: WireguardCmd::GetDevice,
         nlas: vec![WgDeviceAttrs::IfName(name.as_str_lossy().to_string())],
     });
-    let responses = netlink_call(genlmsg, Some(NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK), None)?;
+    let responses = netlink_request_genl(genlmsg, Some(NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK))?;
 
     match responses.get(0) {
         Some(NetlinkMessage {

@@ -26,6 +26,7 @@ genetlink = "0.2.0"
 tokio = { version = "1.9.0", features = ["macros", "rt-multi-thread"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+netlink-request = { path = "../netlink-request" }
 netlink-sys = "0.8"
 netlink-packet-core = "0.4"
 netlink-packet-generic = "0.2"

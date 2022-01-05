@@ -984,11 +984,18 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
     }
 
     for (device_info, store) in devices {
+        let public_key = match &device_info.public_key {
+            Some(key) => key.to_base64(),
+            None => {
+                log::warn!("network {} is missing public key.", device_info.name.to_string().yellow());
+                continue
+            },
+        };
         let peers = store.peers();
         let cidrs = store.cidrs();
         let me = peers
             .iter()
-            .find(|p| p.public_key == device_info.public_key.as_ref().unwrap().to_base64())
+            .find(|p| p.public_key == public_key)
             .ok_or_else(|| anyhow!("missing peer info"))?;
 
         let mut peer_states = device_info

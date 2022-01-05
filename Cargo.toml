@@ -1,5 +1,5 @@
 [workspace]
-members = ["server", "client", "hostsfile", "shared", "publicip"]
+members = ["server", "client", "hostsfile", "shared", "publicip", "netlink-request"]
 
 [profile.release]
 codegen-units = 1
