@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 mod linux {
     use netlink_packet_core::{
         NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
