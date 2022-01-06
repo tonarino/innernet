@@ -991,6 +991,7 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
                 continue
             },
         };
+
         let peers = store.peers();
         let cidrs = store.cidrs();
         let me = peers

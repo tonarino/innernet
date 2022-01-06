@@ -1,6 +1,6 @@
 use ipnetwork::IpNetwork;
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_REQUEST,
 };
 use netlink_packet_route::{
     address,
@@ -9,7 +9,7 @@ use netlink_packet_route::{
     route, AddressHeader, AddressMessage, LinkHeader, LinkMessage, RouteHeader, RouteMessage,
     RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN,
 };
-use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr};
+use netlink_request::netlink_request_rtnl;
 use std::{io, net::IpAddr};
 use wireguard_control::InterfaceName;
 
@@ -23,55 +23,6 @@ fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
     }
 }
 
-fn netlink_call(
-    message: RtnlMessage,
-    flags: Option<u16>,
-) -> Result<Vec<NetlinkMessage<RtnlMessage>>, io::Error> {
-    let mut req = NetlinkMessage::from(message);
-    req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
-    req.finalize();
-    let mut buf = [0; 4096];
-    req.serialize(&mut buf);
-    let len = req.buffer_len();
-
-    log::trace!("netlink request: {:?}", req);
-    let socket = Socket::new(NETLINK_ROUTE)?;
-    let kernel_addr = SocketAddr::new(0, 0);
-    socket.connect(&kernel_addr)?;
-    let n_sent = socket.send(&buf[..len], 0)?;
-    if n_sent != len {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "failed to send netlink request",
-        ));
-    }
-
-    let mut responses = vec![];
-    loop {
-        let n_received = socket.recv(&mut &mut buf[..], 0)?;
-        let mut offset = 0;
-        loop {
-            let bytes = &buf[offset..];
-            let response = NetlinkMessage::<RtnlMessage>::deserialize(bytes)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-            responses.push(response.clone());
-            log::trace!("netlink response: {:?}", response);
-            match response.payload {
-                // We've parsed all parts of the response and can leave the loop.
-                NetlinkPayload::Ack(_) | NetlinkPayload::Done => return Ok(responses),
-                NetlinkPayload::Error(e) => return Err(e.into()),
-                _ => {},
-            }
-            offset += response.header.length as usize;
-            if offset == n_received || response.header.length == 0 {
-                // We've fully parsed the datagram, but there may be further datagrams
-                // with additional netlink response parts.
-                break;
-            }
-        }
-    }
-}
-
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
     let index = if_nametoindex(interface)?;
     let message = LinkMessage {
@@ -82,7 +33,7 @@ pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
         },
         nlas: vec![link::nlas::Nla::Mtu(mtu)],
     };
-    netlink_call(RtnlMessage::SetLink(message), None)?;
+    netlink_request_rtnl(RtnlMessage::SetLink(message), None)?;
     Ok(())
 }
 
@@ -114,7 +65,7 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Er
         },
         nlas,
     };
-    netlink_call(
+    netlink_request_rtnl(
         RtnlMessage::NewAddress(message),
         Some(NLM_F_REQUEST | NLM_F_ACK | NLM_F_REPLACE | NLM_F_CREATE),
     )?;
@@ -123,6 +74,7 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Er
 
 pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
     let if_index = if_nametoindex(interface)?;
+    log::trace!("adding route {} to interface {}", cidr, interface);
     let (address_family, dst) = match cidr {
         IpNetwork::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),
         IpNetwork::V6(network) => (AF_INET6 as u8, network.network().octets().to_vec()),
@@ -140,15 +92,18 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
         nlas: vec![route::Nla::Destination(dst), route::Nla::Oif(if_index)],
     };
 
-    match netlink_call(RtnlMessage::NewRoute(message), None) {
+    match netlink_request_rtnl(RtnlMessage::NewRoute(message), None) {
         Ok(_) => Ok(true),
-        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(false),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            log::debug!("route {} already existed.", cidr);
+            Ok(false)
+        },
         Err(e) => Err(e),
     }
 }
 
 fn get_links() -> Result<Vec<String>, io::Error> {
-    let link_responses = netlink_call(
+    let link_responses = netlink_request_rtnl(
         RtnlMessage::GetLink(LinkMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
     )?;
@@ -181,7 +136,7 @@ fn get_links() -> Result<Vec<String>, io::Error> {
 
 pub fn get_local_addrs() -> Result<impl Iterator<Item = IpAddr>, io::Error> {
     let links = get_links()?;
-    let addr_responses = netlink_call(
+    let addr_responses = netlink_request_rtnl(
         RtnlMessage::GetAddress(AddressMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
     )?;

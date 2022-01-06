@@ -351,21 +351,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "genetlink"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34124e8a95471f1c636fd7327435c09a7ddabc9eba0eaaf35f13dfa82787d14e"
-dependencies = [
- "futures",
- "netlink-packet-core",
- "netlink-packet-generic",
- "netlink-packet-utils",
- "netlink-proto",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -640,9 +625,9 @@ dependencies = [
 
 [[package]]
 name = "netlink-packet-generic"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb61a9ec5898cb27937b84e9e602120c0deaef0d1f7f613d614a9678b6f33f25"
+checksum = "8678ffbbfef3dd88acbe85ed31d32f0de0a100854ee7d47fe5b250f81857a23b"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -679,9 +664,8 @@ dependencies = [
 
 [[package]]
 name = "netlink-packet-wireguard"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36d355f9420e6610c937288327fc7ce1efb46c1bd6e6163821f3781c2e0ee9c0"
+version = "0.1.1"
+source = "git+https://github.com/mcginty/netlink?branch=wireguard-fixes#2b60e310ede5fa4c80c00874c19ee755b1bc8249"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -1071,6 +1055,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-packet-route",
+ "netlink-request",
  "netlink-sys",
  "nix",
  "publicip",
@@ -1442,7 +1427,6 @@ dependencies = [
  "curve25519-dalek",
  "env_logger 0.9.0",
  "futures",
- "genetlink",
  "hex",
  "libc",
  "netlink-packet-core",

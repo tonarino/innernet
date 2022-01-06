@@ -58,6 +58,7 @@ where
     req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
     req.finalize();
     let mut buf = [0; 4096];
+    println!("request: {:?}", req);
     req.serialize(&mut buf);
     let len = req.buffer_len();
 
@@ -80,6 +81,7 @@ where
             let bytes = &buf[offset..];
             let response = NetlinkMessage::<I>::deserialize(bytes)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            println!("response: {:?}", response);
             responses.push(response.clone());
             match response.payload {
                 // We've parsed all parts of the response and can leave the loop.
