@@ -34,6 +34,7 @@ pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
         nlas: vec![link::nlas::Nla::Mtu(mtu)],
     };
     netlink_request_rtnl(RtnlMessage::SetLink(message), None)?;
+    log::debug!("set interface {} up with mtu {}", interface, mtu);
     Ok(())
 }
 
@@ -69,12 +70,12 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Er
         RtnlMessage::NewAddress(message),
         Some(NLM_F_REQUEST | NLM_F_ACK | NLM_F_REPLACE | NLM_F_CREATE),
     )?;
+    log::debug!("set address {} on interface {}", addr, interface);
     Ok(())
 }
 
 pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
     let if_index = if_nametoindex(interface)?;
-    log::trace!("adding route {} to interface {}", cidr, interface);
     let (address_family, dst) = match cidr {
         IpNetwork::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),
         IpNetwork::V6(network) => (AF_INET6 as u8, network.network().octets().to_vec()),
@@ -93,7 +94,10 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
     };
 
     match netlink_request_rtnl(RtnlMessage::NewRoute(message), None) {
-        Ok(_) => Ok(true),
+        Ok(_) => {
+            log::debug!("added route {} to interface {}", cidr, interface);
+            Ok(true)
+        },
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
             log::debug!("route {} already existed.", cidr);
             Ok(false)
