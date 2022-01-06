@@ -3,7 +3,7 @@ name = "netlink-request"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 netlink-sys = "0.8"
 netlink-packet-core = "0.4"
 netlink-packet-generic = "0.3"
