@@ -676,20 +676,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "netlink-proto"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "073885f70c1d54fdc6148075e8e38a5e8a28179f59de5bd0fc6277cae4fec95a"
-dependencies = [
- "bytes",
- "futures",
- "log",
- "netlink-packet-core",
- "netlink-sys",
- "tokio",
-]
-
-[[package]]
 name = "netlink-request"
 version = "0.1.0"
 dependencies = [
@@ -707,10 +693,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed51a4602bb956eefef0ebc15f478bf9732fa3cc706e0a37112e654f41c5b92c"
 dependencies = [
  "bytes",
- "futures",
  "libc",
  "log",
- "tokio",
 ]
 
 [[package]]
@@ -1220,9 +1204,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70e992e41e0d2fb9f755b37446f20900f64446ef54874f40a60c78f021ac6144"
 dependencies = [
  "autocfg",
- "bytes",
  "libc",
- "memchr",
  "mio",
  "num_cpus",
  "pin-project-lite",
@@ -1433,7 +1415,6 @@ dependencies = [
  "netlink-packet-generic",
  "netlink-packet-route",
  "netlink-packet-wireguard",
- "netlink-proto",
  "netlink-request",
  "netlink-sys",
  "rand_core",

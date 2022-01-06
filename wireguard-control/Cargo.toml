@@ -20,8 +20,6 @@ curve25519-dalek = "4.0.0-pre.1"
 base64 = "0.13.0"
 env_logger = "0.9.0"
 futures = "0.3.16"
-netlink-packet-core = "0.4.0"
-netlink-proto = "0.9.0"
 tokio = { version = "1.9.0", features = ["macros", "rt-multi-thread"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
