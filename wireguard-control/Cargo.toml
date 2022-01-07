@@ -16,12 +16,6 @@ libc = "0.2"
 rand_core = "0.6"
 curve25519-dalek = "4.0.0-pre.1"
 
-[dev-dependencies]
-base64 = "0.13.0"
-env_logger = "0.9.0"
-futures = "0.3.16"
-tokio = { version = "1.9.0", features = ["macros", "rt-multi-thread"] }
-
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-request = { path = "../netlink-request" }
 netlink-sys = "0.8"
