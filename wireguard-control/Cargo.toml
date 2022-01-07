@@ -13,10 +13,13 @@ version = "1.5.2"
 base64 = "0.13"
 hex = "0.4"
 libc = "0.2"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-wireguard-control-sys = { path = "../wireguard-control-sys", version = "1.5.2" }
-
-[target.'cfg(not(target_os = "linux"))'.dependencies]
 rand_core = "0.6"
 curve25519-dalek = "4.0.0-pre.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+netlink-request = { path = "../netlink-request" }
+netlink-sys = "0.8"
+netlink-packet-core = "0.4"
+netlink-packet-generic = "0.3"
+netlink-packet-route = "0.10"
+netlink-packet-wireguard = { git = "https://github.com/mcginty/netlink", branch = "wireguard-fixes" }

@@ -3,8 +3,8 @@ use colored::*;
 use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
-use shared::{interface_config::ServerInfo, PeerDiff, INNERNET_PUBKEY_HEADER, Interface};
-use std::{io, path::Path, time::Duration, ffi::OsStr};
+use shared::{interface_config::ServerInfo, Interface, PeerDiff, INNERNET_PUBKEY_HEADER};
+use std::{ffi::OsStr, io, path::Path, time::Duration};
 use ureq::{Agent, AgentBuilder};
 
 static LOGGER: Logger = Logger;
@@ -176,18 +176,19 @@ pub fn all_installed(config_dir: &Path) -> Result<Vec<Interface>, std::io::Error
         .into_iter()
         .collect::<Result<_, _>>()?;
 
-    let installed: Vec<_> = entries.into_iter()
+    let installed: Vec<_> = entries
+        .into_iter()
         .filter(|entry| match entry.file_type() {
             Ok(f) => f.is_file(),
-            _ => false
+            _ => false,
         })
         .filter_map(|entry| {
             let path = entry.path();
             match (path.extension(), path.file_stem()) {
                 (Some(extension), Some(stem)) if extension == OsStr::new("conf") => {
                     Some(stem.to_string_lossy().to_string())
-                }
-                _ => None
+                },
+                _ => None,
             }
         })
         .map(|name| name.parse())

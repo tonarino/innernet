@@ -1,0 +1,11 @@
+[package]
+name = "netlink-request"
+version = "0.1.0"
+edition = "2021"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+netlink-sys = "0.8"
+netlink-packet-core = "0.4"
+netlink-packet-generic = "0.3"
+netlink-packet-route = "0.10"
+netlink-packet-wireguard = { git = "https://github.com/mcginty/netlink", branch = "wireguard-fixes" }
