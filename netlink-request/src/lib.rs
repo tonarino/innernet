@@ -4,12 +4,13 @@ mod linux {
         NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
         NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
     };
-    use netlink_packet_generic::{GenlMessage, ctrl::{GenlCtrl, GenlCtrlCmd, nlas::GenlCtrlAttrs}, GenlFamily};
-    use netlink_packet_route::{
-        RtnlMessage,
+    use netlink_packet_generic::{
+        ctrl::{nlas::GenlCtrlAttrs, GenlCtrl, GenlCtrlCmd},
+        GenlFamily, GenlMessage,
     };
-    use netlink_sys::{protocols::NETLINK_ROUTE, Socket, constants::NETLINK_GENERIC};
-    use std::{io, fmt::Debug};
+    use netlink_packet_route::RtnlMessage;
+    use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
+    use std::{fmt::Debug, io};
 
     macro_rules! get_nla_value {
         ($nlas:expr, $e:ident, $v:ident) => {
@@ -20,7 +21,10 @@ mod linux {
         };
     }
 
-    pub fn netlink_request_genl<F>(mut message: GenlMessage<F>, flags: Option<u16>) -> Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error>
+    pub fn netlink_request_genl<F>(
+        mut message: GenlMessage<F>,
+        flags: Option<u16>,
+    ) -> Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error>
     where
         F: GenlFamily + Clone + Debug + Eq,
         GenlMessage<F>: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
@@ -29,29 +33,46 @@ mod linux {
             let genlmsg: GenlMessage<GenlCtrl> = GenlMessage::from_payload(GenlCtrl {
                 cmd: GenlCtrlCmd::GetFamily,
                 nlas: vec![GenlCtrlAttrs::FamilyName(F::family_name().to_string())],
-            });        
-            let responses = netlink_request_genl::<GenlCtrl>(genlmsg, Some(NLM_F_REQUEST | NLM_F_ACK))?;
+            });
+            let responses =
+                netlink_request_genl::<GenlCtrl>(genlmsg, Some(NLM_F_REQUEST | NLM_F_ACK))?;
 
             match responses.get(0) {
-                Some(NetlinkMessage { payload: NetlinkPayload::InnerMessage(GenlMessage { payload: GenlCtrl { nlas, .. }, ..}), .. }) => {
+                Some(NetlinkMessage {
+                    payload:
+                        NetlinkPayload::InnerMessage(GenlMessage {
+                            payload: GenlCtrl { nlas, .. },
+                            ..
+                        }),
+                    ..
+                }) => {
                     let family_id = get_nla_value!(nlas, GenlCtrlAttrs, FamilyId)
                         .ok_or_else(|| io::ErrorKind::NotFound)?;
                     message.set_resolved_family_id(*family_id);
                 },
-                _ => return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Unexpected netlink payload",
-                )),
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "Unexpected netlink payload",
+                    ))
+                },
             };
         }
         netlink_request(message, flags, NETLINK_GENERIC)
     }
 
-    pub fn netlink_request_rtnl(message: RtnlMessage, flags: Option<u16>) -> Result<Vec<NetlinkMessage<RtnlMessage>>, io::Error> {
+    pub fn netlink_request_rtnl(
+        message: RtnlMessage,
+        flags: Option<u16>,
+    ) -> Result<Vec<NetlinkMessage<RtnlMessage>>, io::Error> {
         netlink_request(message, flags, NETLINK_ROUTE)
     }
 
-    pub fn netlink_request<I>(message: I, flags: Option<u16>, socket: isize) -> Result<Vec<NetlinkMessage<I>>, io::Error>
+    pub fn netlink_request<I>(
+        message: I,
+        flags: Option<u16>,
+        socket: isize,
+    ) -> Result<Vec<NetlinkMessage<I>>, io::Error>
     where
         NetlinkPayload<I>: From<I>,
         I: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
@@ -98,7 +119,6 @@ mod linux {
             }
         }
     }
-
 }
 
 #[cfg(target_os = "linux")]

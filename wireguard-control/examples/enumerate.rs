@@ -1,6 +1,5 @@
 use wireguard_control::{Backend, Device};
 
-
 #[cfg(target_os = "linux")]
 const BACKEND: Backend = Backend::Kernel;
 #[cfg(not(target_os = "linux"))]

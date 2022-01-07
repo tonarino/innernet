@@ -987,8 +987,11 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
         let public_key = match &device_info.public_key {
             Some(key) => key.to_base64(),
             None => {
-                log::warn!("network {} is missing public key.", device_info.name.to_string().yellow());
-                continue
+                log::warn!(
+                    "network {} is missing public key.",
+                    device_info.name.to_string().yellow()
+                );
+                continue;
             },
         };
 

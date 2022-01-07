@@ -1,10 +1,9 @@
 use crate::{
-    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, PeerConfig,
-    PeerConfigBuilder, PeerInfo, PeerStats, Key,
+    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfig,
+    PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK,
-    NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
 use netlink_packet_route::{
@@ -21,7 +20,7 @@ use netlink_packet_wireguard::{
     nlas::{WgAllowedIpAttrs, WgDeviceAttrs, WgPeerAttrs},
     Wireguard, WireguardCmd,
 };
-use netlink_request::{netlink_request_rtnl, netlink_request_genl};
+use netlink_request::{netlink_request_genl, netlink_request_rtnl};
 
 use std::{convert::TryFrom, io};
 
@@ -95,8 +94,7 @@ impl<'a> TryFrom<Vec<WgPeerAttrs>> for PeerInfo {
         let public_key = get_nla_value!(attrs, WgPeerAttrs, PublicKey)
             .map(|key| Key(*key))
             .ok_or(io::ErrorKind::NotFound)?;
-        let preshared_key =
-            get_nla_value!(attrs, WgPeerAttrs, PresharedKey).map(|key| Key(*key));
+        let preshared_key = get_nla_value!(attrs, WgPeerAttrs, PresharedKey).map(|key| Key(*key));
         let endpoint = get_nla_value!(attrs, WgPeerAttrs, Endpoint).cloned();
         let persistent_keepalive_interval =
             get_nla_value!(attrs, WgPeerAttrs, PersistentKeepalive).cloned();
@@ -138,10 +136,8 @@ impl<'a> TryFrom<&'a Wireguard> for Device {
         let name = get_nla_value!(wg.nlas, WgDeviceAttrs, IfName)
             .ok_or_else(|| io::ErrorKind::NotFound)?
             .parse()?;
-        let public_key =
-            get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey).map(|key| Key(*key));
-        let private_key =
-            get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
+        let public_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey).map(|key| Key(*key));
+        let private_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
         let listen_port = get_nla_value!(wg.nlas, WgDeviceAttrs, ListenPort).cloned();
         let fwmark = get_nla_value!(wg.nlas, WgDeviceAttrs, Fwmark).cloned();
         let peers = get_nla_value!(wg.nlas, WgDeviceAttrs, Peers)
@@ -199,17 +195,22 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
 
 fn add_del(iface: &InterfaceName, add: bool) -> io::Result<()> {
     let mut message = LinkMessage::default();
-    message.nlas.push(link::nlas::Nla::IfName(iface.as_str_lossy().to_string()));
-    message.nlas.push(link::nlas::Nla::Info(vec![Info::Kind(link::nlas::InfoKind::Wireguard)]));
+    message
+        .nlas
+        .push(link::nlas::Nla::IfName(iface.as_str_lossy().to_string()));
+    message.nlas.push(link::nlas::Nla::Info(vec![Info::Kind(
+        link::nlas::InfoKind::Wireguard,
+    )]));
     let extra_flags = if add { NLM_F_CREATE | NLM_F_EXCL } else { 0 };
-    let rtnl_message = if add { RtnlMessage::NewLink(message) } else { RtnlMessage::DelLink(message) };
-    let result = netlink_request_rtnl(
-        rtnl_message,
-        Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags),
-    );
+    let rtnl_message = if add {
+        RtnlMessage::NewLink(message)
+    } else {
+        RtnlMessage::DelLink(message)
+    };
+    let result = netlink_request_rtnl(rtnl_message, Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags));
     match result {
         Err(e) if e.kind() != io::ErrorKind::AlreadyExists => Err(e),
-        _ => Ok(())
+        _ => Ok(()),
     }
 }
 

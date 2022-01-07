@@ -1,7 +1,5 @@
 use ipnetwork::IpNetwork;
-use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_REQUEST,
-};
+use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_REQUEST};
 use netlink_packet_route::{
     address,
     constants::*,

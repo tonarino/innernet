@@ -381,4 +381,3 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
         _ => Err(io::ErrorKind::Other.into()),
     }
 }
-
