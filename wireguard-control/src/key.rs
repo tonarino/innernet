@@ -45,6 +45,7 @@ impl Key {
     }
 
     /// Generates and returns a new preshared key.
+    #[must_use]
     pub fn generate_preshared() -> Self {
         use rand_core::{OsRng, RngCore};
 
@@ -54,6 +55,7 @@ impl Key {
     }
 
     /// Generates a public key for this private key.
+    #[must_use]
     pub fn generate_public(&self) -> Self {
         use curve25519_dalek::scalar::Scalar;
 
@@ -66,6 +68,7 @@ impl Key {
     }
 
     /// Generates an all-zero key.
+    #[must_use]
     pub fn zero() -> Self {
         Self([0u8; 32])
     }

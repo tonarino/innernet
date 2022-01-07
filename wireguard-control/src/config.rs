@@ -102,29 +102,34 @@ impl PeerConfigBuilder {
     }
 
     /// Specifies a preshared key to be set for this peer.
+    #[must_use]
     pub fn set_preshared_key(mut self, key: Key) -> Self {
         self.preshared_key = Some(key);
         self
     }
 
     /// Specifies that this peer's preshared key should be unset.
+    #[must_use]
     pub fn unset_preshared_key(self) -> Self {
         self.set_preshared_key(Key::zero())
     }
 
     /// Specifies an exact endpoint that this peer should be allowed to connect from.
+    #[must_use]
     pub fn set_endpoint(mut self, address: SocketAddr) -> Self {
         self.endpoint = Some(address);
         self
     }
 
     /// Specifies the interval between keepalive packets to be sent to this peer.
+    #[must_use]
     pub fn set_persistent_keepalive_interval(mut self, interval: u16) -> Self {
         self.persistent_keepalive_interval = Some(interval);
         self
     }
 
     /// Specifies that this peer does not require keepalive packets.
+    #[must_use]
     pub fn unset_persistent_keepalive(self) -> Self {
         self.set_persistent_keepalive_interval(0)
     }
@@ -133,6 +138,7 @@ impl PeerConfigBuilder {
     ///
     /// See [`AllowedIp`](AllowedIp) for details. This method can be called
     /// more than once, and all IP addresses will be added to the configuration.
+    #[must_use]
     pub fn add_allowed_ip(mut self, address: IpAddr, cidr: u8) -> Self {
         self.allowed_ips.push(AllowedIp { address, cidr });
         self
@@ -142,6 +148,7 @@ impl PeerConfigBuilder {
     ///
     /// See [`AllowedIp`](AllowedIp) for details. This method can be called
     /// more than once, and all IP addresses will be added to the configuration.
+    #[must_use]
     pub fn add_allowed_ips(mut self, ips: &[AllowedIp]) -> Self {
         self.allowed_ips.extend_from_slice(ips);
         self
@@ -151,6 +158,7 @@ impl PeerConfigBuilder {
     ///
     /// This is a convenience method for cases when you want to connect to a server
     /// that all traffic should be routed through.
+    #[must_use]
     pub fn allow_all_ips(self) -> Self {
         self.add_allowed_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)
             .add_allowed_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)), 0)
@@ -158,12 +166,14 @@ impl PeerConfigBuilder {
 
     /// Specifies that the allowed IP addresses in this configuration should replace
     /// the existing configuration of the interface, not be appended to it.
+    #[must_use]
     pub fn replace_allowed_ips(mut self) -> Self {
         self.replace_allowed_ips = true;
         self
     }
 
     /// Mark peer for removal from interface.
+    #[must_use]
     pub fn remove(mut self) -> Self {
         self.remove_me = true;
         self

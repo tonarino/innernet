@@ -291,6 +291,7 @@ pub struct DeviceUpdate {
 
 impl DeviceUpdate {
     /// Creates a new `DeviceConfigBuilder` that does nothing when applied.
+    #[must_use]
     pub fn new() -> Self {
         DeviceUpdate {
             public_key: None,
@@ -307,40 +308,47 @@ impl DeviceUpdate {
     /// This is a convenience method that simply wraps
     /// [`set_public_key`](DeviceConfigBuilder::set_public_key)
     /// and [`set_private_key`](DeviceConfigBuilder::set_private_key).
+    #[must_use]
     pub fn set_keypair(self, keypair: KeyPair) -> Self {
         self.set_public_key(keypair.public)
             .set_private_key(keypair.private)
     }
 
     /// Specifies a new public key to be applied to the interface.
+    #[must_use]
     pub fn set_public_key(mut self, key: Key) -> Self {
         self.public_key = Some(key);
         self
     }
 
     /// Specifies that the public key for this interface should be unset.
+    #[must_use]
     pub fn unset_public_key(self) -> Self {
         self.set_public_key(Key::zero())
     }
 
     /// Sets a new private key to be applied to the interface.
+    #[must_use]
     pub fn set_private_key(mut self, key: Key) -> Self {
         self.private_key = Some(key);
         self
     }
 
     /// Specifies that the private key for this interface should be unset.
+    #[must_use]
     pub fn unset_private_key(self) -> Self {
         self.set_private_key(Key::zero())
     }
 
     /// Specifies the fwmark value that should be applied to packets coming from the interface.
+    #[must_use]
     pub fn set_fwmark(mut self, fwmark: u32) -> Self {
         self.fwmark = Some(fwmark);
         self
     }
 
     /// Specifies that fwmark should not be set on packets from the interface.
+    #[must_use]
     pub fn unset_fwmark(self) -> Self {
         self.set_fwmark(0)
     }
@@ -348,6 +356,7 @@ impl DeviceUpdate {
     /// Specifies the port to listen for incoming packets on.
     ///
     /// This is useful for a server configuration that listens on a fixed endpoint.
+    #[must_use]
     pub fn set_listen_port(mut self, port: u16) -> Self {
         self.listen_port = Some(port);
         self
@@ -356,6 +365,7 @@ impl DeviceUpdate {
     /// Specifies that a random port should be used for incoming packets.
     ///
     /// This is probably what you want in client configurations.
+    #[must_use]
     pub fn randomize_listen_port(self) -> Self {
         self.set_listen_port(0)
     }
@@ -365,6 +375,7 @@ impl DeviceUpdate {
     /// See [`PeerConfigBuilder`](PeerConfigBuilder) for details on building
     /// peer configurations. This method can be called more than once, and all
     /// peers will be added to the configuration.
+    #[must_use]
     pub fn add_peer(mut self, peer: PeerConfigBuilder) -> Self {
         self.peers.push(peer);
         self
@@ -375,6 +386,7 @@ impl DeviceUpdate {
     /// This is simply a convenience method to make adding peers more fluent.
     /// This method can be called more than once, and all peers will be added
     /// to the configuration.
+    #[must_use]
     pub fn add_peer_with(
         self,
         pubkey: &Key,
@@ -384,6 +396,7 @@ impl DeviceUpdate {
     }
 
     /// Specifies multiple peer configurations to be added to the interface.
+    #[must_use]
     pub fn add_peers(mut self, peers: &[PeerConfigBuilder]) -> Self {
         self.peers.extend_from_slice(peers);
         self
@@ -391,12 +404,14 @@ impl DeviceUpdate {
 
     /// Specifies that the peer configurations in this `DeviceConfigBuilder` should
     /// replace the existing configurations on the interface, not modify or append to them.
+    #[must_use]
     pub fn replace_peers(mut self) -> Self {
         self.replace_peers = true;
         self
     }
 
     /// Specifies that the peer with this public key should be removed from the interface.
+    #[must_use]
     pub fn remove_peer_by_key(self, public_key: &Key) -> Self {
         let mut peer = PeerConfigBuilder::new(public_key);
         peer.remove_me = true;
