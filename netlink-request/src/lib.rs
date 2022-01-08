@@ -1,5 +1,8 @@
 #[cfg(target_os = "linux")]
 mod linux {
+
+    const NETLINK_BUFFER_LENGTH: usize = 4096;
+
     use netlink_packet_core::{
         NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
         NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
@@ -78,9 +81,17 @@ mod linux {
         I: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
     {
         let mut req = NetlinkMessage::from(message);
+
+        if req.buffer_len() > NETLINK_BUFFER_LENGTH {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Serialized netlink packet larger than maximum size {}", NETLINK_BUFFER_LENGTH),
+            ));
+        }
+
         req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
         req.finalize();
-        let mut buf = [0; 4096];
+        let mut buf = [0; NETLINK_BUFFER_LENGTH];
         req.serialize(&mut buf);
         let len = req.buffer_len();
 
