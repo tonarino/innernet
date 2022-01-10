@@ -12,7 +12,8 @@ use netlink_packet_route::{
         self,
         nlas::{Info, InfoKind},
     },
-    LinkMessage, RtnlMessage, traits::Emitable,
+    traits::Emitable,
+    LinkMessage, RtnlMessage,
 };
 use netlink_packet_wireguard::{
     self,
@@ -230,11 +231,10 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
         payload.push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS));
     }
 
-    builder.peers
+    builder
+        .peers
         .iter()
-        .for_each(|peer| {
-            payload.push_peer(peer.to_attrs())
-        });
+        .for_each(|peer| payload.push_peer(peer.to_attrs()));
 
     for message in payload.finish() {
         netlink_request_genl(message, Some(NLM_F_REQUEST | NLM_F_ACK))?;
@@ -261,7 +261,8 @@ impl ApplyPayload {
 
     fn flush_nlas(&mut self) {
         // cleanup: clear out any empty peer lists.
-        self.nlas.retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.len() == 0));
+        self.nlas
+            .retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.len() == 0));
 
         let name = WgDeviceAttrs::IfName(self.iface.clone());
         self.current_buffer_len = name.buffer_len();
@@ -287,9 +288,17 @@ impl ApplyPayload {
     /// A helper function to assist in breaking up large peer lists across multiple netlink messages
     pub fn push_peer(&mut self, peer: Vec<WgPeerAttrs>) {
         const EMPTY_PEERS: WgDeviceAttrs = WgDeviceAttrs::Peers(vec![]);
-        let mut needs_peer_nla = !self.nlas.iter().any(|nla| matches!(nla, WgDeviceAttrs::Peers(_)));
+        let mut needs_peer_nla = !self
+            .nlas
+            .iter()
+            .any(|nla| matches!(nla, WgDeviceAttrs::Peers(_)));
         let peer_buffer_len = peer.as_slice().buffer_len() + 4;
-        let additional_buffer_len = peer_buffer_len + if needs_peer_nla { EMPTY_PEERS.buffer_len() } else { 0 };
+        let additional_buffer_len = peer_buffer_len
+            + if needs_peer_nla {
+                EMPTY_PEERS.buffer_len()
+            } else {
+                0
+            };
         if (self.current_buffer_len + additional_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
             self.flush_nlas();
             needs_peer_nla = true;
@@ -298,12 +307,14 @@ impl ApplyPayload {
         if needs_peer_nla {
             self.push(EMPTY_PEERS);
         }
-        let peers_nla = self.nlas.iter_mut().find_map(|nla| {
-            match nla {
+        let peers_nla = self
+            .nlas
+            .iter_mut()
+            .find_map(|nla| match nla {
                 WgDeviceAttrs::Peers(peers) => Some(peers),
                 _ => None,
-            }
-        }).expect("WgDeviceAttrs::Peers missing from NLAs when it should exist.");
+            })
+            .expect("WgDeviceAttrs::Peers missing from NLAs when it should exist.");
 
         peers_nla.push(peer);
         self.current_buffer_len += peer_buffer_len;
@@ -358,7 +369,7 @@ mod tests {
             WgPeerAttrs::AllowedIps(vec![vec![
                 WgAllowedIpAttrs::Family(AF_INET),
                 WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
-                WgAllowedIpAttrs::Cidr(24)
+                WgAllowedIpAttrs::Cidr(24),
             ]]),
         ]);
         assert_eq!(payload.finish().len(), 1);
@@ -379,7 +390,7 @@ mod tests {
                 WgPeerAttrs::AllowedIps(vec![vec![
                     WgAllowedIpAttrs::Family(AF_INET),
                     WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
-                    WgAllowedIpAttrs::Cidr(24)
+                    WgAllowedIpAttrs::Cidr(24),
                 ]]),
             ]);
         }

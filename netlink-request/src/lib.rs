@@ -8,8 +8,9 @@ mod linux {
         NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
     };
     use netlink_packet_generic::{
+        constants::GENL_HDRLEN,
         ctrl::{nlas::GenlCtrlAttrs, GenlCtrl, GenlCtrlCmd},
-        GenlFamily, GenlMessage, constants::GENL_HDRLEN,
+        GenlFamily, GenlMessage,
     };
     use netlink_packet_route::RtnlMessage;
     use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
@@ -85,7 +86,10 @@ mod linux {
         if req.buffer_len() > MAX_NETLINK_BUFFER_LENGTH {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Serialized netlink packet larger than maximum size {}", MAX_NETLINK_BUFFER_LENGTH),
+                format!(
+                    "Serialized netlink packet larger than maximum size {}",
+                    MAX_NETLINK_BUFFER_LENGTH
+                ),
             ));
         }
 
@@ -133,4 +137,7 @@ mod linux {
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::{netlink_request, netlink_request_genl, netlink_request_rtnl, MAX_NETLINK_BUFFER_LENGTH, MAX_GENL_PAYLOAD_LENGTH};
+pub use linux::{
+    netlink_request, netlink_request_genl, netlink_request_rtnl, MAX_GENL_PAYLOAD_LENGTH,
+    MAX_NETLINK_BUFFER_LENGTH,
+};
