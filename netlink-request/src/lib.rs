@@ -1,7 +1,7 @@
 #[cfg(target_os = "linux")]
 mod linux {
-
-    const NETLINK_BUFFER_LENGTH: usize = 4096;
+    pub const MAX_NETLINK_BUFFER_LENGTH: usize = 4096;
+    pub const MAX_GENL_PAYLOAD_LENGTH: usize = MAX_NETLINK_BUFFER_LENGTH - GENL_HDRLEN;
 
     use netlink_packet_core::{
         NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
@@ -9,7 +9,7 @@ mod linux {
     };
     use netlink_packet_generic::{
         ctrl::{nlas::GenlCtrlAttrs, GenlCtrl, GenlCtrlCmd},
-        GenlFamily, GenlMessage,
+        GenlFamily, GenlMessage, constants::GENL_HDRLEN,
     };
     use netlink_packet_route::RtnlMessage;
     use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
@@ -82,16 +82,16 @@ mod linux {
     {
         let mut req = NetlinkMessage::from(message);
 
-        if req.buffer_len() > NETLINK_BUFFER_LENGTH {
+        if req.buffer_len() > MAX_NETLINK_BUFFER_LENGTH {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Serialized netlink packet larger than maximum size {}", NETLINK_BUFFER_LENGTH),
+                format!("Serialized netlink packet larger than maximum size {}", MAX_NETLINK_BUFFER_LENGTH),
             ));
         }
 
         req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
         req.finalize();
-        let mut buf = [0; NETLINK_BUFFER_LENGTH];
+        let mut buf = [0; MAX_NETLINK_BUFFER_LENGTH];
         req.serialize(&mut buf);
         let len = req.buffer_len();
 
@@ -133,4 +133,4 @@ mod linux {
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::{netlink_request, netlink_request_genl, netlink_request_rtnl};
+pub use linux::{netlink_request, netlink_request_genl, netlink_request_rtnl, MAX_NETLINK_BUFFER_LENGTH, MAX_GENL_PAYLOAD_LENGTH};
