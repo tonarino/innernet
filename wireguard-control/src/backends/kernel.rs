@@ -251,16 +251,17 @@ struct ApplyPayload {
 
 impl ApplyPayload {
     fn new(iface: &InterfaceName) -> Self {
+        let iface_str = iface.as_str_lossy().to_string();
         Self {
-            iface: iface.as_str_lossy().to_string(),
-            nlas: vec![],
+            iface: iface_str.clone(),
+            nlas: vec![WgDeviceAttrs::IfName(iface_str)],
             messages: vec![],
             current_buffer_len: 0,
         }
     }
 
     fn flush_nlas(&mut self) {
-        // cleanup: clear out any empty peer lists.
+        // // cleanup: clear out any empty peer lists.
         self.nlas
             .retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.len() == 0));
 
@@ -268,10 +269,11 @@ impl ApplyPayload {
         self.current_buffer_len = name.buffer_len();
 
         if !self.nlas.is_empty() {
-            self.messages.push(GenlMessage::from_payload(Wireguard {
+            let message = GenlMessage::from_payload(Wireguard {
                 cmd: WireguardCmd::SetDevice,
                 nlas: std::mem::replace(&mut self.nlas, vec![name]),
-            }));
+            });
+            self.messages.push(message);
         }
     }
 
@@ -293,12 +295,10 @@ impl ApplyPayload {
             .iter()
             .any(|nla| matches!(nla, WgDeviceAttrs::Peers(_)));
         let peer_buffer_len = peer.as_slice().buffer_len() + 4;
-        let additional_buffer_len = peer_buffer_len
-            + if needs_peer_nla {
-                EMPTY_PEERS.buffer_len()
-            } else {
-                0
-            };
+        let mut additional_buffer_len = peer_buffer_len;
+        if needs_peer_nla {
+            additional_buffer_len += EMPTY_PEERS.buffer_len();
+        }
         if (self.current_buffer_len + additional_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
             self.flush_nlas();
             needs_peer_nla = true;
