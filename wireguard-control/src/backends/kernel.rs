@@ -263,7 +263,7 @@ impl ApplyPayload {
     fn flush_nlas(&mut self) {
         // // cleanup: clear out any empty peer lists.
         self.nlas
-            .retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.len() == 0));
+            .retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.is_empty()));
 
         let name = WgDeviceAttrs::IfName(self.iface.clone());
         self.current_buffer_len = name.buffer_len();
