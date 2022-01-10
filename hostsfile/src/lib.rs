@@ -5,7 +5,7 @@ use std::{
     io::{self, BufRead, BufReader, ErrorKind, Write},
     net::IpAddr,
     path::{Path, PathBuf},
-    result,
+    result, time::{SystemTime, UNIX_EPOCH},
 };
 
 pub type Result<T> = result::Result<T, Box<dyn std::error::Error>>;
@@ -151,11 +151,30 @@ impl HostsBuilder {
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
     /// name already, it will be replaced with the new list instead.
+    /// 
+    /// `hosts_path` is the *full* path to write to, including the filename.
     ///
     /// On Windows, the format of one hostname per line will be used, all other systems will use
     /// the same format as Unix and Unix-like systems (i.e. allow multiple hostnames per line).
     pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<()> {
         let hosts_path = hosts_path.as_ref();
+        if hosts_path.is_dir() {
+            // TODO(jake): use io::ErrorKind::IsADirectory when it's stable.
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "hosts path was a directory"));
+        }
+        let hosts_dir = hosts_path.parent()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "hosts path missing a parent folder"))?;
+
+        let start = SystemTime::now();
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let mut temp_filename = hosts_path.file_name()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "hosts path missing a filename"))?
+            .to_os_string();
+        temp_filename.push(format!(".tmp{}", since_the_epoch.as_millis()));
+        let temp_path = hosts_dir.with_file_name(temp_filename);
+
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
 
@@ -223,8 +242,10 @@ impl HostsBuilder {
             .read(true)
             .write(true)
             .truncate(true)
-            .open(hosts_path)?
+            .open(&temp_path)?
             .write_all(&s)?;
+
+        std::fs::rename(temp_path, hosts_path)?;
 
         Ok(())
     }
