@@ -5,7 +5,8 @@ use std::{
     io::{self, BufRead, BufReader, ErrorKind, Write},
     net::IpAddr,
     path::{Path, PathBuf},
-    result, time::{SystemTime, UNIX_EPOCH},
+    result,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub type Result<T> = result::Result<T, Box<dyn std::error::Error>>;
@@ -149,9 +150,30 @@ impl HostsBuilder {
         Ok(hosts_file)
     }
 
+    pub fn get_temp_path(hosts_path: &Path) -> io::Result<PathBuf> {
+        let hosts_dir = hosts_path.parent().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "hosts path missing a parent folder",
+            )
+        })?;
+        let start = SystemTime::now();
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let mut temp_filename = hosts_path
+            .file_name()
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "hosts path missing a filename")
+            })?
+            .to_os_string();
+        temp_filename.push(format!(".tmp{}", since_the_epoch.as_millis()));
+        Ok(hosts_dir.with_file_name(temp_filename))
+    }
+
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
     /// name already, it will be replaced with the new list instead.
-    /// 
+    ///
     /// `hosts_path` is the *full* path to write to, including the filename.
     ///
     /// On Windows, the format of one hostname per line will be used, all other systems will use
@@ -160,20 +182,13 @@ impl HostsBuilder {
         let hosts_path = hosts_path.as_ref();
         if hosts_path.is_dir() {
             // TODO(jake): use io::ErrorKind::IsADirectory when it's stable.
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "hosts path was a directory"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "hosts path was a directory",
+            ));
         }
-        let hosts_dir = hosts_path.parent()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "hosts path missing a parent folder"))?;
 
-        let start = SystemTime::now();
-        let since_the_epoch = start
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
-        let mut temp_filename = hosts_path.file_name()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "hosts path missing a filename"))?
-            .to_os_string();
-        temp_filename.push(format!(".tmp{}", since_the_epoch.as_millis()));
-        let temp_path = hosts_dir.with_file_name(temp_filename);
+        let temp_path = Self::get_temp_path(hosts_path)?;
 
         let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
         let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
@@ -248,5 +263,30 @@ impl HostsBuilder {
         std::fs::rename(temp_path, hosts_path)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_temp_path_good() {
+        let hosts_path = Path::new("/etc/hosts");
+        let temp_path = HostsBuilder::get_temp_path(hosts_path).unwrap();
+        println!("{:?}", temp_path);
+        assert!(temp_path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("hosts.tmp"));
+    }
+
+    #[test]
+    fn test_temp_path_invalid() {
+        let hosts_path = Path::new("/");
+        assert!(HostsBuilder::get_temp_path(hosts_path).is_err());
     }
 }
