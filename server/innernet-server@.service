@@ -8,6 +8,8 @@ Type=simple
 Environment="RUST_LOG=info"
 ExecStart=/usr/bin/innernet-server serve %i
 Restart=always
+# When the daemon exits, wait this amount of secs before restarting instead of default 100ms.
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
