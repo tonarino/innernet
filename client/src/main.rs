@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail};
+use clap::{AppSettings, Args, IntoApp, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
@@ -20,7 +21,6 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use clap::{AppSettings, IntoApp, Parser, Subcommand, Args};
 use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;

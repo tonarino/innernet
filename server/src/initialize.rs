@@ -1,6 +1,6 @@
 use crate::*;
 use anyhow::anyhow;
-use clap::{Parser};
+use clap::Parser;
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
