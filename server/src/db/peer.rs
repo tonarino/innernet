@@ -9,7 +9,6 @@ use std::{
     ops::{Deref, DerefMut},
     time::{Duration, SystemTime},
 };
-use structopt::lazy_static;
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
       id              INTEGER PRIMARY KEY,

@@ -18,11 +18,14 @@ v6-test = []
 [dependencies]
 anyhow = "1"
 bytes = "1"
+clap = { version = "3", features = ["derive"] }
+clap_complete = "3"
 colored = "2"
 dialoguer = { version = "0.9", default-features = false }
 hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
 indoc = "1"
 ipnetwork = { git = "https://github.com/mcginty/ipnetwork", rev = "393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba" }
+lazy_static = "1"
 libc = "0.2"
 libsqlite3-sys = "0.23"
 log = "0.4"
@@ -34,7 +37,6 @@ rusqlite = "0.26"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared = { path = "../shared" }
-structopt = "0.3"
 subtle = "2"
 thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Error};
+use clap::Args;
 use ipnetwork::IpNetwork;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -13,7 +14,6 @@ use std::{
     time::{Duration, SystemTime},
     vec,
 };
-use structopt::StructOpt;
 use url::Host;
 use wireguard_control::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
@@ -283,102 +283,102 @@ pub struct RedeemContents {
     pub public_key: String,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct InstallOpts {
     /// Set a specific interface name
-    #[structopt(long, conflicts_with = "default-name")]
+    #[clap(long, conflicts_with = "default-name")]
     pub name: Option<String>,
 
     /// Use the network name inside the invitation as the interface name
-    #[structopt(long = "default-name")]
+    #[clap(long = "default-name")]
     pub default_name: bool,
 
     /// Delete the invitation after a successful install
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub delete_invite: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct AddPeerOpts {
     /// Name of new peer
-    #[structopt(long)]
+    #[clap(long)]
     pub name: Option<Hostname>,
 
     /// Specify desired IP of new peer (within parent CIDR)
-    #[structopt(long, conflicts_with = "auto-ip")]
+    #[clap(long, conflicts_with = "auto-ip")]
     pub ip: Option<IpAddr>,
 
     /// Auto-assign the peer the first available IP within the CIDR
-    #[structopt(long = "auto-ip")]
+    #[clap(long = "auto-ip")]
     pub auto_ip: bool,
 
     /// Name of CIDR to add new peer under
-    #[structopt(long)]
+    #[clap(long)]
     pub cidr: Option<String>,
 
     /// Make new peer an admin?
-    #[structopt(long)]
+    #[clap(long)]
     pub admin: Option<bool>,
 
     /// Bypass confirmation
-    #[structopt(long)]
+    #[clap(long)]
     pub yes: bool,
 
     /// Save the config to the given location
-    #[structopt(long)]
+    #[clap(long)]
     pub save_config: Option<String>,
 
     /// Invite expiration period (eg. '30d', '7w', '2h', '60m', '1000s')
-    #[structopt(long)]
+    #[clap(long)]
     pub invite_expires: Option<Timestring>,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct RenamePeerOpts {
     /// Name of peer to rename
-    #[structopt(long)]
+    #[clap(long)]
     pub name: Option<Hostname>,
 
     /// The new name of the peer
-    #[structopt(long)]
+    #[clap(long)]
     pub new_name: Option<Hostname>,
 
     /// Bypass confirmation
-    #[structopt(long)]
+    #[clap(long)]
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct AddCidrOpts {
     /// The CIDR name (eg. 'engineers')
-    #[structopt(long)]
+    #[clap(long)]
     pub name: Option<Hostname>,
 
     /// The CIDR network (eg. '10.42.5.0/24')
-    #[structopt(long)]
+    #[clap(long)]
     pub cidr: Option<IpNetwork>,
 
     /// The CIDR parent name
-    #[structopt(long)]
+    #[clap(long)]
     pub parent: Option<String>,
 
     /// Bypass confirmation
-    #[structopt(long)]
+    #[clap(long)]
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct DeleteCidrOpts {
     /// The CIDR name (eg. 'engineers')
-    #[structopt(long)]
+    #[clap(long)]
     pub name: Option<String>,
 
     /// Bypass confirmation
-    #[structopt(long)]
+    #[clap(long)]
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct AddAssociationOpts {
     /// The first cidr to associate
     pub cidr1: Option<String>,
@@ -387,49 +387,49 @@ pub struct AddAssociationOpts {
     pub cidr2: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct ListenPortOpts {
     /// The listen port you'd like to set for the interface
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub listen_port: Option<u16>,
 
     /// Unset the local listen port to use a randomized port
-    #[structopt(short, long, conflicts_with = "listen-port")]
+    #[clap(short, long, conflicts_with = "listen-port")]
     pub unset: bool,
 
     /// Bypass confirmation
-    #[structopt(long)]
+    #[clap(long)]
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Clone, PartialEq, Args)]
 pub struct OverrideEndpointOpts {
     /// The listen port you'd like to set for the interface
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub endpoint: Option<Endpoint>,
 
     /// Unset an existing override to use the automatic endpoint discovery
-    #[structopt(short, long, conflicts_with = "endpoint")]
+    #[clap(short, long, conflicts_with = "endpoint")]
     pub unset: bool,
 
     /// Bypass confirmation
-    #[structopt(long)]
+    #[clap(long)]
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Args)]
 pub struct NatOpts {
-    #[structopt(long)]
+    #[clap(long)]
     /// Don't attempt NAT traversal. Note that this still will report candidates
     /// unless you also specify to exclude all NAT candidates.
     pub no_nat_traversal: bool,
 
-    #[structopt(long)]
+    #[clap(long)]
     /// Exclude one or more CIDRs from NAT candidate reporting.
     /// ex. --exclude-nat-candidates '0.0.0.0/0' would report no candidates.
     pub exclude_nat_candidates: Vec<IpNetwork>,
 
-    #[structopt(long, conflicts_with = "exclude-nat-candidates")]
+    #[clap(long, conflicts_with = "exclude-nat-candidates")]
     /// Don't report any candidates to coordinating server.
     /// Shorthand for --exclude-nat-candidates '0.0.0.0/0'.
     pub no_nat_candidates: bool,
@@ -454,19 +454,19 @@ impl NatOpts {
     }
 }
 
-#[derive(Debug, Clone, Copy, StructOpt)]
+#[derive(Debug, Clone, Copy, Args)]
 pub struct NetworkOpts {
-    #[structopt(long)]
+    #[clap(long)]
     /// Whether the routing should be done by innernet or is done by an
     /// external tool like e.g. babeld.
     pub no_routing: bool,
 
-    #[structopt(long, default_value, possible_values = Backend::variants())]
+    #[clap(long, default_value_t, possible_values = Backend::variants())]
     /// Specify a WireGuard backend to use.
     /// If not set, innernet will auto-select based on availability.
     pub backend: Backend,
 
-    #[structopt(long)]
+    #[clap(long)]
     /// Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6).
     pub mtu: Option<u32>,
 }

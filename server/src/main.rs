@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail};
+use clap::{AppSettings, IntoApp, Parser, Subcommand};
 use colored::*;
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
@@ -23,7 +24,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use structopt::{clap::AppSettings, StructOpt};
 use subtle::ConstantTimeEq;
 use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
@@ -44,28 +44,29 @@ pub use shared::{Association, AssociationContents};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "innernet-server", about, global_settings(&[AppSettings::ColoredHelp, AppSettings::DeriveDisplayOrder, AppSettings::VersionlessSubcommands, AppSettings::UnifiedHelpMessage]))]
+#[derive(Debug, Parser)]
+#[clap(name = "innernet-server", author, version, about)]
+#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Opts {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     command: Command,
 
-    #[structopt(short, long, default_value = "/etc/innernet-server")]
+    #[clap(short, long, default_value = "/etc/innernet-server")]
     config_dir: PathBuf,
 
-    #[structopt(short, long, default_value = "/var/lib/innernet-server")]
+    #[clap(short, long, default_value = "/var/lib/innernet-server")]
     data_dir: PathBuf,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     network: NetworkOpts,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 enum Command {
     /// Create a new network.
-    #[structopt(alias = "init")]
+    #[clap(alias = "init")]
     New {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         opts: InitializeOpts,
     },
 
@@ -76,7 +77,7 @@ enum Command {
     Serve {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         network: NetworkOpts,
     },
 
@@ -84,7 +85,7 @@ enum Command {
     AddPeer {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         args: AddPeerOpts,
     },
 
@@ -92,7 +93,7 @@ enum Command {
     RenamePeer {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         args: RenamePeerOpts,
     },
 
@@ -100,7 +101,7 @@ enum Command {
     AddCidr {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         args: AddCidrOpts,
     },
 
@@ -108,14 +109,14 @@ enum Command {
     DeleteCidr {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         args: DeleteCidrOpts,
     },
 
     /// Generate shell completion scripts
     Completions {
-        #[structopt(possible_values = &structopt::clap::Shell::variants(), case_insensitive = true)]
-        shell: structopt::clap::Shell,
+        #[clap(arg_enum)]
+        shell: clap_complete::Shell,
     },
 }
 
@@ -235,7 +236,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     pretty_env_logger::init();
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
 
     if unsafe { libc::getuid() } != 0 && !matches!(opts.command, Command::Completions { .. }) {
         return Err("innernet-server must run as root.".into());
@@ -260,7 +261,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
-            Opts::clap().gen_completions_to("innernet-server", shell, &mut std::io::stdout());
+            let mut app = Opts::into_app();
+            let app_name = app.get_name().to_string();
+            clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
             std::process::exit(0);
         },
     }

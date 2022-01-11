@@ -20,7 +20,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use structopt::{clap::AppSettings, StructOpt};
+use clap::{AppSettings, IntoApp, Parser, Subcommand, Args};
 use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod data_store;
@@ -46,34 +46,35 @@ macro_rules! println_pad {
     }
 }
 
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(name = "innernet", about, global_settings(&[AppSettings::ColoredHelp, AppSettings::DeriveDisplayOrder, AppSettings::VersionlessSubcommands, AppSettings::UnifiedHelpMessage]))]
+#[derive(Clone, Debug, Parser)]
+#[clap(name = "innernet", author, version, about)]
+#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Opts {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     command: Option<Command>,
 
     /// Verbose output, use -vv for even higher verbositude
-    #[structopt(short, long, parse(from_occurrences))]
+    #[clap(short, long, parse(from_occurrences))]
     verbose: u64,
 
-    #[structopt(short, long, default_value = "/etc/innernet")]
+    #[clap(short, long, default_value = "/etc/innernet")]
     config_dir: PathBuf,
 
-    #[structopt(short, long, default_value = "/var/lib/innernet")]
+    #[clap(short, long, default_value = "/var/lib/innernet")]
     data_dir: PathBuf,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     network: NetworkOpts,
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Args)]
 struct HostsOpt {
     /// The path to write hosts to
-    #[structopt(long = "hosts-path", default_value = "/etc/hosts")]
+    #[clap(long = "hosts-path", default_value = "/etc/hosts")]
     hosts_path: PathBuf,
 
     /// Don't write to any hosts files
-    #[structopt(long = "no-write-hosts", conflicts_with = "hosts-path")]
+    #[clap(long = "no-write-hosts", conflicts_with = "hosts-path")]
     no_write_hosts: bool,
 }
 
@@ -83,33 +84,33 @@ impl From<HostsOpt> for Option<PathBuf> {
     }
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Subcommand)]
 enum Command {
     /// Install a new innernet config
-    #[structopt(alias = "redeem")]
+    #[clap(alias = "redeem")]
     Install {
         /// Path to the invitation file
         invite: PathBuf,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         hosts: HostsOpt,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         install_opts: InstallOpts,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         nat: NatOpts,
     },
 
     /// Enumerate all innernet connections
-    #[structopt(alias = "list")]
+    #[clap(alias = "list")]
     Show {
         /// One-line peer list
-        #[structopt(short, long)]
+        #[clap(short, long)]
         short: bool,
 
         /// Display peers in a tree based on the CIDRs
-        #[structopt(short, long)]
+        #[clap(short, long)]
         tree: bool,
 
         interface: Option<Interface>,
@@ -119,18 +120,18 @@ enum Command {
     Up {
         /// Enable daemon mode i.e. keep the process running, while fetching
         /// the latest peer list periodically
-        #[structopt(short, long)]
+        #[clap(short, long)]
         daemon: bool,
 
         /// Keep fetching the latest peer list at the specified interval in
         /// seconds. Valid only in daemon mode
-        #[structopt(long, default_value = "60")]
+        #[clap(long, default_value = "60")]
         interval: u64,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         hosts: HostsOpt,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         nat: NatOpts,
 
         interface: Option<Interface>,
@@ -140,10 +141,10 @@ enum Command {
     Fetch {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         hosts: HostsOpt,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         nat: NatOpts,
     },
 
@@ -162,7 +163,7 @@ enum Command {
     AddPeer {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: AddPeerOpts,
     },
 
@@ -175,7 +176,7 @@ enum Command {
     RenamePeer {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: RenamePeerOpts,
     },
 
@@ -183,7 +184,7 @@ enum Command {
     AddCidr {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: AddCidrOpts,
     },
 
@@ -191,7 +192,7 @@ enum Command {
     DeleteCidr {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: DeleteCidrOpts,
     },
 
@@ -200,7 +201,7 @@ enum Command {
         interface: Interface,
 
         /// Display CIDRs in tree format
-        #[structopt(short, long)]
+        #[clap(short, long)]
         tree: bool,
     },
 
@@ -214,7 +215,7 @@ enum Command {
     AddAssociation {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: AddAssociationOpts,
     },
 
@@ -228,7 +229,7 @@ enum Command {
     SetListenPort {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: ListenPortOpts,
     },
 
@@ -236,14 +237,14 @@ enum Command {
     OverrideEndpoint {
         interface: Interface,
 
-        #[structopt(flatten)]
+        #[clap(flatten)]
         sub_opts: OverrideEndpointOpts,
     },
 
     /// Generate shell completion scripts
     Completions {
-        #[structopt(possible_values = &structopt::clap::Shell::variants(), case_insensitive = true)]
-        shell: structopt::clap::Shell,
+        #[clap(arg_enum)]
+        shell: clap_complete::Shell,
     },
 }
 
@@ -1138,7 +1139,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 }
 
 fn main() {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
     util::init_logger(opts.verbose);
 
     let argv0 = std::env::args().next().unwrap();
@@ -1241,7 +1242,9 @@ fn run(opts: &Opts) -> Result<(), Error> {
             override_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
-            Opts::clap().gen_completions_to("innernet", shell, &mut std::io::stdout());
+            let mut app = Opts::into_app();
+            let app_name = app.get_name().to_string();
+            clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
             std::process::exit(0);
         },
     }

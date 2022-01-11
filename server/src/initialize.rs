@@ -1,5 +1,6 @@
 use crate::*;
 use anyhow::anyhow;
+use clap::{Parser};
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
@@ -22,26 +23,26 @@ fn create_database<P: AsRef<Path>>(
     Ok(conn)
 }
 
-#[derive(Debug, Default, Clone, PartialEq, StructOpt)]
+#[derive(Debug, Default, Clone, PartialEq, Parser)]
 pub struct InitializeOpts {
     /// The network name (ex: evilcorp)
-    #[structopt(long)]
+    #[clap(long)]
     pub network_name: Option<Interface>,
 
     /// The network CIDR (ex: 10.42.0.0/16)
-    #[structopt(long)]
+    #[clap(long)]
     pub network_cidr: Option<IpNetwork>,
 
     /// This server's external endpoint (ex: 100.100.100.100:51820)
-    #[structopt(long, conflicts_with = "auto-external-endpoint")]
+    #[clap(long, conflicts_with = "auto-external-endpoint")]
     pub external_endpoint: Option<Endpoint>,
 
     /// Auto-resolve external endpoint
-    #[structopt(long = "auto-external-endpoint")]
+    #[clap(long = "auto-external-endpoint")]
     pub auto_external_endpoint: bool,
 
     /// Port to listen on (for the WireGuard interface)
-    #[structopt(long)]
+    #[clap(long)]
     pub listen_port: Option<u16>,
 }
 
