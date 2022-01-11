@@ -1,6 +1,6 @@
 [package]
 authors = ["Jake McGinty <me@jake.su>"]
-edition = "2018"
+edition = "2021"
 name = "publicip"
 version = "0.1.0"
 
