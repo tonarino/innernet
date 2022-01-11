@@ -2,18 +2,14 @@
 Description=innernet server for %I
 After=network-online.target nss-lookup.target
 Wants=network-online.target nss-lookup.target
-# Disable systemd's unit start rate limiting logic, which could override Restart=always.
-# See https://unix.stackexchange.com/q/289629/352972
-StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 Environment="RUST_LOG=info"
 ExecStart=/usr/bin/innernet-server serve %i
 Restart=always
-# When the daemon exits, wait this amount of secs before restarting. Prevents innernet from
-# start-looping each 100ms for example when there is a problem reaching the server.
-RestartSec=60
+# When the daemon exits, wait this amount of secs before restarting instead of default 100ms.
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
