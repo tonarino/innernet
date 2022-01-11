@@ -602,7 +602,7 @@ dependencies = [
 
 [[package]]
 name = "netlink-request"
-version = "0.1.0"
+version = "1.5.2"
 dependencies = [
  "netlink-packet-core",
  "netlink-packet-generic",
