@@ -26,11 +26,11 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('--data-dir', 'data-dir', [CompletionResultType]::ParameterName, 'data-dir')
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
             [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')
+            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version information')
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
             [CompletionResult]::new('new', 'new', [CompletionResultType]::ParameterValue, 'Create a new network')
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Permanently uninstall a created network, rendering it unusable. Use with care')
             [CompletionResult]::new('serve', 'serve', [CompletionResultType]::ParameterValue, 'Serve the coordinating server for an existing network')
@@ -39,7 +39,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR to an existing network')
             [CompletionResult]::new('delete-cidr', 'delete-cidr', [CompletionResultType]::ParameterValue, 'Delete a CIDR')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
-            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Prints this message or the help of the given subcommand(s)')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'innernet-server;new' {
@@ -48,27 +48,21 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('--external-endpoint', 'external-endpoint', [CompletionResultType]::ParameterName, 'This server''s external endpoint (ex: 100.100.100.100:51820)')
             [CompletionResult]::new('--listen-port', 'listen-port', [CompletionResultType]::ParameterName, 'Port to listen on (for the WireGuard interface)')
             [CompletionResult]::new('--auto-external-endpoint', 'auto-external-endpoint', [CompletionResultType]::ParameterName, 'Auto-resolve external endpoint')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;uninstall' {
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;serve' {
             [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
             [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)')
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;add-peer' {
@@ -80,20 +74,16 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')')
             [CompletionResult]::new('--auto-ip', 'auto-ip', [CompletionResultType]::ParameterName, 'Auto-assign the peer the first available IP within the CIDR')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;rename-peer' {
             [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'Name of peer to rename')
             [CompletionResult]::new('--new-name', 'new-name', [CompletionResultType]::ParameterName, 'The new name of the peer')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;add-cidr' {
@@ -101,33 +91,23 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. ''10.42.5.0/24'')')
             [CompletionResult]::new('--parent', 'parent', [CompletionResultType]::ParameterName, 'The CIDR parent name')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;delete-cidr' {
             [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
             [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;completions' {
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
             break
         }
         'innernet-server;help' {
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Prints help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Prints version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Prints version information')
             break
         }
     })

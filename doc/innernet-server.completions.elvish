@@ -1,19 +1,22 @@
 
-edit:completion:arg-completer[innernet-server] = [@words]{
+use builtin;
+use str;
+
+set edit:completion:arg-completer[innernet-server] = [@words]{
     fn spaces [n]{
-        repeat $n ' ' | joins ''
+        builtin:repeat $n ' ' | str:join ''
     }
     fn cand [text desc]{
-        edit:complex-candidate $text &display-suffix=' '(spaces (- 14 (wcswidth $text)))$desc
+        edit:complex-candidate $text &display=$text' '(spaces (- 14 (wcswidth $text)))$desc
     }
-    command = 'innernet-server'
-    for word $words[1:-1] {
-        if (has-prefix $word '-') {
+    var command = 'innernet-server'
+    for word $words[1..-1] {
+        if (str:has-prefix $word '-') {
             break
         }
-        command = $command';'$word
+        set command = $command';'$word
     }
-    completions = [
+    var completions = [
         &'innernet-server'= {
             cand -c 'c'
             cand --config-dir 'config-dir'
@@ -21,11 +24,11 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --data-dir 'data-dir'
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
             cand --mtu 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
+            cand -V 'Print version information'
+            cand --version 'Print version information'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
             cand new 'Create a new network'
             cand uninstall 'Permanently uninstall a created network, rendering it unusable. Use with care'
             cand serve 'Serve the coordinating server for an existing network'
@@ -34,7 +37,7 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand add-cidr 'Add a new CIDR to an existing network'
             cand delete-cidr 'Delete a CIDR'
             cand completions 'Generate shell completion scripts'
-            cand help 'Prints this message or the help of the given subcommand(s)'
+            cand help 'Print this message or the help of the given subcommand(s)'
         }
         &'innernet-server;new'= {
             cand --network-name 'The network name (ex: evilcorp)'
@@ -42,25 +45,19 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --external-endpoint 'This server''s external endpoint (ex: 100.100.100.100:51820)'
             cand --listen-port 'Port to listen on (for the WireGuard interface)'
             cand --auto-external-endpoint 'Auto-resolve external endpoint'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;uninstall'= {
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;serve'= {
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
             cand --mtu 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;add-peer'= {
             cand --name 'Name of new peer'
@@ -71,49 +68,35 @@ edit:completion:arg-completer[innernet-server] = [@words]{
             cand --invite-expires 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')'
             cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
             cand --yes 'Bypass confirmation'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;rename-peer'= {
             cand --name 'Name of peer to rename'
             cand --new-name 'The new name of the peer'
             cand --yes 'Bypass confirmation'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;add-cidr'= {
             cand --name 'The CIDR name (eg. ''engineers'')'
             cand --cidr 'The CIDR network (eg. ''10.42.5.0/24'')'
             cand --parent 'The CIDR parent name'
             cand --yes 'Bypass confirmation'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;delete-cidr'= {
             cand --name 'The CIDR name (eg. ''engineers'')'
             cand --yes 'Bypass confirmation'
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;completions'= {
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
         }
         &'innernet-server;help'= {
-            cand -h 'Prints help information'
-            cand --help 'Prints help information'
-            cand -V 'Prints version information'
-            cand --version 'Prints version information'
         }
     ]
     $completions[$command]
