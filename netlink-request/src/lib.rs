@@ -87,9 +87,10 @@ mod linux {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
-                    "Serialized netlink packet ({} bytes) larger than maximum size {}",
+                    "Serialized netlink packet ({} bytes) larger than maximum size {}: {:?}",
                     req.buffer_len(),
-                    MAX_NETLINK_BUFFER_LENGTH
+                    MAX_NETLINK_BUFFER_LENGTH,
+                    req
                 ),
             ));
         }
