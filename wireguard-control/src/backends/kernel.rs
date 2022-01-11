@@ -396,6 +396,7 @@ mod tests {
                 WgPeerAttrs::PublicKey([2u8; 32]),
                 WgPeerAttrs::PersistentKeepalive(25),
                 WgPeerAttrs::Endpoint("1.1.1.1:51820".parse().unwrap()),
+                WgPeerAttrs::Flags(WGPEER_F_REPLACE_ALLOWEDIPS),
                 WgPeerAttrs::AllowedIps(vec![vec![
                     WgAllowedIpAttrs::Family(AF_INET),
                     WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
@@ -416,26 +417,28 @@ mod tests {
             .push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS))
             .unwrap();
 
-        for _ in 0..10_000 {
+        for i in 0..10_000 {
             payload
                 .push_peer(vec![
                     WgPeerAttrs::PublicKey([2u8; 32]),
                     WgPeerAttrs::PersistentKeepalive(25),
-                    WgPeerAttrs::PresharedKey([1u8; 32]),
                     WgPeerAttrs::Endpoint("1.1.1.1:51820".parse().unwrap()),
+                    WgPeerAttrs::Flags(WGPEER_F_REPLACE_ALLOWEDIPS),
                     WgPeerAttrs::AllowedIps(vec![vec![
                         WgAllowedIpAttrs::Family(AF_INET),
                         WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
                         WgAllowedIpAttrs::Cidr(24),
                     ]]),
+                    WgPeerAttrs::Unspec(vec![1u8; (i % 256) as usize]),
                 ])
                 .unwrap();
         }
 
         let messages = payload.finish();
+        println!("generated {} messages", messages.len());
         assert!(messages.len() > 1);
         for message in messages {
-            assert!(message.buffer_len() <= MAX_NETLINK_BUFFER_LENGTH);
+            assert!(NetlinkMessage::from(message).buffer_len() <= MAX_NETLINK_BUFFER_LENGTH);
         }
     }
 }

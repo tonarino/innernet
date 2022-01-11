@@ -1,11 +1,12 @@
 #[cfg(target_os = "linux")]
 mod linux {
     pub const MAX_NETLINK_BUFFER_LENGTH: usize = 4096;
-    pub const MAX_GENL_PAYLOAD_LENGTH: usize = MAX_NETLINK_BUFFER_LENGTH - GENL_HDRLEN;
+    pub const MAX_GENL_PAYLOAD_LENGTH: usize =
+        MAX_NETLINK_BUFFER_LENGTH - NETLINK_HEADER_LEN - GENL_HDRLEN;
 
     use netlink_packet_core::{
-        NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
-        NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+        NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
+        NETLINK_HEADER_LEN, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
     };
     use netlink_packet_generic::{
         constants::GENL_HDRLEN,
