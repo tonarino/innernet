@@ -121,13 +121,13 @@ mod linux {
                 let bytes = &buf[offset..];
                 let response = NetlinkMessage::<I>::deserialize(bytes)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-                responses.push(response.clone());
                 match response.payload {
                     // We've parsed all parts of the response and can leave the loop.
                     NetlinkPayload::Ack(_) | NetlinkPayload::Done => return Ok(responses),
                     NetlinkPayload::Error(e) => return Err(e.into()),
                     _ => {},
                 }
+                responses.push(response.clone());
                 offset += response.header.length as usize;
                 if offset == n_received || response.header.length == 0 {
                     // We've fully parsed the datagram, but there may be further datagrams
