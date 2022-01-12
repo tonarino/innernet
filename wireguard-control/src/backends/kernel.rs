@@ -130,18 +130,18 @@ impl<'a> TryFrom<Vec<WgPeerAttrs>> for PeerInfo {
     }
 }
 
-impl<'a> TryFrom<&'a Wireguard> for Device {
+impl<'a> TryFrom<&'a [WgDeviceAttrs]> for Device {
     type Error = io::Error;
 
-    fn try_from(wg: &'a Wireguard) -> Result<Self, Self::Error> {
-        let name = get_nla_value!(wg.nlas, WgDeviceAttrs, IfName)
+    fn try_from(nlas: &'a [WgDeviceAttrs]) -> Result<Self, Self::Error> {
+        let name = get_nla_value!(nlas, WgDeviceAttrs, IfName)
             .ok_or_else(|| io::ErrorKind::NotFound)?
             .parse()?;
-        let public_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PublicKey).map(|key| Key(*key));
-        let private_key = get_nla_value!(wg.nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
-        let listen_port = get_nla_value!(wg.nlas, WgDeviceAttrs, ListenPort).cloned();
-        let fwmark = get_nla_value!(wg.nlas, WgDeviceAttrs, Fwmark).cloned();
-        let peers = get_nla_value!(wg.nlas, WgDeviceAttrs, Peers)
+        let public_key = get_nla_value!(nlas, WgDeviceAttrs, PublicKey).map(|key| Key(*key));
+        let private_key = get_nla_value!(nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
+        let listen_port = get_nla_value!(nlas, WgDeviceAttrs, ListenPort).cloned();
+        let fwmark = get_nla_value!(nlas, WgDeviceAttrs, Fwmark).cloned();
+        let peers = get_nla_value!(nlas, WgDeviceAttrs, Peers)
             .cloned()
             .unwrap_or_default()
             .into_iter()
@@ -359,17 +359,29 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         nlas: vec![WgDeviceAttrs::IfName(name.as_str_lossy().to_string())],
     });
     let responses = netlink_request_genl(genlmsg, Some(NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK))?;
+    log::debug!("get_by_name: got {} response message(s) from netlink request", responses.len());
 
-    match responses.get(0) {
-        Some(NetlinkMessage {
-            payload: NetlinkPayload::InnerMessage(message),
-            ..
-        }) => Device::try_from(&message.payload),
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Unexpected netlink payload",
-        )),
-    }
+    let nlas =
+        responses
+        .into_iter()
+        .fold(Ok(vec![]), |nlas_res, nlmsg| {
+            let mut nlas = nlas_res?;
+            let mut message = match nlmsg {
+                NetlinkMessage {
+                    payload: NetlinkPayload::InnerMessage(message),
+                    ..
+                } => message,
+                _ => return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("unexpected netlink payload: {:?}", nlmsg),
+                )),
+            };
+            nlas.append(&mut message.payload.nlas);
+            Ok(nlas)
+        })?;
+    let device = Device::try_from(&nlas[..])?;
+    log::debug!("get_by_name: parsed wireguard device {} with {} peer(s)", device.name, device.peers.len());
+    Ok(device)
 }
 
 pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
