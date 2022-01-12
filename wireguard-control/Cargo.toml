@@ -13,6 +13,7 @@ version = "1.5.3-beta.1"
 base64 = "0.13"
 hex = "0.4"
 libc = "0.2"
+log = "0.4"
 rand_core = "0.6"
 curve25519-dalek = "4.0.0-pre.1"
 

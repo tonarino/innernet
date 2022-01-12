@@ -1379,6 +1379,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "libc",
+ "log",
  "netlink-packet-core",
  "netlink-packet-generic",
  "netlink-packet-route",
