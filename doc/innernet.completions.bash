@@ -305,7 +305,7 @@ _innernet() {
             return 0
             ;;
         innernet__help)
-            opts=""
+            opts="<SUBCOMMAND>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
