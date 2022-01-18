@@ -250,17 +250,19 @@ struct ApplyPayload {
     iface: String,
     nlas: Vec<WgDeviceAttrs>,
     current_buffer_len: usize,
-    messages: Vec<GenlMessage<Wireguard>>,
+    queue: Vec<GenlMessage<Wireguard>>,
 }
 
 impl ApplyPayload {
     fn new(iface: &InterfaceName) -> Self {
         let iface_str = iface.as_str_lossy().to_string();
+        let nlas = vec![WgDeviceAttrs::IfName(iface_str.clone())];
+        let current_buffer_len = nlas.as_slice().buffer_len();
         Self {
-            iface: iface_str.clone(),
-            nlas: vec![WgDeviceAttrs::IfName(iface_str)],
-            messages: vec![],
-            current_buffer_len: 0,
+            iface: iface_str,
+            nlas,
+            queue: vec![],
+            current_buffer_len,
         }
     }
 
@@ -270,14 +272,15 @@ impl ApplyPayload {
             .retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.is_empty()));
 
         let name = WgDeviceAttrs::IfName(self.iface.clone());
-        self.current_buffer_len = name.buffer_len();
+        let template = vec![name];
 
-        if !self.nlas.is_empty() {
+        if !self.nlas.is_empty() && self.nlas != template {
+            self.current_buffer_len = template.as_slice().buffer_len();
             let message = GenlMessage::from_payload(Wireguard {
                 cmd: WireguardCmd::SetDevice,
-                nlas: std::mem::replace(&mut self.nlas, vec![name]),
+                nlas: std::mem::replace(&mut self.nlas, template),
             });
-            self.messages.push(message);
+            self.queue.push(message);
         }
     }
 
@@ -352,7 +355,7 @@ impl ApplyPayload {
 
     pub fn finish(mut self) -> Vec<GenlMessage<Wireguard>> {
         self.flush_nlas();
-        self.messages
+        self.queue
     }
 }
 
