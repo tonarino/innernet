@@ -141,10 +141,12 @@ impl<'a> TryFrom<&'a [WgDeviceAttrs]> for Device {
         let private_key = get_nla_value!(nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
         let listen_port = get_nla_value!(nlas, WgDeviceAttrs, ListenPort).cloned();
         let fwmark = get_nla_value!(nlas, WgDeviceAttrs, Fwmark).cloned();
-        let peers = get_nla_value!(nlas, WgDeviceAttrs, Peers)
-            .cloned()
-            .unwrap_or_default()
-            .into_iter()
+        let peers = nlas.iter()
+            .filter_map(|nla| match nla {
+                WgDeviceAttrs::Peers(peers) => Some(peers.clone()),
+                _ => None
+            })
+            .flatten()
             .map(PeerInfo::try_from)
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Device {
@@ -385,7 +387,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
     log::debug!(
         "get_by_name: parsed wireguard device {} with {} peer(s)",
         device.name,
-        device.peers.len()
+        device.peers.len(),
     );
     Ok(device)
 }
