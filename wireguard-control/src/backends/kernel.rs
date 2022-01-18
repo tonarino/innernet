@@ -211,8 +211,7 @@ fn add_del(iface: &InterfaceName, add: bool) -> io::Result<()> {
     } else {
         RtnlMessage::DelLink(message)
     };
-    let result = netlink_request_rtnl(rtnl_message, Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags));
-    match result {
+    match netlink_request_rtnl(rtnl_message, Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags)) {
         Err(e) if e.kind() != io::ErrorKind::AlreadyExists => Err(e),
         _ => Ok(()),
     }
