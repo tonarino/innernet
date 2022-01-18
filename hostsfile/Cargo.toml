@@ -2,7 +2,7 @@
 authors = ["Ryo Kawaguchi <ryo@kawagu.ch>"]
 description = "A simplistic /etc/hosts file editor."
 edition = "2021"
-license = "UNLICENSED"
+license = "MIT"
 name = "hostsfile"
 publish = false
 version = "1.2.0"
