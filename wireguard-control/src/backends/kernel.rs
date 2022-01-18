@@ -141,10 +141,11 @@ impl<'a> TryFrom<&'a [WgDeviceAttrs]> for Device {
         let private_key = get_nla_value!(nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
         let listen_port = get_nla_value!(nlas, WgDeviceAttrs, ListenPort).cloned();
         let fwmark = get_nla_value!(nlas, WgDeviceAttrs, Fwmark).cloned();
-        let peers = nlas.iter()
+        let peers = nlas
+            .iter()
             .filter_map(|nla| match nla {
                 WgDeviceAttrs::Peers(peers) => Some(peers.clone()),
-                _ => None
+                _ => None,
             })
             .flatten()
             .map(PeerInfo::try_from)
