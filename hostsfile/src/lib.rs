@@ -252,16 +252,34 @@ impl HostsBuilder {
             writeln!(&mut s, "{}", line)?;
         }
 
+        match Self::write_and_swap(&temp_path, &hosts_path, &s) {
+            Err(_) => Self::write_clobber(&hosts_path, &s),
+            _ => Ok(()),
+        }
+    }
+
+    fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
+        std::fs::copy(&hosts_path, &temp_path)?;
+        OpenOptions::new()
+            .create(false)
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open(&temp_path)?
+            .write_all(&contents)?;
+
+        std::fs::rename(temp_path, hosts_path)?;
+        Ok(())
+    }
+
+    fn write_clobber(hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
         OpenOptions::new()
             .create(true)
             .read(true)
             .write(true)
             .truncate(true)
-            .open(&temp_path)?
-            .write_all(&s)?;
-
-        std::fs::rename(temp_path, hosts_path)?;
-
+            .open(hosts_path)?
+            .write_all(&contents)?;
         Ok(())
     }
 }
