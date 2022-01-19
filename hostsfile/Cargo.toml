@@ -8,3 +8,4 @@ publish = false
 version = "1.2.0"
 
 [dependencies]
+log = "0.4"
