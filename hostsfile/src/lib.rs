@@ -254,14 +254,14 @@ impl HostsBuilder {
 
         match Self::write_and_swap(&temp_path, hosts_path, &s) {
             Err(_) => {
+                Self::write_clobber(hosts_path, &s)?;
                 log::debug!("wrote hosts file with the clobber fallback strategy");
-                Self::write_clobber(hosts_path, &s)
             },
             _ => {
                 log::debug!("wrote hosts file with the write-and-swap strategy");
-                Ok(())
             },
         }
+        Ok(())
     }
 
     fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
