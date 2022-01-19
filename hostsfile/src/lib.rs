@@ -313,4 +313,19 @@ mod tests {
         let hosts_path = Path::new("/");
         assert!(HostsBuilder::get_temp_path(hosts_path).is_err());
     }
+
+    #[test]
+    fn test_write() {
+        let (mut temp_file, temp_path) = tempfile::NamedTempFile::new().unwrap().into_parts();
+        temp_file.write_all(b"preexisting\ncontent").unwrap();
+        let mut builder = HostsBuilder::new("foo");
+        builder.add_hostname([1, 1, 1, 1].into(), "whatever");
+        builder.write_to(&temp_path).unwrap();
+
+        let contents = std::fs::read_to_string(&temp_path).unwrap();
+        println!("contents: {}", contents);
+        assert!(contents.starts_with("preexisting\ncontent"));
+        assert!(contents.contains("# DO NOT EDIT foo BEGIN"));
+        assert!(contents.contains("1.1.1.1 whatever"));
+    }
 }

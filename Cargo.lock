@@ -361,6 +361,7 @@ name = "hostsfile"
 version = "1.2.0"
 dependencies = [
  "log",
+ "tempfile",
 ]
 
 [[package]]
