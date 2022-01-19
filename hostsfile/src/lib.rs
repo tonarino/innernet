@@ -252,15 +252,15 @@ impl HostsBuilder {
             writeln!(&mut s, "{}", line)?;
         }
 
-        match Self::write_and_swap(&temp_path, &hosts_path, &s) {
+        match Self::write_and_swap(&temp_path, hosts_path, &s) {
             Err(_) => {
                 log::debug!("wrote hosts file with the clobber fallback strategy");
-                Self::write_clobber(&hosts_path, &s)
+                Self::write_clobber(hosts_path, &s)
             },
             _ => {
                 log::debug!("wrote hosts file with the write-and-swap strategy");
                 Ok(())
-            }
+            },
         }
     }
 
@@ -272,7 +272,7 @@ impl HostsBuilder {
             .write(true)
             .truncate(true)
             .open(&temp_path)?
-            .write_all(&contents)?;
+            .write_all(contents)?;
 
         std::fs::rename(temp_path, hosts_path)?;
         Ok(())
@@ -285,7 +285,7 @@ impl HostsBuilder {
             .write(true)
             .truncate(true)
             .open(hosts_path)?
-            .write_all(&contents)?;
+            .write_all(contents)?;
         Ok(())
     }
 }
