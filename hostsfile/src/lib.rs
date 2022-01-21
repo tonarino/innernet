@@ -265,6 +265,7 @@ impl HostsBuilder {
     }
 
     fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
+        // Copy the file we plan on modifying so its permissions and metadata are preserved.
         std::fs::copy(&hosts_path, &temp_path)?;
         Self::write_clobber(temp_path, contents)?;
         std::fs::rename(temp_path, hosts_path)?;
