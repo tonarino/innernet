@@ -1,6 +1,6 @@
 [package]
 name = "netlink-request"
-version = "1.5.3-beta.4"
+version = "1.5.3-beta.5"
 edition = "2021"
 
 [target.'cfg(target_os = "linux")'.dependencies]
