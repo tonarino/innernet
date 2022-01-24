@@ -629,6 +629,16 @@ fn fetch(
 }
 
 fn uninstall(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
+    let config = InterfaceConfig::get_path(&opts.config_dir, interface);
+    let data = DataStore::get_path(&opts.data_dir, interface);
+
+    if !config.exists() && !data.exists() {
+        bail!(
+            "No network named \"{}\" exists.",
+            interface.as_str_lossy().yellow()
+        );
+    }
+
     if Confirm::with_theme(&*prompts::THEME)
         .with_prompt(&format!(
             "Permanently delete network \"{}\"?",
@@ -640,8 +650,6 @@ fn uninstall(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
     {
         log::info!("bringing down interface (if up).");
         wg::down(interface, opts.network.backend).ok();
-        let config = InterfaceConfig::get_path(&opts.config_dir, interface);
-        let data = DataStore::get_path(&opts.data_dir, interface);
         std::fs::remove_file(&config)
             .with_path(&config)
             .map_err(|e| log::warn!("{}", e.to_string().yellow()))
