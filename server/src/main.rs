@@ -4,12 +4,12 @@ use colored::*;
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
+    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext, IpNetExt,
     NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use std::{
@@ -502,7 +502,7 @@ async fn serve(
     wg::up(
         &interface,
         &config.private_key,
-        IpNetwork::new(config.address, config.network_cidr_prefix)?,
+        IpNet::new(config.address, config.network_cidr_prefix)?,
         Some(config.listen_port),
         None,
         network,

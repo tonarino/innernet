@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Error};
 use clap::Args;
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -195,12 +195,12 @@ impl Deref for Association {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct CidrContents {
     pub name: String,
-    pub cidr: IpNetwork,
+    pub cidr: IpNet,
     pub parent: Option<i64>,
 }
 
 impl Deref for CidrContents {
-    type Target = IpNetwork;
+    type Target = IpNet;
 
     fn deref(&self) -> &Self::Target {
         &self.cidr
@@ -247,7 +247,7 @@ impl<'a> CidrTree<'a> {
     pub fn new(cidrs: &'a [Cidr]) -> Self {
         let root = cidrs
             .iter()
-            .min_by_key(|c| c.cidr.prefix())
+            .min_by_key(|c| c.cidr.prefix_len())
             .expect("failed to find root CIDR");
         Self::with_root(cidrs, root)
     }
@@ -356,7 +356,7 @@ pub struct AddCidrOpts {
 
     /// The CIDR network (eg. '10.42.5.0/24')
     #[clap(long)]
-    pub cidr: Option<IpNetwork>,
+    pub cidr: Option<IpNet>,
 
     /// The CIDR parent name
     #[clap(long)]
@@ -431,7 +431,7 @@ pub struct NatOpts {
     #[clap(long)]
     /// Exclude one or more CIDRs from NAT candidate reporting.
     /// ex. --exclude-nat-candidates '0.0.0.0/0' would report no candidates.
-    pub exclude_nat_candidates: Vec<IpNetwork>,
+    pub exclude_nat_candidates: Vec<IpNet>,
 
     #[clap(long, conflicts_with = "exclude-nat-candidates")]
     /// Don't report any candidates to coordinating server.
@@ -454,7 +454,7 @@ impl NatOpts {
             || self
                 .exclude_nat_candidates
                 .iter()
-                .any(|network| network.contains(ip))
+                .any(|network| network.contains(&ip))
     }
 }
 

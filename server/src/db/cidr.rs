@@ -1,7 +1,7 @@
 use crate::ServerError;
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use rusqlite::{params, Connection};
-use shared::{Cidr, CidrContents};
+use shared::{Cidr, CidrContents, IpNetExt};
 use std::ops::Deref;
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE cidrs (
@@ -56,8 +56,8 @@ impl DatabaseCidr {
 
             let closest_parent = cidrs
                 .iter()
-                .filter(|current| cidr.is_subnet_of(current.cidr))
-                .max_by_key(|current| current.cidr.prefix());
+                .filter(|current| current.cidr.contains(cidr))
+                .max_by_key(|current| current.cidr.prefix_len());
 
             if let Some(closest_parent) = closest_parent {
                 if closest_parent.id != *parent_id {
@@ -70,7 +70,7 @@ impl DatabaseCidr {
             }
 
             let parent_cidr = Self::get(conn, *parent_id)?.cidr;
-            if !parent_cidr.contains(cidr.network()) || !parent_cidr.contains(cidr.broadcast()) {
+            if !parent_cidr.contains(&cidr.network()) || !parent_cidr.contains(&cidr.broadcast()) {
                 log::warn!("tried to add a CIDR with a network range outside of its parent.");
                 return Err(ServerError::InvalidQuery);
             }
@@ -81,10 +81,10 @@ impl DatabaseCidr {
             .filter(|current| current.parent == *parent)
             .map(|sibling| sibling.cidr)
             .any(|sibling| {
-                cidr.contains(sibling.network())
-                    || cidr.contains(sibling.broadcast())
-                    || sibling.contains(cidr.network())
-                    || sibling.contains(cidr.broadcast())
+                cidr.contains(&sibling.network())
+                    || cidr.contains(&sibling.broadcast())
+                    || sibling.contains(&cidr.network())
+                    || sibling.contains(&cidr.broadcast())
             });
 
         if overlapping_sibling {
@@ -95,7 +95,12 @@ impl DatabaseCidr {
         conn.execute(
             "INSERT INTO cidrs (name, ip, prefix, parent)
               VALUES (?1, ?2, ?3, ?4)",
-            params![name, cidr.ip().to_string(), cidr.prefix() as i32, parent],
+            params![
+                name,
+                cidr.addr().to_string(),
+                cidr.prefix_len() as i32,
+                parent
+            ],
         )?;
         let id = conn.last_insert_rowid();
         Ok(Cidr { id, contents })
@@ -109,14 +114,12 @@ impl DatabaseCidr {
     fn from_row(row: &rusqlite::Row) -> Result<Cidr, rusqlite::Error> {
         let id = row.get(0)?;
         let name = row.get(1)?;
-        let ip: String = row.get(2)?;
+        let ip_str: String = row.get(2)?;
         let prefix = row.get(3)?;
-        let cidr = IpNetwork::new(
-            ip.parse()
-                .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?,
-            prefix,
-        )
-        .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
+        let ip = ip_str
+            .parse()
+            .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
+        let cidr = IpNet::new(ip, prefix).map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
         let parent = row.get(4)?;
         Ok(Cidr {
             id,

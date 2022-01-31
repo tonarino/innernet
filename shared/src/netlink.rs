@@ -1,4 +1,4 @@
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_REQUEST};
 use netlink_packet_route::{
     address,
@@ -36,11 +36,11 @@ pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Error> {
+pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error> {
     let index = if_nametoindex(interface)?;
     let (family, nlas) = match addr {
-        IpNetwork::V4(network) => {
-            let addr_bytes = network.ip().octets().to_vec();
+        IpNet::V4(network) => {
+            let addr_bytes = network.addr().octets().to_vec();
             (
                 AF_INET as u8,
                 vec![
@@ -49,16 +49,16 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Er
                 ],
             )
         },
-        IpNetwork::V6(network) => (
+        IpNet::V6(network) => (
             AF_INET6 as u8,
-            vec![address::Nla::Address(network.ip().octets().to_vec())],
+            vec![address::Nla::Address(network.addr().octets().to_vec())],
         ),
     };
     let message = AddressMessage {
         header: AddressHeader {
             index,
             family,
-            prefix_len: addr.prefix(),
+            prefix_len: addr.prefix_len(),
             scope: RT_SCOPE_UNIVERSE,
             ..Default::default()
         },
@@ -72,11 +72,11 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Er
     Ok(())
 }
 
-pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
+pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Error> {
     let if_index = if_nametoindex(interface)?;
     let (address_family, dst) = match cidr {
-        IpNetwork::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),
-        IpNetwork::V6(network) => (AF_INET6 as u8, network.network().octets().to_vec()),
+        IpNet::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),
+        IpNet::V6(network) => (AF_INET6 as u8, network.network().octets().to_vec()),
     };
     let message = RouteMessage {
         header: RouteHeader {
@@ -84,7 +84,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io:
             protocol: RTPROT_BOOT,
             scope: RT_SCOPE_LINK,
             kind: RTN_UNICAST,
-            destination_prefix_length: cidr.prefix(),
+            destination_prefix_length: cidr.prefix_len(),
             address_family,
             ..Default::default()
         },

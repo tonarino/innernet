@@ -3,7 +3,7 @@ use crate::ServerError;
 use lazy_static::lazy_static;
 use regex::Regex;
 use rusqlite::{params, types::Type, Connection};
-use shared::{Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
+use shared::{IpNetExt, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},
@@ -96,12 +96,12 @@ impl DatabasePeer {
         }
 
         let cidr = DatabaseCidr::get(conn, *cidr_id)?;
-        if !cidr.cidr.contains(*ip) {
+        if !cidr.cidr.contains(ip) {
             log::warn!("tried to add peer with IP outside of parent CIDR range.");
             return Err(ServerError::InvalidQuery);
         }
 
-        if !cidr.cidr.is_assignable(*ip) {
+        if !cidr.cidr.is_assignable(ip) {
             println!(
                 "Peer IP {} is not unicast assignable in CIDR {}",
                 ip, cidr.cidr

@@ -1,4 +1,5 @@
 pub use anyhow::Error;
+use ipnet::{IpNet, Ipv4Net, Ipv6Net, PrefixLenError};
 use std::{
     fs::{self, File, Permissions},
     io,
@@ -115,4 +116,30 @@ pub fn get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::E
             IpAddr::V6(v6) if is_unicast_global(v6))
         })
         .take(10))
+}
+
+pub trait IpNetExt {
+    fn is_assignable(&self, ip: &IpAddr) -> bool;
+
+    #[allow(clippy::new_ret_no_self)]
+    fn new(ip: IpAddr, prefix_len: u8) -> Result<IpNet, PrefixLenError>;
+}
+
+impl IpNetExt for IpNet {
+    fn new(ip: IpAddr, prefix_len: u8) -> Result<IpNet, PrefixLenError> {
+        Ok(match ip {
+            IpAddr::V4(a) => Ipv4Net::new(a, prefix_len)?.into(),
+            IpAddr::V6(a) => Ipv6Net::new(a, prefix_len)?.into(),
+        })
+    }
+
+    fn is_assignable(&self, ip: &IpAddr) -> bool {
+        self.contains(ip)
+            && match self {
+                IpNet::V4(_) => {
+                    self.prefix_len() >= 31 || (ip != &self.network() && ip != &self.broadcast())
+                },
+                IpNet::V6(_) => self.prefix_len() >= 127 || ip != &self.network(),
+            }
+    }
 }

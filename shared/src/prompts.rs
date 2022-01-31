@@ -1,13 +1,13 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
-    DeleteCidrOpts, Endpoint, Error, Hostname, ListenPortOpts, OverrideEndpointOpts, Peer,
-    PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    DeleteCidrOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, OverrideEndpointOpts,
+    Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use lazy_static::lazy_static;
 use publicip::Preference;
 use std::{
@@ -267,7 +267,7 @@ pub fn add_peer(
     };
 
     let mut available_ip = None;
-    let candidate_ips = cidr.iter().filter(|ip| cidr.is_assignable(*ip));
+    let candidate_ips = cidr.hosts().filter(|ip| cidr.is_assignable(ip));
     for ip in candidate_ips {
         if !peers.iter().any(|peer| peer.ip == ip) {
             available_ip = Some(ip);
@@ -439,7 +439,7 @@ pub fn write_peer_invitation(
         interface: InterfaceInfo {
             network_name: network_name.to_string(),
             private_key: keypair.private.to_base64(),
-            address: IpNetwork::new(peer.ip, root_cidr.prefix())?,
+            address: IpNet::new(peer.ip, root_cidr.prefix_len())?,
             listen_port: None,
         },
         server: ServerInfo {
