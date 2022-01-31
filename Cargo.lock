@@ -626,19 +626,6 @@ dependencies = [
 [[package]]
 name = "netlink-packet-wireguard"
 version = "0.1.1"
-source = "git+https://github.com/mcginty/netlink?branch=wireguard-fixes#2b60e310ede5fa4c80c00874c19ee755b1bc8249"
-dependencies = [
- "anyhow",
- "byteorder",
- "libc",
- "log",
- "netlink-packet-generic",
- "netlink-packet-utils",
-]
-
-[[package]]
-name = "netlink-packet-wireguard"
-version = "0.1.1"
 source = "git+https://github.com/little-dude/netlink?rev=b2bdd6295209c84ef95f85f66c03b55234d77ad6#b2bdd6295209c84ef95f85f66c03b55234d77ad6"
 dependencies = [
  "anyhow",
@@ -656,7 +643,6 @@ dependencies = [
  "netlink-packet-core",
  "netlink-packet-generic",
  "netlink-packet-route",
- "netlink-packet-wireguard 0.1.1 (git+https://github.com/mcginty/netlink?branch=wireguard-fixes)",
  "netlink-sys",
 ]
 
@@ -1356,7 +1342,7 @@ dependencies = [
  "netlink-packet-core",
  "netlink-packet-generic",
  "netlink-packet-route",
- "netlink-packet-wireguard 0.1.1 (git+https://github.com/little-dude/netlink?rev=b2bdd6295209c84ef95f85f66c03b55234d77ad6)",
+ "netlink-packet-wireguard",
  "netlink-request",
  "netlink-sys",
  "rand_core",
