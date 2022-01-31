@@ -602,10 +602,13 @@ fn fetch(
         .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
         .collect::<Vec<Endpoint>>();
     log::info!(
-        "reporting {} interface address{} as NAT traversal candidates...",
+        "reporting {} interface address{} as NAT traversal candidates",
         candidates.len(),
-        if candidates.len() == 1 { "" } else { "es" }
+        if candidates.len() == 1 { "" } else { "es" },
     );
+    for candidate in &candidates {
+        log::debug!("  candidate: {}", candidate);
+    }
     match api.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
         Err(ureq::Error::Status(404, _)) => {
             log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
