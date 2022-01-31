@@ -8,7 +8,7 @@ use crate::{
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::PeerContents;
-use wireguard_control::DeviceUpdate;
+use wireguard_control::{DeviceUpdate, PeerConfigBuilder};
 
 pub async fn routes(
     req: Request<Body>,
@@ -50,7 +50,7 @@ mod handlers {
         if cfg!(not(test)) {
             // Update the current WireGuard interface with the new peers.
             DeviceUpdate::new()
-                .add_peer((&*peer).into())
+                .add_peer(PeerConfigBuilder::from(&*peer))
                 .apply(&session.context.interface, session.context.backend)
                 .map_err(|_| ServerError::WireGuard)?;
             log::info!("updated WireGuard interface, adding {}", &*peer);

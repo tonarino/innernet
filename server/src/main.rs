@@ -311,7 +311,7 @@ fn add_peer(
         if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
             DeviceUpdate::new()
-                .add_peer((&*peer).into())
+                .add_peer(PeerConfigBuilder::from(&*peer))
                 .apply(interface, network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
 

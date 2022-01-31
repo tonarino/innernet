@@ -8,7 +8,7 @@ use crate::{
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::{EndpointContents, PeerContents, RedeemContents, State, REDEEM_TRANSITION_WAIT};
-use wireguard_control::DeviceUpdate;
+use wireguard_control::{DeviceUpdate, PeerConfigBuilder};
 
 pub async fn routes(
     req: Request<Body>,
@@ -117,7 +117,7 @@ mod handlers {
                 );
                 DeviceUpdate::new()
                     .remove_peer_by_key(&old_public_key)
-                    .add_peer((&*selected_peer).into())
+                    .add_peer(PeerConfigBuilder::from(&*selected_peer))
                     .apply(&interface, backend)
                     .map_err(|e| log::error!("{:?}", e))
                     .ok();

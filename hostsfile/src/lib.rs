@@ -231,25 +231,25 @@ impl HostsBuilder {
         let mut s = vec![];
 
         for line in &lines[..insert] {
-            writeln!(&mut s, "{}", line)?;
+            writeln!(s, "{}", line)?;
         }
         if !self.hostname_map.is_empty() {
-            writeln!(&mut s, "{}", begin_marker)?;
+            writeln!(s, "{}", begin_marker)?;
             for (ip, hostnames) in &self.hostname_map {
                 if cfg!(windows) {
                     // windows only allows one hostname per line
                     for hostname in hostnames {
-                        writeln!(&mut s, "{} {}", ip, hostname)?;
+                        writeln!(s, "{} {}", ip, hostname)?;
                     }
                 } else {
                     // assume the same format as Unix
-                    writeln!(&mut s, "{} {}", ip, hostnames.join(" "))?;
+                    writeln!(s, "{} {}", ip, hostnames.join(" "))?;
                 }
             }
-            writeln!(&mut s, "{}", end_marker)?;
+            writeln!(s, "{}", end_marker)?;
         }
         for line in &lines[insert..] {
-            writeln!(&mut s, "{}", line)?;
+            writeln!(s, "{}", line)?;
         }
 
         match Self::write_and_swap(&temp_path, hosts_path, &s) {
