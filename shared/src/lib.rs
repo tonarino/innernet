@@ -2,6 +2,7 @@ pub use anyhow::Error;
 use std::{
     fs::{self, File, Permissions},
     io,
+    net::Ipv6Addr,
     os::unix::fs::PermissionsExt,
     path::Path,
     time::Duration,
@@ -72,8 +73,20 @@ pub fn chmod(file: &File, new_mode: u32) -> Result<bool, io::Error> {
     Ok(updated)
 }
 
+// TODO(jake): pending the stabilization of rust-lang/rust#27709
+fn is_unicast_global(ip: Ipv6Addr) -> bool {
+    !((ip.segments()[0] & 0xff00) == 0xff00 // multicast
+        || ip.is_loopback()
+        || ip.is_unspecified()
+        || ((ip.segments()[0] == 0x2001) && (ip.segments()[1] == 0xdb8)) // documentation
+        || (ip.segments()[0] & 0xffc0) == 0xfe80 // unicast link local
+        || (ip.segments()[0] & 0xfe00) == 0xfc00) // unicast local
+}
+
 #[cfg(target_os = "macos")]
 pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
+    use std::net::IpAddr;
+
     use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
 
     let addrs = nix::ifaddrs::getifaddrs()?
@@ -86,7 +99,14 @@ pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::
                 )
         })
         .filter_map(|addr| match addr.address {
-            Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
+            Some(SockAddr::Inet(addr)) => {
+                let ip = addr.to_std().ip();
+                match ip {
+                    IpAddr::V4(_) => Some(ip),
+                    IpAddr::V6(v6) if is_unicast_global(v6) => Some(ip),
+                    _ => None,
+                }
+            },
             _ => None,
         });
 
