@@ -75,8 +75,6 @@ pub fn chmod(file: &File, new_mode: u32) -> Result<bool, io::Error> {
 
 #[cfg(target_os = "macos")]
 pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
-    use std::net::IpAddr;
-
     use nix::{net::if_::InterfaceFlags, sys::socket::SockAddr};
 
     let addrs = nix::ifaddrs::getifaddrs()?
