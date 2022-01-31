@@ -29,7 +29,7 @@ lazy_static = "1"
 libc = "0.2"
 libsqlite3-sys = "0.23"
 log = "0.4"
-parking_lot = "0.11"
+parking_lot = "0.12"
 pretty_env_logger = "0.4"
 publicip = { path = "../publicip" }
 regex = { version = "1", default-features = false, features = ["std"] }
