@@ -9,8 +9,8 @@ use shared::{
     interface_config::InterfaceConfig,
     prompts,
     wg::{DeviceExt, PeerInfoExt},
-    AddAssociationOpts, AddCidrOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
-    DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext,
+    AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
+    CidrTree, DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext,
     ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer, RedeemContents,
     RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
@@ -149,7 +149,13 @@ enum Command {
     },
 
     /// Uninstall an innernet network.
-    Uninstall { interface: Interface },
+    Uninstall {
+        interface: Interface,
+
+        /// Bypass confirmation
+        #[clap(long)]
+        yes: bool,
+    },
 
     /// Bring down the interface (equivalent to 'wg-quick down <interface>')
     Down { interface: Interface },
@@ -216,11 +222,16 @@ enum Command {
         interface: Interface,
 
         #[clap(flatten)]
-        sub_opts: AddAssociationOpts,
+        sub_opts: AddDeleteAssociationOpts,
     },
 
     /// Delete an association between CIDRs
-    DeleteAssociation { interface: Interface },
+    DeleteAssociation {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: AddDeleteAssociationOpts,
+    },
 
     /// List existing assocations between CIDRs
     ListAssociations { interface: Interface },
@@ -628,7 +639,7 @@ fn fetch(
     Ok(())
 }
 
-fn uninstall(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
+fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Error> {
     let config = InterfaceConfig::get_path(&opts.config_dir, interface);
     let data = DataStore::get_path(&opts.data_dir, interface);
 
@@ -639,14 +650,15 @@ fn uninstall(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
         );
     }
 
-    if Confirm::with_theme(&*prompts::THEME)
-        .with_prompt(&format!(
-            "Permanently delete network \"{}\"?",
-            interface.as_str_lossy().yellow()
-        ))
-        .default(false)
-        .wait_for_newline(true)
-        .interact()?
+    if yes
+        || Confirm::with_theme(&*prompts::THEME)
+            .with_prompt(&format!(
+                "Permanently delete network \"{}\"?",
+                interface.as_str_lossy().yellow()
+            ))
+            .default(false)
+            .wait_for_newline(true)
+            .interact()?
     {
         log::info!("bringing down interface (if up).");
         wg::down(interface, opts.network.backend).ok();
@@ -821,7 +833,7 @@ fn enable_or_disable_peer(
 fn add_association(
     interface: &InterfaceName,
     opts: &Opts,
-    sub_opts: AddAssociationOpts,
+    sub_opts: AddDeleteAssociationOpts,
 ) -> Result<(), Error> {
     let InterfaceConfig { server, .. } =
         InterfaceConfig::from_interface(&opts.config_dir, interface)?;
@@ -830,7 +842,8 @@ fn add_association(
     log::info!("Fetching CIDRs");
     let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
 
-    let association = if let (Some(ref cidr1), Some(ref cidr2)) = (sub_opts.cidr1, sub_opts.cidr2) {
+    let association = if let (Some(ref cidr1), Some(ref cidr2)) = (&sub_opts.cidr1, &sub_opts.cidr2)
+    {
         let cidr1 = cidrs
             .iter()
             .find(|c| &c.name == cidr1)
@@ -840,7 +853,7 @@ fn add_association(
             .find(|c| &c.name == cidr2)
             .ok_or_else(|| anyhow!("can't find cidr '{}'", cidr2))?;
         (cidr1, cidr2)
-    } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..])? {
+    } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..], &sub_opts)? {
         (cidr1, cidr2)
     } else {
         log::info!("exiting without adding association.");
@@ -859,7 +872,11 @@ fn add_association(
     Ok(())
 }
 
-fn delete_association(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
+fn delete_association(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: AddDeleteAssociationOpts,
+) -> Result<(), Error> {
     let InterfaceConfig { server, .. } =
         InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let api = Api::new(&server);
@@ -869,7 +886,9 @@ fn delete_association(interface: &InterfaceName, opts: &Opts) -> Result<(), Erro
     log::info!("Fetching associations");
     let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
 
-    if let Some(association) = prompts::delete_association(&associations[..], &cidrs[..])? {
+    if let Some(association) =
+        prompts::delete_association(&associations[..], &cidrs[..], &sub_opts)?
+    {
         api.http("DELETE", &format!("/admin/associations/{}", association.id))?;
     } else {
         log::info!("exiting without adding association.");
@@ -1211,7 +1230,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             &nat,
         )?,
         Command::Down { interface } => wg::down(&interface, opts.network.backend)?,
-        Command::Uninstall { interface } => uninstall(&interface, opts)?,
+        Command::Uninstall { interface, yes } => uninstall(&interface, opts, yes)?,
         Command::AddPeer {
             interface,
             sub_opts,
@@ -1235,7 +1254,10 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interface,
             sub_opts,
         } => add_association(&interface, opts, sub_opts)?,
-        Command::DeleteAssociation { interface } => delete_association(&interface, opts)?,
+        Command::DeleteAssociation {
+            interface,
+            sub_opts,
+        } => delete_association(&interface, opts, sub_opts)?,
         Command::ListAssociations { interface } => list_associations(&interface, opts)?,
         Command::SetListenPort {
             interface,

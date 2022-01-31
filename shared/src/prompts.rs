@@ -1,8 +1,8 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    AddCidrOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, Endpoint,
-    Error, Hostname, ListenPortOpts, OverrideEndpointOpts, Peer, PeerContents, RenamePeerOpts,
-    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
+    DeleteCidrOpts, Endpoint, Error, Hostname, ListenPortOpts, OverrideEndpointOpts, Peer,
+    PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -151,41 +151,81 @@ pub fn choose_cidr<'a>(cidrs: &'a [Cidr], text: &'static str) -> Result<&'a Cidr
 pub fn choose_association<'a>(
     associations: &'a [Association],
     cidrs: &'a [Cidr],
+    args: &AddDeleteAssociationOpts,
 ) -> Result<&'a Association, Error> {
-    let names: Vec<_> = associations
-        .iter()
-        .map(|association| {
-            format!(
-                "{}: {} <=> {}",
-                association.id,
-                &cidrs
-                    .iter()
-                    .find(|c| c.id == association.cidr_id_1)
-                    .unwrap()
-                    .name,
-                &cidrs
-                    .iter()
-                    .find(|c| c.id == association.cidr_id_2)
-                    .unwrap()
-                    .name
-            )
-        })
-        .collect();
-    let (index, _) = select("Association", &names)?;
+    match (&args.cidr1, &args.cidr2) {
+        (Some(cidr1_name), Some(cidr2_name)) => {
+            let cidr1 = find_cidr(cidrs, cidr1_name)?;
+            let cidr2 = find_cidr(cidrs, cidr2_name)?;
+            associations
+                .iter()
+                .find(|association| {
+                    (association.cidr_id_1 == cidr1.id && association.cidr_id_2 == cidr2.id)
+                        || (association.cidr_id_1 == cidr2.id && association.cidr_id_2 == cidr1.id)
+                })
+                .ok_or_else(|| anyhow!("CIDR association does not exist"))
+        },
+        _ => {
+            let names: Vec<_> = associations
+                .iter()
+                .map(|association| {
+                    format!(
+                        "{}: {} <=> {}",
+                        association.id,
+                        &cidrs
+                            .iter()
+                            .find(|c| c.id == association.cidr_id_1)
+                            .unwrap()
+                            .name,
+                        &cidrs
+                            .iter()
+                            .find(|c| c.id == association.cidr_id_2)
+                            .unwrap()
+                            .name
+                    )
+                })
+                .collect();
+            let (index, _) = select("Association", &names)?;
 
-    Ok(&associations[index])
+            Ok(&associations[index])
+        },
+    }
 }
 
-pub fn add_association(cidrs: &[Cidr]) -> Result<Option<(&Cidr, &Cidr)>, Error> {
-    let cidr1 = choose_cidr(cidrs, "First CIDR")?;
-    let cidr2 = choose_cidr(cidrs, "Second CIDR")?;
+fn find_cidr<'a>(cidrs: &'a [Cidr], name: &str) -> Result<&'a Cidr, Error> {
+    cidrs
+        .iter()
+        .find(|c| c.name == name)
+        .ok_or_else(|| anyhow!("can't find cidr '{}'", name))
+}
+
+fn find_or_prompt_cidr<'a>(
+    cidrs: &'a [Cidr],
+    sub_opt: &Option<String>,
+    prompt: &'static str,
+) -> Result<&'a Cidr, Error> {
+    if let Some(name) = sub_opt {
+        find_cidr(cidrs, name)
+    } else {
+        choose_cidr(cidrs, prompt)
+    }
+}
+
+pub fn add_association<'a>(
+    cidrs: &'a [Cidr],
+    args: &AddDeleteAssociationOpts,
+) -> Result<Option<(&'a Cidr, &'a Cidr)>, Error> {
+    let cidr1 = find_or_prompt_cidr(cidrs, &args.cidr1, "First CIDR")?;
+    let cidr2 = find_or_prompt_cidr(cidrs, &args.cidr2, "Second CIDR")?;
 
     Ok(
-        if confirm(&format!(
-            "Add association: {} <=> {}?",
-            cidr1.name.yellow().bold(),
-            cidr2.name.yellow().bold()
-        ))? {
+        if args.yes
+            || confirm(&format!(
+                "Add association: {} <=> {}?",
+                cidr1.name.yellow().bold(),
+                cidr2.name.yellow().bold()
+            ))?
+        {
             Some((cidr1, cidr2))
         } else {
             None
@@ -196,11 +236,12 @@ pub fn add_association(cidrs: &[Cidr]) -> Result<Option<(&Cidr, &Cidr)>, Error> 
 pub fn delete_association<'a>(
     associations: &'a [Association],
     cidrs: &'a [Cidr],
+    args: &AddDeleteAssociationOpts,
 ) -> Result<Option<&'a Association>, Error> {
-    let association = choose_association(associations, cidrs)?;
+    let association = choose_association(associations, cidrs, args)?;
 
     Ok(
-        if confirm(&format!("Delete association #{}?", association.id))? {
+        if args.yes || confirm(&format!("Delete association #{}?", association.id))? {
             Some(association)
         } else {
             None

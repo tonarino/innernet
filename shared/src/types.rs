@@ -379,12 +379,16 @@ pub struct DeleteCidrOpts {
 }
 
 #[derive(Debug, Clone, PartialEq, Args)]
-pub struct AddAssociationOpts {
+pub struct AddDeleteAssociationOpts {
     /// The first cidr to associate
     pub cidr1: Option<String>,
 
     /// The second cidr to associate
     pub cidr2: Option<String>,
+
+    /// Bypass confirmation
+    #[clap(long)]
+    pub yes: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Args)]
