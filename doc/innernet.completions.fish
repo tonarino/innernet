@@ -52,6 +52,7 @@ complete -c innernet -n "__fish_seen_subcommand_from fetch" -l no-write-hosts -d
 complete -c innernet -n "__fish_seen_subcommand_from fetch" -l no-nat-traversal -d 'Don\'t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
 complete -c innernet -n "__fish_seen_subcommand_from fetch" -l no-nat-candidates -d 'Don\'t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates \'0.0.0.0/0\''
 complete -c innernet -n "__fish_seen_subcommand_from fetch" -s h -l help -d 'Print help information'
+complete -c innernet -n "__fish_seen_subcommand_from uninstall" -l yes -d 'Bypass confirmation'
 complete -c innernet -n "__fish_seen_subcommand_from uninstall" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_seen_subcommand_from down" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_seen_subcommand_from add-peer" -l name -d 'Name of new peer' -r
@@ -79,7 +80,9 @@ complete -c innernet -n "__fish_seen_subcommand_from list-cidrs" -s t -l tree -d
 complete -c innernet -n "__fish_seen_subcommand_from list-cidrs" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_seen_subcommand_from disable-peer" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_seen_subcommand_from enable-peer" -s h -l help -d 'Print help information'
+complete -c innernet -n "__fish_seen_subcommand_from add-association" -l yes -d 'Bypass confirmation'
 complete -c innernet -n "__fish_seen_subcommand_from add-association" -s h -l help -d 'Print help information'
+complete -c innernet -n "__fish_seen_subcommand_from delete-association" -l yes -d 'Bypass confirmation'
 complete -c innernet -n "__fish_seen_subcommand_from delete-association" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_seen_subcommand_from list-associations" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_seen_subcommand_from set-listen-port" -s l -l listen-port -d 'The listen port you\'d like to set for the interface' -r

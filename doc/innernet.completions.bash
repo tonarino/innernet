@@ -117,7 +117,7 @@ _innernet() {
             return 0
             ;;
         innernet__add__association)
-            opts="-h --help <INTERFACE> <CIDR1> <CIDR2>"
+            opts="-h --yes --help <INTERFACE> <CIDR1> <CIDR2>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -209,7 +209,7 @@ _innernet() {
             return 0
             ;;
         innernet__delete__association)
-            opts="-h --help <INTERFACE>"
+            opts="-h --yes --help <INTERFACE> <CIDR1> <CIDR2>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -453,7 +453,7 @@ _innernet() {
             return 0
             ;;
         innernet__uninstall)
-            opts="-h --help <INTERFACE>"
+            opts="-h --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -95,6 +95,7 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --help 'Print help information'
         }
         &'innernet;uninstall'= {
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help information'
             cand --help 'Print help information'
         }
@@ -150,10 +151,12 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --help 'Print help information'
         }
         &'innernet;add-association'= {
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help information'
             cand --help 'Print help information'
         }
         &'innernet;delete-association'= {
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help information'
             cand --help 'Print help information'
         }

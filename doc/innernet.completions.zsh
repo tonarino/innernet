@@ -93,6 +93,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (uninstall)
 _arguments "${_arguments_options[@]}" \
+'--yes[Bypass confirmation]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 ':interface:' \
@@ -175,6 +176,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (add-association)
 _arguments "${_arguments_options[@]}" \
+'--yes[Bypass confirmation]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 ':interface:' \
@@ -184,9 +186,12 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (delete-association)
 _arguments "${_arguments_options[@]}" \
+'--yes[Bypass confirmation]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 ':interface:' \
+'::cidr1 -- The first cidr to associate:' \
+'::cidr2 -- The second cidr to associate:' \
 && ret=0
 ;;
 (list-associations)
