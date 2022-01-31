@@ -99,7 +99,7 @@ pub use netlink::get_local_addrs as _get_local_addrs;
 
 pub fn get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
     // TODO(jake): this is temporary pending the stabilization of rust-lang/rust#27709
-    fn is_unicast_global(ip: Ipv6Addr) -> bool {
+    fn is_unicast_global(ip: &Ipv6Addr) -> bool {
         !((ip.segments()[0] & 0xff00) == 0xff00 // multicast
             || ip.is_loopback()
             || ip.is_unspecified()
@@ -112,7 +112,7 @@ pub fn get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::E
         .filter(|ip| {
             ip.is_ipv4()
                 || matches!(ip,
-            IpAddr::V6(v6) if is_unicast_global(*v6))
+            IpAddr::V6(v6) if is_unicast_global(v6))
         })
         .take(10))
 }
