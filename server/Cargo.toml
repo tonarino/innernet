@@ -6,7 +6,7 @@ license = "MIT"
 name = "server"
 publish = false
 readme = "README.md"
-version = "1.5.3"
+version = "1.5.4-beta.1"
 
 [[bin]]
 name = "innernet-server"
