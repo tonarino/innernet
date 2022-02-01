@@ -648,6 +648,7 @@ impl<'a> PeerDiff<'a> {
             .map(|info| info.is_recently_connected())
             .unwrap_or_default()
         {
+            let mut endpoint_changed = false;
             let resolved = new.endpoint.as_ref().and_then(|e| e.resolve().ok());
             if let Some(addr) = resolved {
                 if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
@@ -657,9 +658,18 @@ impl<'a> PeerDiff<'a> {
                         old.and_then(|p| p.endpoint),
                         Some(addr),
                     ));
+                    endpoint_changed = true;
                 }
             }
+            if !endpoint_changed && !new.candidates.is_empty() {
+                changes.push(ChangeString::new(
+                    "Connection status",
+                    "Disconnected".into(),
+                    "NAT traverse reattempt".into(),
+                ));
+            }
         }
+
         if !changes.is_empty() {
             Some((builder, changes))
         } else {

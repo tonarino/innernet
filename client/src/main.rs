@@ -616,7 +616,7 @@ fn fetch(
         Err(e) => return Err(e.into()),
         _ => {},
     }
-    log::debug!("reported candidates: {:?}", candidates);
+    log::debug!("candidates successfully reported");
 
     if nat.no_nat_traversal {
         log::debug!("NAT traversal explicitly disabled, not attempting.");
