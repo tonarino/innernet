@@ -13,7 +13,7 @@ clap = { version = "3", features = ["derive"] }
 colored = "2.0"
 dialoguer = { version = "0.9", default-features = false }
 indoc = "1"
-ipnetwork = { git = "https://github.com/mcginty/ipnetwork", rev ="393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba" }
+ipnet = { version = "2", features = ["serde"] }
 lazy_static = "1"
 libc = "0.2"
 log = "0.4"

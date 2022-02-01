@@ -4,9 +4,12 @@ use clap::Parser;
 use db::DatabaseCidr;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
+use ipnet::IpNet;
 use publicip::Preference;
 use rusqlite::{params, Connection};
-use shared::{prompts, CidrContents, Endpoint, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
+use shared::{
+    prompts, CidrContents, Endpoint, IpNetExt, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+};
 use wireguard_control::KeyPair;
 
 fn create_database<P: AsRef<Path>>(
@@ -31,7 +34,7 @@ pub struct InitializeOpts {
 
     /// The network CIDR (ex: 10.42.0.0/16)
     #[clap(long)]
-    pub network_cidr: Option<IpNetwork>,
+    pub network_cidr: Option<IpNet>,
 
     /// This server's external endpoint (ex: 100.100.100.100:51820)
     #[clap(long, conflicts_with = "auto-external-endpoint")]
@@ -48,8 +51,8 @@ pub struct InitializeOpts {
 
 struct DbInitData {
     network_name: String,
-    network_cidr: IpNetwork,
-    server_cidr: IpNetwork,
+    network_cidr: IpNet,
+    server_cidr: IpNet,
     our_ip: IpAddr,
     public_key_base64: String,
     endpoint: Endpoint,
@@ -131,7 +134,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .interact()?
     };
 
-    let root_cidr: IpNetwork = if let Some(cidr) = opts.network_cidr {
+    let root_cidr: IpNet = if let Some(cidr) = opts.network_cidr {
         cidr
     } else {
         Input::with_theme(&theme)
@@ -163,10 +166,9 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     };
 
     let our_ip = root_cidr
-        .iter()
-        .find(|ip| root_cidr.is_assignable(*ip))
+        .hosts()
+        .find(|ip| root_cidr.is_assignable(ip))
         .unwrap();
-    let server_cidr = IpNetwork::new(our_ip, root_cidr.max_prefix())?;
     let config_path = conf.config_path(&name);
     let our_keypair = KeyPair::generate();
 
@@ -174,14 +176,14 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         private_key: our_keypair.private.to_base64(),
         listen_port,
         address: our_ip,
-        network_cidr_prefix: root_cidr.prefix(),
+        network_cidr_prefix: root_cidr.prefix_len(),
     };
     config.write_to_path(&config_path)?;
 
     let db_init_data = DbInitData {
         network_name: name.to_string(),
         network_cidr: root_cidr,
-        server_cidr,
+        server_cidr: IpNet::new(our_ip, root_cidr.max_prefix_len())?,
         our_ip,
         public_key_base64: our_keypair.public.to_base64(),
         endpoint,

@@ -137,7 +137,7 @@ dependencies = [
  "dialoguer",
  "hostsfile",
  "indoc",
- "ipnetwork",
+ "ipnet",
  "lazy_static",
  "log",
  "regex",
@@ -470,9 +470,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ipnetwork"
-version = "0.17.0"
-source = "git+https://github.com/mcginty/ipnetwork?rev=393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba#393f2d89e41ac6c1c0d80a31fc0997c387a7f7ba"
+name = "ipnet"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f2d64f2edebec4ce84ad108148e67e1064789bee435edc5b60ad398714a3a9"
 dependencies = [
  "serde",
 ]
@@ -933,7 +934,7 @@ dependencies = [
  "dialoguer",
  "hyper",
  "indoc",
- "ipnetwork",
+ "ipnet",
  "lazy_static",
  "libc",
  "libsqlite3-sys",
@@ -966,7 +967,7 @@ dependencies = [
  "colored",
  "dialoguer",
  "indoc",
- "ipnetwork",
+ "ipnet",
  "lazy_static",
  "libc",
  "log",

@@ -1,6 +1,6 @@
 use crate::{chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError};
 use indoc::writedoc;
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
@@ -28,7 +28,7 @@ pub struct InterfaceInfo {
 
     /// The invited peer's internal IP address that's been allocated to it, inside
     /// the entire network's CIDR prefix.
-    pub address: IpNetwork,
+    pub address: IpNet,
 
     /// WireGuard private key (base64)
     pub private_key: String,

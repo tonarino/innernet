@@ -1,5 +1,5 @@
 use crate::{Error, IoErrorContext, NetworkOpts, Peer, PeerDiff};
-use ipnetwork::IpNetwork;
+use ipnet::IpNet;
 use std::{
     io,
     net::{IpAddr, SocketAddr},
@@ -32,17 +32,17 @@ fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn set_addr(interface: &InterfaceName, addr: IpNetwork) -> Result<(), io::Error> {
+pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error> {
     let real_interface = wireguard_control::backends::userspace::resolve_tun(interface)?;
 
-    if addr.is_ipv4() {
+    if matches!(addr, IpNet::V4(_)) {
         cmd(
             "ifconfig",
             &[
                 &real_interface,
                 "inet",
                 &addr.to_string(),
-                &addr.ip().to_string(),
+                &addr.addr().to_string(),
                 "alias",
             ],
         )
@@ -72,7 +72,7 @@ pub use super::netlink::set_up;
 pub fn up(
     interface: &InterfaceName,
     private_key: &str,
-    address: IpNetwork,
+    address: IpNet,
     listen_port: Option<u16>,
     peer: Option<(&str, IpAddr, SocketAddr)>,
     network: NetworkOpts,
@@ -102,9 +102,11 @@ pub fn up(
     set_addr(interface, address)?;
     set_up(
         interface,
-        network
-            .mtu
-            .unwrap_or_else(|| if address.is_ipv4() { 1420 } else { 1400 }),
+        network.mtu.unwrap_or(if matches!(address, IpNet::V4(_)) {
+            1420
+        } else {
+            1400
+        }),
     )?;
     if !network.no_routing {
         add_route(interface, address)?;
@@ -139,14 +141,18 @@ pub fn down(interface: &InterfaceName, backend: Backend) -> Result<(), Error> {
 /// Returns an error if the process doesn't exit successfully, otherwise returns
 /// true if the route was changed, false if the route already exists.
 #[cfg(target_os = "macos")]
-pub fn add_route(interface: &InterfaceName, cidr: IpNetwork) -> Result<bool, io::Error> {
+pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Error> {
     let real_interface = wireguard_control::backends::userspace::resolve_tun(interface)?;
     let output = cmd(
         "route",
         &[
             "-n",
             "add",
-            if cidr.is_ipv4() { "-inet" } else { "-inet6" },
+            if matches!(cidr, IpNet::V4(_)) {
+                "-inet"
+            } else {
+                "-inet6"
+            },
             &cidr.to_string(),
             "-interface",
             &real_interface,
