@@ -2,6 +2,7 @@ pub use anyhow::Error;
 use std::{
     fs::{self, File, Permissions},
     io,
+    net::{IpAddr, Ipv6Addr},
     os::unix::fs::PermissionsExt,
     path::Path,
     time::Duration,
@@ -86,7 +87,7 @@ pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::
                 )
         })
         .filter_map(|addr| match addr.address {
-            Some(SockAddr::Inet(addr)) if addr.to_std().is_ipv4() => Some(addr.to_std().ip()),
+            Some(SockAddr::Inet(addr)) => Some(addr.to_std().ip()),
             _ => None,
         });
 
@@ -97,5 +98,21 @@ pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::
 pub use netlink::get_local_addrs as _get_local_addrs;
 
 pub fn get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
-    Ok(_get_local_addrs()?.take(10))
+    // TODO(jake): this is temporary pending the stabilization of rust-lang/rust#27709
+    fn is_unicast_global(ip: &Ipv6Addr) -> bool {
+        !((ip.segments()[0] & 0xff00) == 0xff00 // multicast
+            || ip.is_loopback()
+            || ip.is_unspecified()
+            || ((ip.segments()[0] == 0x2001) && (ip.segments()[1] == 0xdb8)) // documentation
+            || (ip.segments()[0] & 0xffc0) == 0xfe80 // unicast link local
+            || (ip.segments()[0] & 0xfe00) == 0xfc00) // unicast local
+    }
+
+    Ok(_get_local_addrs()?
+        .filter(|ip| {
+            ip.is_ipv4()
+                || matches!(ip,
+            IpAddr::V6(v6) if is_unicast_global(v6))
+        })
+        .take(10))
 }
