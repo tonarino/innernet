@@ -3,4 +3,6 @@ members = ["server", "client", "hostsfile", "shared", "publicip", "netlink-reque
 
 [profile.release]
 codegen-units = 1
-lto = "thin"
+opt-level = "s"
+lto = "fat"
+panic = "abort"
