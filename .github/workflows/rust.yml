@@ -30,13 +30,7 @@ jobs:
         ACCEPT_EULA: Y
       run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-9-dev
       if: contains(runner.os, 'Linux')
-    - uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          ~/.cargo/bin
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-v1
+    - uses: Swatinem/rust-cache@v1
     - name: Build
       uses: actions-rs/cargo@v1
       with:
