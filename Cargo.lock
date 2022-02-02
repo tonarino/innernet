@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "1.5.4-beta.1"
+version = "1.5.4-beta.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "netlink-request"
-version = "1.5.4-beta.1"
+version = "1.5.4-beta.2"
 dependencies = [
  "netlink-packet-core",
  "netlink-packet-generic",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "1.5.4-beta.1"
+version = "1.5.4-beta.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -959,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "1.5.4-beta.1"
+version = "1.5.4-beta.2"
 dependencies = [
  "anyhow",
  "atty",
@@ -1333,7 +1333,7 @@ checksum = "11d95421d9ed3672c280884da53201a5c46b7b2765ca6faf34b0d71cf34a3561"
 
 [[package]]
 name = "wireguard-control"
-version = "1.5.4-beta.1"
+version = "1.5.4-beta.2"
 dependencies = [
  "base64",
  "curve25519-dalek",
