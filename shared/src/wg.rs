@@ -102,11 +102,7 @@ pub fn up(
     set_addr(interface, address)?;
     set_up(
         interface,
-        network.mtu.unwrap_or(if matches!(address, IpNet::V4(_)) {
-            1420
-        } else {
-            1400
-        }),
+        network.mtu.unwrap_or(1412),
     )?;
     if !network.no_routing {
         add_route(interface, address)?;
