@@ -100,10 +100,7 @@ pub fn up(
         .set_private_key(wireguard_control::Key::from_base64(private_key).unwrap())
         .apply(interface, network.backend)?;
     set_addr(interface, address)?;
-    set_up(
-        interface,
-        network.mtu.unwrap_or(1412),
-    )?;
+    set_up(interface, network.mtu.unwrap_or(1412))?;
     if !network.no_routing {
         add_route(interface, address)?;
     }
