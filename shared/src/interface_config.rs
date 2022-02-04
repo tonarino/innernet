@@ -139,7 +139,7 @@ impl InterfaceConfig {
 impl InterfaceInfo {
     pub fn public_key(&self) -> Result<String, Error> {
         Ok(wireguard_control::Key::from_base64(&self.private_key)?
-            .generate_public()
+            .get_public()
             .to_base64())
     }
 }

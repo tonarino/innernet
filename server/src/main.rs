@@ -535,7 +535,7 @@ async fn serve(
         num_candidates
     );
 
-    let public_key = wireguard_control::Key::from_base64(&config.private_key)?.generate_public();
+    let public_key = wireguard_control::Key::from_base64(&config.private_key)?.get_public();
     let db = Arc::new(Mutex::new(conn));
     let endpoints = spawn_endpoint_refresher(interface, network);
     spawn_expired_invite_sweeper(db.clone());
@@ -720,7 +720,7 @@ mod tests {
     async fn test_incorrect_public_key() -> Result<(), Error> {
         let server = test::Server::new()?;
 
-        let key = Key::generate_private().generate_public();
+        let key = Key::generate_private().get_public();
 
         let path = if cfg!(feature = "v6-test") {
             format!("http://[{}]/v1/admin/peers", test::WG_MANAGE_PEER_IP)

@@ -56,7 +56,7 @@ impl Key {
 
     /// Generates a public key for this private key.
     #[must_use]
-    pub fn generate_public(&self) -> Self {
+    pub fn get_public(&self) -> Self {
         use curve25519_dalek::scalar::Scalar;
 
         use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
@@ -115,7 +115,7 @@ mod test {
         let pubkey = "DD5yKRfzExcV5+kDnTroDgCU15latdMjiQ59j1hEuk8=";
 
         let private = Key::from_base64(privkey).unwrap();
-        let public = Key::generate_public(&private);
+        let public = Key::get_public(&private);
 
         assert_eq!(public.to_base64(), pubkey);
     }
@@ -164,12 +164,12 @@ impl fmt::Debug for Key {
 impl KeyPair {
     pub fn generate() -> Self {
         let private = Key::generate_private();
-        let public = private.generate_public();
+        let public = private.get_public();
         KeyPair { private, public }
     }
 
     pub fn from_private(key: Key) -> Self {
-        let public = key.generate_public();
+        let public = key.get_public();
         KeyPair {
             private: key,
             public,
@@ -216,7 +216,7 @@ mod tests {
         use crate::key::Key;
 
         let privkey = Key::generate_private();
-        let pubkey = privkey.generate_public();
+        let pubkey = privkey.get_public();
 
         assert_ne!(privkey, pubkey);
     }

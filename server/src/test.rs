@@ -83,7 +83,7 @@ impl Server {
         let test_dir = tempfile::tempdir()?;
         let test_dir_path = test_dir.path();
 
-        let public_key = Key::generate_private().generate_public();
+        let public_key = Key::generate_private().get_public();
         // Run the init wizard to initialize the database and create basic
         // cidrs and peers.
         let interface = "test".to_string();

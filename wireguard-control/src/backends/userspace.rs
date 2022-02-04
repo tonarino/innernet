@@ -149,7 +149,7 @@ impl ConfigParser {
                     .device_info
                     .private_key
                     .as_ref()
-                    .map(|k| k.generate_public());
+                    .map(|k| k.get_public());
             },
             "listen_port" => {
                 self.device_info.listen_port = Some(value.parse().map_err(|_| InvalidData)?)
