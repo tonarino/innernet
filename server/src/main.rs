@@ -261,7 +261,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
-            let mut app = Opts::into_app();
+            let mut app = Opts::command();
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
             std::process::exit(0);
