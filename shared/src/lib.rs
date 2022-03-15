@@ -1,5 +1,5 @@
 pub use anyhow::Error;
-use ipnet::{IpNet};
+use ipnet::IpNet;
 use std::{
     fs::{self, File, Permissions},
     io,
