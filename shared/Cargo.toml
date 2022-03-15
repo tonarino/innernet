@@ -11,9 +11,9 @@ anyhow = "1"
 atty = "0.2"
 clap = { version = "3", features = ["derive"] }
 colored = "2.0"
-dialoguer = { version = "0.9", default-features = false }
+dialoguer = { version = "0.10", default-features = false }
 indoc = "1"
-ipnet = { version = "2", features = ["serde"] }
+ipnet = { version = "2.4", features = ["serde"] }
 lazy_static = "1"
 libc = "0.2"
 log = "0.4"
@@ -27,7 +27,7 @@ wireguard-control = { path = "../wireguard-control" }
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-sys = "0.8"
 netlink-packet-core = "0.4"
-netlink-packet-route = "0.10"
+netlink-packet-route = "0.11"
 netlink-request = { path = "../netlink-request" }
 
 [target.'cfg(target_os = "macos")'.dependencies]

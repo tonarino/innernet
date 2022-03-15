@@ -22,5 +22,5 @@ netlink-request = { path = "../netlink-request" }
 netlink-sys = "0.8"
 netlink-packet-core = "0.4"
 netlink-packet-generic = "0.3"
-netlink-packet-route = "0.10"
+netlink-packet-route = "0.11"
 netlink-packet-wireguard = "0.2"

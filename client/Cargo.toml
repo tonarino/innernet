@@ -18,10 +18,10 @@ anyhow = "1"
 colored = "2"
 clap = { version = "3", features = ["derive"] }
 clap_complete = "3"
-dialoguer = { version = "0.9", default-features = false }
+dialoguer = { version = "0.10", default-features = false }
 hostsfile = { path = "../hostsfile" }
 indoc = "1"
-ipnet = { version = "2", features = ["serde"] }
+ipnet = { version = "2.4", features = ["serde"] }
 lazy_static = "1"
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
