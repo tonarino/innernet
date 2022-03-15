@@ -471,7 +471,7 @@ pub struct NetworkOpts {
     pub backend: Backend,
 
     #[clap(long)]
-    /// Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6).
+    /// Specify the desired MTU for your interface (default: 1280).
     pub mtu: Option<u32>,
 }
 
