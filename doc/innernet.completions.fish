@@ -1,7 +1,7 @@
 complete -c innernet -n "__fish_use_subcommand" -s c -l config-dir -r
 complete -c innernet -n "__fish_use_subcommand" -s d -l data-dir -r
 complete -c innernet -n "__fish_use_subcommand" -l backend -d 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability' -r -f -a "{kernel	,userspace	}"
-complete -c innernet -n "__fish_use_subcommand" -l mtu -d 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)' -r
+complete -c innernet -n "__fish_use_subcommand" -l mtu -d 'Specify the desired MTU for your interface (default: 1280)' -r
 complete -c innernet -n "__fish_use_subcommand" -s h -l help -d 'Print help information'
 complete -c innernet -n "__fish_use_subcommand" -s V -l version -d 'Print version information'
 complete -c innernet -n "__fish_use_subcommand" -s v -l verbose -d 'Verbose output, use -vv for even higher verbositude'

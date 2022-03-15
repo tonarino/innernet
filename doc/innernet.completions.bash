@@ -102,7 +102,7 @@ _innernet() {
                     return 0
                     ;;
                 --backend)
-                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)

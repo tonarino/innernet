@@ -4,7 +4,7 @@ edition = "2021"
 license = "MIT"
 name = "shared"
 publish = false
-version = "1.5.4-beta.4"
+version = "1.5.4-beta.5"
 
 [dependencies]
 anyhow = "1"

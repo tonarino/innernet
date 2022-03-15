@@ -69,7 +69,7 @@ _innernet-server() {
                     return 0
                     ;;
                 --backend)
-                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)
@@ -253,7 +253,7 @@ _innernet-server() {
             fi
             case "${prev}" in
                 --backend)
-                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)

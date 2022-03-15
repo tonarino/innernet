@@ -23,7 +23,7 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand -d 'd'
             cand --data-dir 'data-dir'
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
-            cand --mtu 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
+            cand --mtu 'Specify the desired MTU for your interface (default: 1280)'
             cand -h 'Print help information'
             cand --help 'Print help information'
             cand -V 'Print version information'
@@ -54,7 +54,7 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
         }
         &'innernet-server;serve'= {
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
-            cand --mtu 'Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)'
+            cand --mtu 'Specify the desired MTU for your interface (default: 1280)'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
             cand -h 'Print help information'
             cand --help 'Print help information'

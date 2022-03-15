@@ -20,7 +20,7 @@ _innernet-server() {
 '-d+[]:DATA_DIR: ' \
 '--data-dir=[]:DATA_DIR: ' \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]:BACKEND:(kernel userspace)' \
-'--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]:MTU: ' \
+'--mtu=[Specify the desired MTU for your interface (default: 1280)]:MTU: ' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 '-V[Print version information]' \
@@ -56,7 +56,7 @@ _arguments "${_arguments_options[@]}" \
 (serve)
 _arguments "${_arguments_options[@]}" \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]:BACKEND:(kernel userspace)' \
-'--mtu=[Specify the desired MTU for your interface (default: 1420 for IPv4 and 1400 for IPv6)]:MTU: ' \
+'--mtu=[Specify the desired MTU for your interface (default: 1280)]:MTU: ' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
