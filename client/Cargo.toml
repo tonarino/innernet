@@ -7,7 +7,7 @@ license = "MIT"
 name = "client"
 publish = false
 repository = "https://github.com/tonarino/innernet"
-version = "1.5.4-beta.5"
+version = "1.5.4"
 
 [[bin]]
 name = "innernet"
