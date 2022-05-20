@@ -23,7 +23,6 @@ Requires: libgcc
 %setup -q
 
 %build
-ln -s %{name} .%{_bindir}/inn
 
 %install
 rm -rf %{buildroot}

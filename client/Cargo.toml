@@ -37,7 +37,6 @@ tempfile = "3"
 [package.metadata.deb]
 assets = [
   ["target/release/innernet", "usr/bin/", "755"],
-  ["target/release/innernet", "usr/bin/inn", "755"],
   ["innernet@.service", "usr/lib/systemd/system/", "644"],
   ["../doc/innernet.8.gz", "usr/share/man/man8/", "644"],
   ["../doc/innernet.completions.bash", "etc/bash_completion.d/innernet", "644"],
