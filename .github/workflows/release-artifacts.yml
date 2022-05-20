@@ -53,11 +53,28 @@ jobs:
       with:
         name: packaged-deb
         path: target/debian/*.deb
+        
+  build-rpm:
+    name: 'Build RPM packages'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        distros: ['fedora:32', 'fedora:33', 'almalinux:8']
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build RPMs
+      run: rpm/build-package.sh ${{ matrix.distros }}
+    - name: Save RPMs
+      uses: actions/upload-artifact@v2
+      with:
+        name: packaged-rpm
+        path: target/rpm/*.rpm
 
   release:
     name: 'Release packages'
     runs-on: ubuntu-latest
-    needs: [build-deb]
+    needs: [build-deb, build-rpm]
     steps:
     - name: Get artifacts
       uses: actions/download-artifact@v2
