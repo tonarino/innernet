@@ -71,7 +71,13 @@ enum Command {
     },
 
     /// Permanently uninstall a created network, rendering it unusable. Use with care.
-    Uninstall { interface: Interface },
+    Uninstall {
+        interface: Interface,
+
+        /// Bypass confirmation
+        #[clap(long)]
+        yes: bool,
+    },
 
     /// Serve the coordinating server for an existing network.
     Serve {
@@ -251,7 +257,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
         },
-        Command::Uninstall { interface } => uninstall(&interface, &conf, opts.network)?,
+        Command::Uninstall { interface, yes } => uninstall(&interface, &conf, opts.network, yes)?,
         Command::Serve {
             interface,
             network: routing,
@@ -413,14 +419,16 @@ fn uninstall(
     interface: &InterfaceName,
     conf: &ServerConfig,
     network: NetworkOpts,
+    yes: bool,
 ) -> Result<(), Error> {
-    if Confirm::with_theme(&*prompts::THEME)
-        .with_prompt(&format!(
-            "Permanently delete network \"{}\"?",
-            interface.as_str_lossy().yellow()
-        ))
-        .default(false)
-        .interact()?
+    if yes
+        || Confirm::with_theme(&*prompts::THEME)
+            .with_prompt(&format!(
+                "Permanently delete network \"{}\"?",
+                interface.as_str_lossy().yellow()
+            ))
+            .default(false)
+            .interact()?
     {
         println!("{} bringing down interface (if up).", "[*]".dimmed());
         wg::down(interface, network.backend).ok();
