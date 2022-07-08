@@ -827,7 +827,7 @@ fn enable_or_disable_peer(
         contents.is_disabled = !enable;
         api.http_form("PUT", &format!("/admin/peers/{}", id), contents)?;
     } else {
-        log::info!("exiting without disabling peer.");
+        log::info!("exiting without enabling or disabling peer.");
     }
 
     Ok(())
