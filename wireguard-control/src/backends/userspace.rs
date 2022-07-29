@@ -1,8 +1,7 @@
-use crate::{Backend, Device, DeviceUpdate, InterfaceName, PeerConfig, PeerInfo, PeerStats};
-
-use crate::Key;
+use crate::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfig, PeerInfo, PeerStats};
 
 use std::{
+    fmt::Write as _,
     fs,
     io::{self, prelude::*, BufReader},
     os::unix::net::UnixStream,
@@ -311,55 +310,61 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     let mut request = String::from("set=1\n");
 
     if let Some(ref k) = builder.private_key {
-        request.push_str(&format!("private_key={}\n", hex::encode(k.as_bytes())));
+        writeln!(request, "private_key={}", hex::encode(k.as_bytes())).ok();
     }
 
     if let Some(f) = builder.fwmark {
-        request.push_str(&format!("fwmark={}\n", f));
+        writeln!(request, "fwmark={}", f).ok();
     }
 
     if let Some(f) = builder.listen_port {
-        request.push_str(&format!("listen_port={}\n", f));
+        writeln!(request, "listen_port={}", f).ok();
     }
 
     if builder.replace_peers {
-        request.push_str("replace_peers=true\n");
+        writeln!(request, "replace_peers=true").ok();
     }
 
     for peer in &builder.peers {
-        request.push_str(&format!(
-            "public_key={}\n",
+        writeln!(
+            request,
+            "public_key={}",
             hex::encode(peer.public_key.as_bytes())
-        ));
+        )
+        .ok();
 
         if peer.replace_allowed_ips {
-            request.push_str("replace_allowed_ips=true\n");
+            writeln!(request, "replace_allowed_ips=true").ok();
         }
 
         if peer.remove_me {
-            request.push_str("remove=true\n");
+            writeln!(request, "remove=true").ok();
         }
 
         if let Some(ref k) = peer.preshared_key {
-            request.push_str(&format!("preshared_key={}\n", hex::encode(k.as_bytes())));
+            writeln!(request, "preshared_key={}", hex::encode(k.as_bytes())).ok();
         }
 
         if let Some(endpoint) = peer.endpoint {
-            request.push_str(&format!("endpoint={}\n", endpoint));
+            writeln!(request, "endpoint={}", endpoint).ok();
         }
 
         if let Some(keepalive_interval) = peer.persistent_keepalive_interval {
-            request.push_str(&format!(
-                "persistent_keepalive_interval={}\n",
+            writeln!(
+                request,
+                "persistent_keepalive_interval={}",
                 keepalive_interval
-            ));
+            )
+            .ok();
         }
 
         for allowed_ip in &peer.allowed_ips {
-            request.push_str(&format!(
-                "allowed_ip={}/{}\n",
+            writeln!(
+                request,
+                "allowed_ip={}/{}",
                 allowed_ip.address, allowed_ip.cidr
-            ));
+            )
+            .ok();
         }
     }
 
