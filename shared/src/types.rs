@@ -259,11 +259,11 @@ impl<'a> CidrTree<'a> {
         }
     }
 
-    pub fn children(&self) -> impl Iterator<Item = CidrTree> {
+    pub fn children(&self) -> impl Iterator<Item = CidrTree<'_>> {
         self.cidrs
             .iter()
             .filter(move |c| c.parent == Some(self.contents.id))
-            .map(move |c| Self {
+            .map(move |c| CidrTree {
                 cidrs: self.cidrs,
                 contents: c,
             })
