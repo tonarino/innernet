@@ -34,7 +34,7 @@ macro_rules! get_nla_value {
     };
 }
 
-impl<'a> TryFrom<WgAllowedIp> for AllowedIp {
+impl TryFrom<WgAllowedIp> for AllowedIp {
     type Error = io::Error;
 
     fn try_from(attrs: WgAllowedIp) -> Result<Self, Self::Error> {
@@ -88,7 +88,7 @@ impl PeerConfigBuilder {
     }
 }
 
-impl<'a> TryFrom<WgPeer> for PeerInfo {
+impl TryFrom<WgPeer> for PeerInfo {
     type Error = io::Error;
 
     fn try_from(attrs: WgPeer) -> Result<Self, Self::Error> {

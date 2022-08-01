@@ -27,13 +27,13 @@ indoc = "1"
 ipnet = { version = "2.4", features = ["serde"] }
 lazy_static = "1"
 libc = "0.2"
-libsqlite3-sys = "0.24"
+libsqlite3-sys = "0.25"
 log = "0.4"
 parking_lot = "0.12"
 pretty_env_logger = "0.4"
 publicip = { path = "../publicip" }
 regex = { version = "1", default-features = false, features = ["std"] }
-rusqlite = "0.27"
+rusqlite = "0.28"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared = { path = "../shared" }

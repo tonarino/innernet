@@ -357,7 +357,7 @@ fn rename_peer(
             .into_iter()
             .find(|p| p.name == old_name)
             .ok_or_else(|| anyhow!("Peer not found."))?;
-        let _peer = db_peer.update(&conn, peer_request)?;
+        db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");
     }
@@ -408,7 +408,7 @@ fn delete_cidr(
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &args)?;
 
     println!("Deleting CIDR...");
-    let _ = DatabaseCidr::delete(&conn, cidr_id)?;
+    DatabaseCidr::delete(&conn, cidr_id)?;
 
     println!("CIDR deleted.");
 

@@ -725,7 +725,7 @@ fn delete_cidr(
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
 
     println!("Deleting CIDR...");
-    let _ = api.http("DELETE", &*format!("/admin/cidrs/{}", cidr_id))?;
+    api.http("DELETE", &*format!("/admin/cidrs/{}", cidr_id))?;
 
     println!("CIDR deleted.");
 
@@ -801,7 +801,7 @@ fn rename_peer(
             .next()
             .ok_or_else(|| anyhow!("Peer not found."))?;
 
-        let _ = api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
+        api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
         log::info!("Peer renamed.");
     } else {
         log::info!("exited without renaming peer.");
