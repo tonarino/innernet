@@ -266,14 +266,21 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
 /// wgctrl-rs will look for WG_USERSPACE_IMPLEMENTATION first, but will also
 /// respect the WG_QUICK_USERSPACE_IMPLEMENTATION choice if the former isn't
 /// available.
-fn get_userspace_implementation() -> String {
-    std::env::var("WG_USERSPACE_IMPLEMENTATION")
+fn get_userspace_implementation() -> io::Result<PathBuf> {
+    // let custom_error2 = Error::new(ErrorKind::Interrupted, custom_error);
+    let wg_path :PathBuf = PathBuf::from( std::env::var("WG_USERSPACE_IMPLEMENTATION")
         .or_else(|_| std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
-        .unwrap_or_else(|_| "wireguard-go".to_string())
+        .unwrap_or_else(|_| "wireguard-go".to_string()));
+    if wg_path.exists() == false {
+        let custom_error = io::Error::new(io::ErrorKind::Other, "Cannot find wireguard implementation 'wireguard-go', to specificy custom wireguard implementation set $WG_USERSPACE_IMPLEMENTATION to wiregaurd binary");
+        Err(custom_error)
+    }
+    else { Ok(wg_path) }
+
 }
 
 fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
-    let mut command = Command::new(&get_userspace_implementation());
+    let mut command = Command::new(&get_userspace_implementation()?);
     let output = if cfg!(target_os = "linux") {
         command.args(&[iface.to_string()]).output()?
     } else {
