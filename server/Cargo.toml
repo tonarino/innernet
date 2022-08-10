@@ -47,6 +47,9 @@ wireguard-control = { path = "../wireguard-control" }
 [target.'cfg(target_os = "linux")'.dependencies]
 socket2 = { version = "0.4", features = ["all"] }
 
+[target.'cfg(target_env = "musl")'.dependencies]
+rusqlite = { version = "0.28", features = ["bundled"] }
+
 [dev-dependencies]
 anyhow = "1"
 tempfile = "3"
