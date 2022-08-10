@@ -95,6 +95,12 @@ enum Command {
         args: AddPeerOpts,
     },
 
+    /// Disable an enabled peer
+    DisablePeer { interface: Interface },
+
+    /// Enable a disabled peer
+    EnablePeer { interface: Interface },
+
     /// Rename an existing peer.
     RenamePeer {
         interface: Interface,
@@ -264,6 +270,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
         Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
+        Command::DisablePeer { interface } => {
+            enable_or_disable_peer(&interface, &conf, false, opts.network)?
+        },
+        Command::EnablePeer { interface } => {
+            enable_or_disable_peer(&interface, &conf, true, opts.network)?
+        },
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
@@ -360,6 +372,49 @@ fn rename_peer(
         db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");
+    }
+
+    Ok(())
+}
+
+fn enable_or_disable_peer(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    enable: bool,
+    network: NetworkOpts,
+) -> Result<(), Error> {
+    let conn = open_database_connection(interface, conf)?;
+    let peers = DatabasePeer::list(&conn)?
+        .into_iter()
+        .map(|dp| dp.inner)
+        .collect::<Vec<_>>();
+
+    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
+        let mut db_peer = DatabasePeer::get(&conn, peer.id)?;
+        db_peer.update(
+            &conn,
+            PeerContents {
+                is_disabled: !enable,
+                ..peer.contents.clone()
+            },
+        )?;
+
+        if enable {
+            DeviceUpdate::new()
+                .add_peer(db_peer.deref().into())
+                .apply(interface, network.backend)
+                .map_err(|_| ServerError::WireGuard)?;
+        } else {
+            let public_key =
+                Key::from_base64(&peer.public_key).map_err(|_| ServerError::WireGuard)?;
+
+            DeviceUpdate::new()
+                .remove_peer_by_key(&public_key)
+                .apply(interface, network.backend)
+                .map_err(|_| ServerError::WireGuard)?;
+        }
+    } else {
+        log::info!("exiting without enabling or disabling peer.");
     }
 
     Ok(())
