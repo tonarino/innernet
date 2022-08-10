@@ -80,7 +80,7 @@ struct HostsOpt {
 
 impl From<HostsOpt> for Option<PathBuf> {
     fn from(opt: HostsOpt) -> Self {
-        (!opt.no_write_hosts).then(|| opt.hosts_path)
+        (!opt.no_write_hosts).then_some(opt.hosts_path)
     }
 }
 
@@ -501,7 +501,7 @@ fn up(
         };
 
         for iface in interfaces {
-            fetch(&*iface, opts, true, hosts_path.clone(), nat)?;
+            fetch(&iface, opts, true, hosts_path.clone(), nat)?;
         }
 
         match loop_interval {
@@ -725,7 +725,7 @@ fn delete_cidr(
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
 
     println!("Deleting CIDR...");
-    api.http("DELETE", &*format!("/admin/cidrs/{}", cidr_id))?;
+    api.http("DELETE", &format!("/admin/cidrs/{}", cidr_id))?;
 
     println!("CIDR deleted.");
 
@@ -966,7 +966,7 @@ fn override_endpoint(
     };
 
     let endpoint_contents = if sub_opts.unset {
-        prompts::unset_override_endpoint(&sub_opts)?.then(|| EndpointContents::Unset)
+        prompts::unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
         let endpoint = prompts::override_endpoint(&sub_opts, port)?;
         endpoint.map(EndpointContents::Set)

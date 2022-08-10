@@ -341,7 +341,7 @@ fn add_peer(
             (&mut target_file, &target_path),
             interface,
             &peer,
-            &*server_peer,
+            &server_peer,
             &cidr_tree,
             keypair,
             &SocketAddr::new(config.address, config.listen_port),

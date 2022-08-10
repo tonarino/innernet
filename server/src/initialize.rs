@@ -26,7 +26,7 @@ fn create_database<P: AsRef<Path>>(
     Ok(conn)
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Parser)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Parser)]
 pub struct InitializeOpts {
     /// The network name (ex: evilcorp)
     #[clap(long)]

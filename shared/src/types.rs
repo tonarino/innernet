@@ -22,7 +22,7 @@ use wireguard_control::{
 
 use crate::wg::PeerInfoExt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Interface {
     name: InterfaceName,
 }
@@ -55,7 +55,7 @@ impl Display for Interface {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// An external endpoint that supports both IP and domain name hosts.
 pub struct Endpoint {
     host: Host,
@@ -278,12 +278,12 @@ impl<'a> CidrTree<'a> {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RedeemContents {
     pub public_key: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct InstallOpts {
     /// Set a specific interface name
     #[clap(long, conflicts_with = "default-name")]
@@ -298,7 +298,7 @@ pub struct InstallOpts {
     pub delete_invite: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct AddPeerOpts {
     /// Name of new peer
     #[clap(long)]
@@ -333,7 +333,7 @@ pub struct AddPeerOpts {
     pub invite_expires: Option<Timestring>,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct RenamePeerOpts {
     /// Name of peer to rename
     #[clap(long)]
@@ -348,7 +348,7 @@ pub struct RenamePeerOpts {
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct AddCidrOpts {
     /// The CIDR name (eg. 'engineers')
     #[clap(long)]
@@ -367,7 +367,7 @@ pub struct AddCidrOpts {
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct DeleteCidrOpts {
     /// The CIDR name (eg. 'engineers')
     #[clap(long)]
@@ -378,7 +378,7 @@ pub struct DeleteCidrOpts {
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct AddDeleteAssociationOpts {
     /// The first cidr to associate
     pub cidr1: Option<String>,
@@ -391,7 +391,7 @@ pub struct AddDeleteAssociationOpts {
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct ListenPortOpts {
     /// The listen port you'd like to set for the interface
     #[clap(short, long)]
@@ -406,7 +406,7 @@ pub struct ListenPortOpts {
     pub yes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct OverrideEndpointOpts {
     /// The listen port you'd like to set for the interface
     #[clap(short, long)]
@@ -475,7 +475,7 @@ pub struct NetworkOpts {
     pub mtu: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PeerContents {
     pub name: Hostname,
     pub ip: IpAddr,
@@ -491,7 +491,7 @@ pub struct PeerContents {
     pub candidates: Vec<Endpoint>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Peer {
     pub id: i64,
 
@@ -519,7 +519,7 @@ impl Display for Peer {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChangeString {
     name: &'static str,
     old: Option<String>,
@@ -554,7 +554,7 @@ impl ChangeString {
 
 /// Encompasses the logic for comparing the peer configuration currently on the WireGuard interface
 /// to a (potentially) more current peer configuration from the innernet server.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PeerDiff<'a> {
     pub old: Option<&'a PeerConfig>,
     pub new: Option<&'a Peer>,
@@ -709,7 +709,7 @@ pub struct State {
     pub cidrs: Vec<Cidr>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Timestring {
     timestring: String,
     seconds: u64,
@@ -755,7 +755,7 @@ impl From<Timestring> for Duration {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hostname(String);
 
 lazy_static! {

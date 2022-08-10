@@ -178,7 +178,7 @@ impl fmt::Display for InterfaceName {
 }
 
 /// An interface name was bad.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum InvalidInterfaceName {
     /// Provided name was longer then the interface name length limit
     /// of the system.
