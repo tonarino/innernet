@@ -27,7 +27,7 @@ wireguard-control = { path = "../wireguard-control" }
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-sys = "0.8"
 netlink-packet-core = "0.4"
-netlink-packet-route = "0.11"
+netlink-packet-route = "0.13"
 netlink-request = { path = "../netlink-request" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
