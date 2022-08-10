@@ -94,7 +94,8 @@ pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::
                 if let Some(sockaddr_in) = addr.as_sockaddr_in() {
                     Some(IpAddr::V4(Ipv4Addr::from(sockaddr_in.ip())))
                 } else {
-                    addr.as_sockaddr_in6().map(|sockaddr_in6| IpAddr::V6(sockaddr_in6.ip()))
+                    addr.as_sockaddr_in6()
+                        .map(|sockaddr_in6| IpAddr::V6(sockaddr_in6.ip()))
                 }
             })
         });
