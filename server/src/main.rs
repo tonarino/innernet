@@ -270,8 +270,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
         Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
-        Command::DisablePeer { interface } => enable_or_disable_peer(&interface, &conf, false)?,
-        Command::EnablePeer { interface } => enable_or_disable_peer(&interface, &conf, true)?,
+        Command::DisablePeer { interface } => {
+            enable_or_disable_peer(&interface, &conf, false, opts.network)?
+        },
+        Command::EnablePeer { interface } => {
+            enable_or_disable_peer(&interface, &conf, true, opts.network)?
+        },
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
@@ -377,6 +381,7 @@ fn enable_or_disable_peer(
     interface: &InterfaceName,
     conf: &ServerConfig,
     enable: bool,
+    network: NetworkOpts,
 ) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let peers = DatabasePeer::list(&conn)?
@@ -393,6 +398,21 @@ fn enable_or_disable_peer(
                 ..peer.contents.clone()
             },
         )?;
+
+        if enable {
+            DeviceUpdate::new()
+                .add_peer(db_peer.deref().into())
+                .apply(interface, network.backend)
+                .map_err(|_| ServerError::WireGuard)?;
+        } else {
+            let public_key =
+                Key::from_base64(&peer.public_key).map_err(|_| ServerError::WireGuard)?;
+
+            DeviceUpdate::new()
+                .remove_peer_by_key(&public_key)
+                .apply(interface, network.backend)
+                .map_err(|_| ServerError::WireGuard)?;
+        }
     } else {
         log::info!("exiting without enabling or disabling peer.");
     }
