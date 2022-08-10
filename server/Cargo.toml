@@ -47,6 +47,7 @@ wireguard-control = { path = "../wireguard-control" }
 [target.'cfg(target_os = "linux")'.dependencies]
 socket2 = { version = "0.4", features = ["all"] }
 
+# Workaround for https://github.com/rusqlite/rusqlite/issues/914
 [target.'cfg(target_env = "musl")'.dependencies]
 rusqlite = { version = "0.28", features = ["bundled"] }
 
