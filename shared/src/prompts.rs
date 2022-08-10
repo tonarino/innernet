@@ -504,11 +504,9 @@ pub fn set_listen_port(
 }
 
 pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
-    println!("getting external IP address.");
-
     let external_ip = if Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
-        .with_prompt("Auto-fill public IP address (via a DNS query to 1.1.1.1)?")
+        .with_prompt("Auto-detect external endpoint IP address (via a DNS query to 1.1.1.1)?")
         .interact()?
     {
         publicip::get_any(Preference::Ipv4)
