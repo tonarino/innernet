@@ -267,16 +267,22 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
 /// respect the WG_QUICK_USERSPACE_IMPLEMENTATION choice if the former isn't
 /// available.
 fn get_userspace_implementation() -> io::Result<PathBuf> {
-    // let custom_error2 = Error::new(ErrorKind::Interrupted, custom_error);
-    let wg_path :PathBuf = PathBuf::from( std::env::var("WG_USERSPACE_IMPLEMENTATION")
-        .or_else(|_| std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
-        .unwrap_or_else(|_| "wireguard-go".to_string()));
+    let wg_path: PathBuf = PathBuf::from(
+        std::env::var("WG_USERSPACE_IMPLEMENTATION")
+            .or_else(|_| std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
+            .unwrap_or_else(|_| "wireguard-go".to_string()),
+    );
     if wg_path.exists() == false {
-        let custom_error = io::Error::new(io::ErrorKind::Other, "Cannot find wireguard implementation 'wireguard-go', to specificy custom wireguard implementation set $WG_USERSPACE_IMPLEMENTATION to wiregaurd binary");
-        Err(custom_error)
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            &*format!(
+                "Cannot find \"{}\". Specify a custom path with WG_USERSPACE_IMPLEMENTATION.",
+                (*wg_path).display()
+            ),
+        ))
+    } else {
+        Ok(wg_path)
     }
-    else { Ok(wg_path) }
-
 }
 
 fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
