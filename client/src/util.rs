@@ -211,10 +211,12 @@ impl<'a> Api<'a> {
         Self { agent, server }
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, ureq::Error> {
         self.request::<(), _>(verb, endpoint, None)
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn http_form<S: Serialize, T: DeserializeOwned>(
         &self,
         verb: &str,
@@ -224,6 +226,7 @@ impl<'a> Api<'a> {
         self.request(verb, endpoint, Some(form))
     }
 
+    #[allow(clippy::result_large_err)]
     fn request<S: Serialize, T: DeserializeOwned>(
         &self,
         verb: &str,

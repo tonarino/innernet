@@ -28,7 +28,7 @@ pub fn auto_migrate(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> 
     }
 
     if old_version != CURRENT_VERSION {
-        conn.pragma_update(None, "user_version", &CURRENT_VERSION)?;
+        conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
         log::info!(
             "migrated db version from {} to {}",
             old_version,

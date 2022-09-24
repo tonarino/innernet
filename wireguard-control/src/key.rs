@@ -79,7 +79,7 @@ impl Key {
 
     /// Converts the key to a standardized base64 representation, as used by the `wg` utility and `wg-quick`.
     pub fn to_base64(&self) -> String {
-        base64::encode(&self.0)
+        base64::encode(self.0)
     }
 
     /// Converts a base64 representation of the key to the raw bytes.

@@ -199,7 +199,7 @@ impl ConfigFile {
                 path.display()
             );
         }
-        Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
+        Ok(toml::from_slice(&std::fs::read(path).with_path(path)?)?)
     }
 }
 
@@ -303,7 +303,7 @@ fn open_database_connection(
 
     let conn = Connection::open(&database_path)?;
     // Foreign key constraints aren't on in SQLite by default. Enable.
-    conn.pragma_update(None, "foreign_keys", &1)?;
+    conn.pragma_update(None, "foreign_keys", 1)?;
     db::auto_migrate(&conn)?;
     Ok(conn)
 }
@@ -656,7 +656,7 @@ fn get_listener(addr: SocketAddr, interface: &InterfaceName) -> Result<TcpListen
 /// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(not(target_os = "linux"))]
 fn get_listener(addr: SocketAddr, _interface: &InterfaceName) -> Result<TcpListener, Error> {
-    let listener = TcpListener::bind(&addr)?;
+    let listener = TcpListener::bind(addr)?;
     listener.set_nonblocking(true)?;
     Ok(listener)
 }

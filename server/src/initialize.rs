@@ -16,11 +16,11 @@ fn create_database<P: AsRef<Path>>(
     database_path: P,
 ) -> Result<Connection, Box<dyn std::error::Error>> {
     let conn = Connection::open(&database_path)?;
-    conn.pragma_update(None, "foreign_keys", &1)?;
+    conn.pragma_update(None, "foreign_keys", 1)?;
     conn.execute(db::peer::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::association::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::cidr::CREATE_TABLE_SQL, params![])?;
-    conn.pragma_update(None, "user_version", &db::CURRENT_VERSION)?;
+    conn.pragma_update(None, "user_version", db::CURRENT_VERSION)?;
     log::debug!("set database version to db::CURRENT_VERSION");
 
     Ok(conn)

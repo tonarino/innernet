@@ -282,7 +282,7 @@ fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
                 "WG_TUN_NAME_FILE",
                 &format!("{}/{}.name", VAR_RUN_PATH, iface),
             )
-            .args(&["utun"])
+            .args(["utun"])
             .output()?
     };
     if !output.status.success() {
