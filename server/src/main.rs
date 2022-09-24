@@ -641,7 +641,7 @@ async fn serve(
 /// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(target_os = "linux")]
 fn get_listener(addr: SocketAddr, interface: &InterfaceName) -> Result<TcpListener, Error> {
-    let listener = TcpListener::bind(&addr)?;
+    let listener = TcpListener::bind(addr)?;
     listener.set_nonblocking(true)?;
     let sock = socket2::Socket::from(listener);
     sock.bind_device(Some(interface.as_str_lossy().as_bytes()))?;
