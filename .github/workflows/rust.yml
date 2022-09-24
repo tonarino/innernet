@@ -46,13 +46,8 @@ jobs:
       with:
         command: test
         args: --features v6-test --verbose
-    - name: Clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --all-targets -- -D warnings
 
-  fmt:
+  fmt-and-clippy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -67,3 +62,8 @@ jobs:
       with:
         command: fmt
         args: --all -- --check
+    - name: Clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: --all-targets -- -D warnings
