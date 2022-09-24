@@ -48,6 +48,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (uninstall)
 _arguments "${_arguments_options[@]}" \
+'--yes[Bypass confirmation]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 ':interface:' \
@@ -73,6 +74,20 @@ _arguments "${_arguments_options[@]}" \
 '--invite-expires=[Invite expiration period (eg. '\''30d'\'', '\''7w'\'', '\''2h'\'', '\''60m'\'', '\''1000s'\'')]:INVITE_EXPIRES: ' \
 '--auto-ip[Auto-assign the peer the first available IP within the CIDR]' \
 '--yes[Bypass confirmation]' \
+'-h[Print help information]' \
+'--help[Print help information]' \
+':interface:' \
+&& ret=0
+;;
+(disable-peer)
+_arguments "${_arguments_options[@]}" \
+'-h[Print help information]' \
+'--help[Print help information]' \
+':interface:' \
+&& ret=0
+;;
+(enable-peer)
+_arguments "${_arguments_options[@]}" \
 '-h[Print help information]' \
 '--help[Print help information]' \
 ':interface:' \
@@ -132,6 +147,8 @@ _innernet-server_commands() {
 'uninstall:Permanently uninstall a created network, rendering it unusable. Use with care' \
 'serve:Serve the coordinating server for an existing network' \
 'add-peer:Add a peer to an existing network' \
+'disable-peer:Disable an enabled peer' \
+'enable-peer:Enable a disabled peer' \
 'rename-peer:Rename an existing peer' \
 'add-cidr:Add a new CIDR to an existing network' \
 'delete-cidr:Delete a CIDR' \
@@ -159,6 +176,16 @@ _innernet-server__completions_commands() {
 _innernet-server__delete-cidr_commands() {
     local commands; commands=()
     _describe -t commands 'innernet-server delete-cidr commands' commands "$@"
+}
+(( $+functions[_innernet-server__disable-peer_commands] )) ||
+_innernet-server__disable-peer_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet-server disable-peer commands' commands "$@"
+}
+(( $+functions[_innernet-server__enable-peer_commands] )) ||
+_innernet-server__enable-peer_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet-server enable-peer commands' commands "$@"
 }
 (( $+functions[_innernet-server__help_commands] )) ||
 _innernet-server__help_commands() {

@@ -24,6 +24,12 @@ _innernet-server() {
             delete-cidr)
                 cmd+="__delete__cidr"
                 ;;
+            disable-peer)
+                cmd+="__disable__peer"
+                ;;
+            enable-peer)
+                cmd+="__enable__peer"
+                ;;
             help)
                 cmd+="__help"
                 ;;
@@ -46,7 +52,7 @@ _innernet-server() {
 
     case "${cmd}" in
         innernet__server)
-            opts="-h -V -c -d --help --version --config-dir --data-dir --no-routing --backend --mtu new uninstall serve add-peer rename-peer add-cidr delete-cidr completions help"
+            opts="-h -V -c -d --help --version --config-dir --data-dir --no-routing --backend --mtu new uninstall serve add-peer disable-peer enable-peer rename-peer add-cidr delete-cidr completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -69,7 +75,7 @@ _innernet-server() {
                     return 0
                     ;;
                 --backend)
-                    COMPREPLY=($(compgen -W "" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)
@@ -179,6 +185,34 @@ _innernet-server() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        innernet__server__disable__peer)
+            opts="-h --help <INTERFACE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__server__enable__peer)
+            opts="-h --help <INTERFACE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         innernet__server__help)
             opts="<SUBCOMMAND>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -253,7 +287,7 @@ _innernet-server() {
             fi
             case "${prev}" in
                 --backend)
-                    COMPREPLY=($(compgen -W "" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)
@@ -268,7 +302,7 @@ _innernet-server() {
             return 0
             ;;
         innernet__server__uninstall)
-            opts="-h --help <INTERFACE>"
+            opts="-h --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
