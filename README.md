@@ -195,14 +195,9 @@ It's assumed that WireGuard is installed on your system, either via the kernel m
 pacman -S innernet
 ```
 
-### Ubuntu
+### Other Linux Distributions
 
-Fetch the appropriate `.deb` packages from
-https://github.com/tonarino/innernet/releases and install with
-
-```sh
-sudo apt install ./innernet*.deb
-```
+Starting with the 1.5.4 release, Debian and RPM packages are no longer built in this repository. We're looking for volunteers who are able to set up external builds for popular distributions. Please see issue [#203](https://github.com/tonarino/innernet/issues/203).
 
 ### macOS
 
@@ -256,5 +251,3 @@ The resulting binary will be located at `./target/release/innernet`
 1. Run `cargo release [--dry-run] [minor|major|patch|...]` to automatically bump the crates appropriately.
 2. Create a new git tag (ex. `v0.6.0`).
 3. Push (with tags) to the repo.
-
-innernet uses GitHub Actions to automatically produce a debian package for the [releases page](https://github.com/tonarino/innernet/releases).
