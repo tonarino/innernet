@@ -40,14 +40,14 @@ mod handlers {
 
         let cidr = DatabaseCidr::create(&conn, contents)?;
 
-        json_status_response(&cidr, StatusCode::CREATED)
+        json_status_response(cidr, StatusCode::CREATED)
     }
 
     pub async fn list(session: Session) -> Result<Response<Body>, ServerError> {
         let conn = session.context.db.lock();
         let cidrs = DatabaseCidr::list(&conn)?;
 
-        json_response(&cidrs)
+        json_response(cidrs)
     }
 
     pub async fn delete(id: i64, session: Session) -> Result<Response<Body>, ServerError> {

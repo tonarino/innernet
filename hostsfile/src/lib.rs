@@ -117,7 +117,7 @@ impl HostsBuilder {
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
     /// same tag name already, it will be replaced with the new list instead.
     pub fn write(&self) -> io::Result<()> {
-        self.write_to(&Self::default_path()?)
+        self.write_to(Self::default_path()?)
     }
 
     /// Returns the default hosts path based on the current OS.
