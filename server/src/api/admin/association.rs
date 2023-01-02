@@ -49,7 +49,7 @@ mod handlers {
         let conn = session.context.db.lock();
         let auths = DatabaseAssociation::list(&conn)?;
 
-        json_response(&auths)
+        json_response(auths)
     }
 
     pub async fn delete(id: i64, session: Session) -> Result<Response<Body>, ServerError> {

@@ -103,7 +103,7 @@ impl Server {
 
         let interface = interface.parse().unwrap();
         // Add developer CIDR and user CIDR and some peers for testing.
-        let db = Connection::open(&conf.database_path(&interface))?;
+        let db = Connection::open(conf.database_path(&interface))?;
         db.pragma_update(None, "foreign_keys", 1)?;
         assert_eq!(ADMIN_CIDR_ID, create_cidr(&db, "admin", ADMIN_CIDR)?.id);
         assert_eq!(

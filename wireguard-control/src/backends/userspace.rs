@@ -27,14 +27,14 @@ fn get_base_folder() -> io::Result<PathBuf> {
 }
 
 fn get_namefile(name: &InterfaceName) -> io::Result<PathBuf> {
-    Ok(get_base_folder()?.join(&format!("{}.name", name.as_str_lossy())))
+    Ok(get_base_folder()?.join(format!("{}.name", name.as_str_lossy())))
 }
 
 fn get_socketfile(name: &InterfaceName) -> io::Result<PathBuf> {
     if cfg!(target_os = "linux") {
-        Ok(get_base_folder()?.join(&format!("{}.sock", name)))
+        Ok(get_base_folder()?.join(format!("{}.sock", name)))
     } else {
-        Ok(get_base_folder()?.join(&format!("{}.sock", resolve_tun(name)?)))
+        Ok(get_base_folder()?.join(format!("{}.sock", resolve_tun(name)?)))
     }
 }
 
@@ -273,7 +273,7 @@ fn get_userspace_implementation() -> String {
 }
 
 fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
-    let mut command = Command::new(&get_userspace_implementation());
+    let mut command = Command::new(get_userspace_implementation());
     let output = if cfg!(target_os = "linux") {
         command.args(&[iface.to_string()]).output()?
     } else {

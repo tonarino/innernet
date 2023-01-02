@@ -174,7 +174,7 @@ mod tests {
     }
 
     fn setup_basic_store(dir: &Path) {
-        let mut store = DataStore::open_with_path(&dir.join("peer_store.json"), true).unwrap();
+        let mut store = DataStore::open_with_path(dir.join("peer_store.json"), true).unwrap();
 
         println!("{:?}", store);
         assert_eq!(0, store.peers().len());
@@ -189,7 +189,7 @@ mod tests {
     fn test_sanity() {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
-        let store = DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
+        let store = DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
         assert_eq!(store.peers(), &*BASE_PEERS);
         assert_eq!(store.cidrs(), &*BASE_CIDRS);
     }
@@ -199,7 +199,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
         let mut store =
-            DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
+            DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
         store.update_peers(&BASE_PEERS).unwrap();
@@ -216,7 +216,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
         let mut store =
-            DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
+            DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
         store.update_peers(&[]).unwrap();

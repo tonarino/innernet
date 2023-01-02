@@ -178,7 +178,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         address: our_ip,
         network_cidr_prefix: root_cidr.prefix_len(),
     };
-    config.write_to_path(&config_path)?;
+    config.write_to_path(config_path)?;
 
     let db_init_data = DbInitData {
         network_name: name.to_string(),
