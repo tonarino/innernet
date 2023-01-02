@@ -28,7 +28,7 @@ jobs:
     - name: Install Dependencies (if Ubuntu)
       env:
         ACCEPT_EULA: Y
-      run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-9-dev
+      run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-11-dev
       if: contains(runner.os, 'Linux')
     - uses: Swatinem/rust-cache@v1
     - name: Build
