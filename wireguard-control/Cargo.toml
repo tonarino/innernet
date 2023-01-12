@@ -14,7 +14,7 @@ base64 = "0.13"
 hex = "0.4"
 libc = "0.2"
 log = "0.4"
-rand_core = "0.6"
+rand_core = { version = "0.6", features = ["getrandom"] }
 curve25519-dalek = "4.0.0-pre.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
