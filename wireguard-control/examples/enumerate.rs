@@ -7,5 +7,5 @@ const BACKEND: Backend = Backend::Userspace;
 
 fn main() {
     let devices = Device::list(BACKEND).unwrap();
-    println!("{:?}", devices);
+    println!("{devices:?}");
 }

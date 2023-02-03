@@ -231,25 +231,25 @@ impl HostsBuilder {
         let mut s = vec![];
 
         for line in &lines[..insert] {
-            writeln!(s, "{}", line)?;
+            writeln!(s, "{line}")?;
         }
         if !self.hostname_map.is_empty() {
-            writeln!(s, "{}", begin_marker)?;
+            writeln!(s, "{begin_marker}")?;
             for (ip, hostnames) in &self.hostname_map {
                 if cfg!(windows) {
                     // windows only allows one hostname per line
                     for hostname in hostnames {
-                        writeln!(s, "{} {}", ip, hostname)?;
+                        writeln!(s, "{ip} {hostname}")?;
                     }
                 } else {
                     // assume the same format as Unix
                     writeln!(s, "{} {}", ip, hostnames.join(" "))?;
                 }
             }
-            writeln!(s, "{}", end_marker)?;
+            writeln!(s, "{end_marker}")?;
         }
         for line in &lines[insert..] {
-            writeln!(s, "{}", line)?;
+            writeln!(s, "{line}")?;
         }
 
         match Self::write_and_swap(&temp_path, hosts_path, &s) {
@@ -293,7 +293,7 @@ mod tests {
     fn test_temp_path_good() {
         let hosts_path = Path::new("/etc/hosts");
         let temp_path = HostsBuilder::get_temp_path(hosts_path).unwrap();
-        println!("{:?}", temp_path);
+        println!("{temp_path:?}");
         assert!(temp_path
             .file_name()
             .unwrap()
@@ -317,7 +317,7 @@ mod tests {
         builder.write_to(&temp_path).unwrap();
 
         let contents = std::fs::read_to_string(&temp_path).unwrap();
-        println!("contents: {}", contents);
+        println!("contents: {contents}");
         assert!(contents.starts_with("preexisting\ncontent"));
         assert!(contents.contains("# DO NOT EDIT foo BEGIN"));
         assert!(contents.contains("1.1.1.1 whatever"));

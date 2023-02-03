@@ -188,7 +188,7 @@ mod tests {
         let now = Instant::now();
         let (v4, v6) = get_both();
         println!("Done in {}ms", now.elapsed().as_millis());
-        println!("v4: {:?}, v6: {:?}", v4, v6);
+        println!("v4: {v4:?}, v6: {v6:?}");
         assert!(v4.is_some());
         assert!(v6.is_some());
         Ok(())

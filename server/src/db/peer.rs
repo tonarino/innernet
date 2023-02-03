@@ -324,7 +324,7 @@ impl DatabasePeer {
                 FROM peers
                 JOIN associated_subcidrs ON peers.cidr_id=associated_subcidrs.cidr_id
                 WHERE peers.is_disabled = 0 AND peers.is_redeemed = 1;",
-                COLUMNS.iter().map(|col| format!("peers.{}", col)).collect::<Vec<_>>().join(", ")
+                COLUMNS.iter().map(|col| format!("peers.{col}")).collect::<Vec<_>>().join(", ")
             ),
         )?;
         let peers = stmt

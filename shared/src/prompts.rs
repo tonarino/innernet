@@ -30,7 +30,7 @@ pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
     } else {
         Err(io::Error::new(
             io::ErrorKind::BrokenPipe,
-            format!("Prompt \"{}\" failed because TTY isn't connected.", prompt),
+            format!("Prompt \"{prompt}\" failed because TTY isn't connected."),
         ))
     }
 }
@@ -294,7 +294,7 @@ pub fn add_peer(
     let is_admin = if let Some(is_admin) = args.admin {
         is_admin
     } else {
-        confirm(&format!("Make {} an admin?", name))?
+        confirm(&format!("Make {name} an admin?"))?
     };
 
     let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
@@ -311,7 +311,7 @@ pub fn add_peer(
     } else {
         input(
             "Save peer invitation file to",
-            Prefill::Default(format!("{}.toml", name)),
+            Prefill::Default(format!("{name}.toml")),
         )?
     };
 
@@ -486,7 +486,7 @@ pub fn set_listen_port(
         .wait_for_newline(true)
         .with_prompt(
             &(if let Some(port) = &listen_port {
-                format!("Set listen port to {}?", port)
+                format!("Set listen port to {port}?")
             } else {
                 "Unset and randomize listen port?".to_string()
             }),
@@ -531,7 +531,7 @@ pub fn override_endpoint(
         Some(endpoint) => endpoint.clone(),
         None => ask_endpoint(listen_port)?,
     };
-    if args.yes || confirm(&format!("Set external endpoint to {}?", endpoint))? {
+    if args.yes || confirm(&format!("Set external endpoint to {endpoint}?"))? {
         Ok(Some(endpoint))
     } else {
         Ok(None)

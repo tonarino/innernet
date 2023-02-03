@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Read, Seek, SeekFrom, Write},
+    io::{self, Read, Seek, Write},
     path::{Path, PathBuf},
 };
 use wireguard_control::InterfaceName;
@@ -133,7 +133,7 @@ impl DataStore {
     }
 
     pub fn write(&mut self) -> Result<(), io::Error> {
-        self.file.seek(SeekFrom::Start(0))?;
+        self.file.rewind()?;
         self.file.set_len(0)?;
         self.file
             .write_all(serde_json::to_string_pretty(&self.contents)?.as_bytes())?;
@@ -176,7 +176,7 @@ mod tests {
     fn setup_basic_store(dir: &Path) {
         let mut store = DataStore::open_with_path(dir.join("peer_store.json"), true).unwrap();
 
-        println!("{:?}", store);
+        println!("{store:?}");
         assert_eq!(0, store.peers().len());
         assert_eq!(0, store.cidrs().len());
 

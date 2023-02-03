@@ -282,7 +282,7 @@ fn update_hosts_file(
 ) -> Result<(), WrappedIoError> {
     log::info!("updating {} with the latest peers.", "/etc/hosts".yellow());
 
-    let mut hosts_builder = HostsBuilder::new(format!("innernet {}", interface));
+    let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
     for peer in peers {
         hosts_builder.add_hostname(
             peer.contents.ip,
@@ -725,7 +725,7 @@ fn delete_cidr(
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
 
     println!("Deleting CIDR...");
-    api.http("DELETE", &format!("/admin/cidrs/{}", cidr_id))?;
+    api.http("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
 
     println!("CIDR deleted.");
 
@@ -801,7 +801,7 @@ fn rename_peer(
             .next()
             .ok_or_else(|| anyhow!("Peer not found."))?;
 
-        api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
+        api.http_form("PUT", &format!("/admin/peers/{id}"), peer_request)?;
         log::info!("Peer renamed.");
     } else {
         log::info!("exited without renaming peer.");
@@ -825,7 +825,7 @@ fn enable_or_disable_peer(
     if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
         let Peer { id, mut contents } = peer;
         contents.is_disabled = !enable;
-        api.http_form("PUT", &format!("/admin/peers/{}", id), contents)?;
+        api.http_form("PUT", &format!("/admin/peers/{id}"), contents)?;
     } else {
         log::info!("exiting without enabling or disabling peer.");
     }
@@ -1090,7 +1090,7 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     if short {
         let listen_port_str = device_info
             .listen_port
-            .map(|p| format!("(:{}) ", p))
+            .map(|p| format!("(:{p}) "))
             .unwrap_or_default();
         println!(
             "{} {}",
