@@ -546,8 +546,8 @@ impl ChangeString {
     {
         Self {
             name,
-            old: old.map(|t| format!("{:?}", t)),
-            new: new.map(|t| format!("{:?}", t)),
+            old: old.map(|t| format!("{t:?}")),
+            new: new.map(|t| format!("{t:?}")),
         }
     }
 }
@@ -873,7 +873,7 @@ mod tests {
 
         let diff = PeerDiff::new(Some(&info), Some(&peer)).unwrap();
 
-        println!("{:?}", diff);
+        println!("{diff:?}");
         assert_eq!(diff, None);
     }
 
@@ -907,7 +907,7 @@ mod tests {
         };
         let diff = PeerDiff::new(Some(&info), Some(&peer)).unwrap();
 
-        println!("{:?}", peer);
+        println!("{peer:?}");
         println!("{:?}", info.config);
         assert!(matches!(diff, Some(_)));
     }

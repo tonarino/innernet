@@ -15,7 +15,7 @@ const BASE_MODULES: &[&str] = &["innernet", "shared"];
 fn target_is_base(target: &str) -> bool {
     BASE_MODULES
         .iter()
-        .any(|module| module == &target || target.starts_with(&format!("{}::", module)))
+        .any(|module| module == &target || target.starts_with(&format!("{module}::")))
 }
 
 impl log::Log for Logger {
@@ -245,7 +245,7 @@ impl<'a> Api<'a> {
             request.send_json(serde_json::to_value(form).map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("failed to serialize JSON request: {}", e),
+                    format!("failed to serialize JSON request: {e}"),
                 )
             })?)?
         } else {

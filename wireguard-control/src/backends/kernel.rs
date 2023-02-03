@@ -294,10 +294,7 @@ impl ApplyPayload {
         if (self.current_buffer_len + nla_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!(
-                    "encoded NLA ({} bytes) is too large: {:?}",
-                    nla_buffer_len, nla
-                ),
+                format!("encoded NLA ({nla_buffer_len} bytes) is too large: {nla:?}"),
             ));
         }
         self.nlas.push(nla);
@@ -330,10 +327,7 @@ impl ApplyPayload {
         if (self.current_buffer_len + peer_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!(
-                    "encoded peer ({} bytes) is too large: {:?}",
-                    peer_buffer_len, peer
-                ),
+                format!("encoded peer ({peer_buffer_len} bytes) is too large: {peer:?}"),
             ));
         }
 
@@ -379,7 +373,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("unexpected netlink payload: {:?}", nlmsg),
+                    format!("unexpected netlink payload: {nlmsg:?}"),
                 ))
             },
         };

@@ -15,7 +15,7 @@ fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
     match unsafe { libc::if_nametoindex(interface.as_ptr()) } {
         0 => Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!("couldn't find interface '{}'.", interface),
+            format!("couldn't find interface '{interface}'."),
         )),
         index => Ok(index),
     }

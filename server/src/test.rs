@@ -187,9 +187,9 @@ impl Server {
 
     fn base_request_builder(&self, verb: &str, path: &str) -> http::request::Builder {
         let path = if cfg!(feature = "v6-test") {
-            format!("http://[{}]{}", WG_MANAGE_PEER_IP, path)
+            format!("http://[{WG_MANAGE_PEER_IP}]{path}")
         } else {
-            format!("http://{}{}", WG_MANAGE_PEER_IP, path)
+            format!("http://{WG_MANAGE_PEER_IP}{path}")
         };
         Request::builder().uri(path).method(verb).header(
             shared::INNERNET_PUBKEY_HEADER,
