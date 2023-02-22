@@ -12,7 +12,7 @@ use shared::{
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
     CidrTree, DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext,
     ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer, RedeemContents,
-    RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
+    RenamePeerOpts, EnableDisablePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
@@ -212,10 +212,20 @@ enum Command {
     },
 
     /// Disable an enabled peer
-    DisablePeer { interface: Interface },
+    DisablePeer { 
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: EnableDisablePeerOpts,
+    },
 
     /// Enable a disabled peer
-    EnablePeer { interface: Interface },
+    EnablePeer { 
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: EnableDisablePeerOpts,
+    },
 
     /// Add an association between CIDRs
     AddAssociation {
@@ -813,6 +823,7 @@ fn rename_peer(
 fn enable_or_disable_peer(
     interface: &InterfaceName,
     opts: &Opts,
+    sub_opts: EnableDisablePeerOpts,
     enable: bool,
 ) -> Result<(), Error> {
     let InterfaceConfig { server, .. } =
@@ -822,7 +833,7 @@ fn enable_or_disable_peer(
     log::info!("Fetching peers.");
     let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
 
-    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
+    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], &sub_opts, enable)? {
         let Peer { id, mut contents } = peer;
         contents.is_disabled = !enable;
         api.http_form("PUT", &format!("/admin/peers/{id}"), contents)?;
@@ -1251,8 +1262,14 @@ fn run(opts: &Opts) -> Result<(), Error> {
             sub_opts,
         } => delete_cidr(&interface, opts, sub_opts)?,
         Command::ListCidrs { interface, tree } => list_cidrs(&interface, opts, tree)?,
-        Command::DisablePeer { interface } => enable_or_disable_peer(&interface, opts, false)?,
-        Command::EnablePeer { interface } => enable_or_disable_peer(&interface, opts, true)?,
+        Command::DisablePeer { 
+            interface,
+            sub_opts,
+        } => enable_or_disable_peer(&interface, opts, sub_opts, false)?,
+        Command::EnablePeer { 
+            interface,
+            sub_opts,
+        } => enable_or_disable_peer(&interface, opts, sub_opts, true)?,
         Command::AddAssociation {
             interface,
             sub_opts,

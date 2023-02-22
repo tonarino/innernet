@@ -348,6 +348,18 @@ pub struct RenamePeerOpts {
     pub yes: bool,
 }
 
+
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct EnableDisablePeerOpts {
+    /// Name of peer to enable/disable
+    #[clap(long)]
+    pub name: Option<Hostname>,
+
+    /// Bypass confirmation
+    #[clap(long)]
+    pub yes: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct AddCidrOpts {
     /// The CIDR name (eg. 'engineers')
