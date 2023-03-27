@@ -172,9 +172,7 @@ pub fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
 
 pub fn all_installed(config_dir: &Path) -> Result<Vec<Interface>, std::io::Error> {
     // All errors are bubbled up when enumerating a directory
-    let entries: Vec<_> = std::fs::read_dir(config_dir)?
-        .into_iter()
-        .collect::<Result<_, _>>()?;
+    let entries: Vec<_> = std::fs::read_dir(config_dir)?.collect::<Result<_, _>>()?;
 
     let installed: Vec<_> = entries
         .into_iter()
