@@ -1,5 +1,5 @@
 [package]
-authors = ["Jake McGinty <me@jake.su>"]
+authors = ["Jake McGinty <me@jakebot.org>"]
 description = "A server to coordinate innernet networks."
 edition = "2021"
 license = "MIT"

@@ -1,5 +1,5 @@
 [package]
-authors = ["Jake McGinty <jake@tonari.no>"]
+authors = ["Jake McGinty <me@jakebot.org>"]
 description = "A client to manage innernet network interfaces."
 edition = "2021"
 homepage = "https://github.com/tonarino/innernet"
