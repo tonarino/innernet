@@ -198,9 +198,13 @@ It's assumed that WireGuard is installed on your system, either via the kernel m
 pacman -S innernet
 ```
 
+### Debian and Ubuntu
+
+[**@tommie**](https://github.com/tommie) is kindly providing Debian/Ubuntu innernet builds in the https://github.com/tommie/innernet-debian repository.
+
 ### Other Linux Distributions
 
-Starting with the 1.5.4 release, Debian and RPM packages are no longer built in this repository. We're looking for volunteers who are able to set up external builds for popular distributions. Please see issue [#203](https://github.com/tonarino/innernet/issues/203).
+We're looking for volunteers who are able to set up external builds for popular distributions. Please see issue [#203](https://github.com/tonarino/innernet/issues/203).
 
 ### macOS
 
