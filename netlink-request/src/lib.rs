@@ -1,9 +1,5 @@
 #[cfg(target_os = "linux")]
 mod linux {
-    pub const MAX_NETLINK_BUFFER_LENGTH: usize = 4096;
-    pub const MAX_GENL_PAYLOAD_LENGTH: usize =
-        MAX_NETLINK_BUFFER_LENGTH - NETLINK_HEADER_LEN - GENL_HDRLEN;
-
     use netlink_packet_core::{
         NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
         NETLINK_HEADER_LEN, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
@@ -15,6 +11,8 @@ mod linux {
     };
     use netlink_packet_route::RtnlMessage;
     use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
+    use nix::unistd::{sysconf, SysconfVar};
+    use once_cell::sync::OnceCell;
     use std::{fmt::Debug, io};
 
     macro_rules! get_nla_value {
@@ -24,6 +22,26 @@ mod linux {
                 _ => None,
             })
         };
+    }
+
+    pub fn max_netlink_buffer_length() -> usize {
+        static LENGTH: OnceCell<usize> = OnceCell::new();
+        *LENGTH.get_or_init(|| {
+            // https://www.kernel.org/doc/html/v6.2/userspace-api/netlink/intro.html#buffer-sizing
+            // "Netlink expects that the user buffer will be at least 8kB or a page
+            // size of the CPU architecture, whichever is bigger."
+            const MIN_NELINK_BUFFER_LENGTH: usize = 8 * 1024;
+            // Note that sysconf only returns Err / Ok(None) when the parameter is
+            // invalid, unsupported on the current OS, or an unset limit. PAGE_SIZE
+            // is *required* to be supported and is not considered a limit, so this
+            // should never fail unless something has gone massively wrong.
+            let page_size = sysconf(SysconfVar::PAGE_SIZE).unwrap().unwrap() as usize;
+            std::cmp::max(MIN_NELINK_BUFFER_LENGTH, page_size)
+        })
+    }
+
+    pub fn max_genl_payload_length() -> usize {
+        max_netlink_buffer_length() - NETLINK_HEADER_LEN - GENL_HDRLEN
     }
 
     pub fn netlink_request_genl<F>(
@@ -84,13 +102,14 @@ mod linux {
     {
         let mut req = NetlinkMessage::from(message);
 
-        if req.buffer_len() > MAX_NETLINK_BUFFER_LENGTH {
+        let max_buffer_len = max_netlink_buffer_length();
+        if req.buffer_len() > max_buffer_len {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
                     "Serialized netlink packet ({} bytes) larger than maximum size {}: {:?}",
                     req.buffer_len(),
-                    MAX_NETLINK_BUFFER_LENGTH,
+                    max_buffer_len,
                     req
                 ),
             ));
@@ -98,7 +117,7 @@ mod linux {
 
         req.header.flags = flags.unwrap_or(NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE);
         req.finalize();
-        let mut buf = [0; MAX_NETLINK_BUFFER_LENGTH];
+        let mut buf = vec![0; max_buffer_len];
         req.serialize(&mut buf);
         let len = req.buffer_len();
 
@@ -141,6 +160,6 @@ mod linux {
 
 #[cfg(target_os = "linux")]
 pub use linux::{
-    netlink_request, netlink_request_genl, netlink_request_rtnl, MAX_GENL_PAYLOAD_LENGTH,
-    MAX_NETLINK_BUFFER_LENGTH,
+    max_genl_payload_length, max_netlink_buffer_length, netlink_request, netlink_request_genl,
+    netlink_request_rtnl,
 };

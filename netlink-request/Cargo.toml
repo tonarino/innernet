@@ -8,3 +8,5 @@ netlink-sys = "0.8"
 netlink-packet-core = "0.4"
 netlink-packet-generic = "0.3"
 netlink-packet-route = "0.13"
+nix = { version = "0.25", features = ["feature"] }
+once_cell = "1"

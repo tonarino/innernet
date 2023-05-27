@@ -624,6 +624,8 @@ dependencies = [
  "netlink-packet-generic",
  "netlink-packet-route",
  "netlink-sys",
+ "nix",
+ "once_cell",
 ]
 
 [[package]]
@@ -663,9 +665,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.17.0"
+version = "1.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
+checksum = "9670a07f94779e00908f3e686eab508878ebb390ba6e604d3a284c00e8d0487b"
 
 [[package]]
 name = "os_str_bytes"
