@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fmt,
     fs::OpenOptions,
     io::{self, BufRead, BufReader, ErrorKind, Write},
@@ -81,7 +81,7 @@ impl std::error::Error for Error {
 /// ```
 pub struct HostsBuilder {
     tag: String,
-    hostname_map: HashMap<IpAddr, Vec<String>>,
+    hostname_map: BTreeMap<IpAddr, Vec<String>>,
 }
 
 impl HostsBuilder {
@@ -90,7 +90,7 @@ impl HostsBuilder {
     pub fn new<S: Into<String>>(tag: S) -> Self {
         Self {
             tag: tag.into(),
-            hostname_map: HashMap::new(),
+            hostname_map: BTreeMap::new(),
         }
     }
 
