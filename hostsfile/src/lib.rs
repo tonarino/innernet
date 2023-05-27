@@ -1,8 +1,8 @@
 use std::{
     collections::BTreeMap,
     fmt,
-    fs::OpenOptions,
-    io::{self, BufRead, BufReader, ErrorKind, Write},
+    fs::{File, OpenOptions},
+    io::{self, BufRead, BufReader, ErrorKind, Read, Write},
     net::IpAddr,
     path::{Path, PathBuf},
     result,
@@ -171,6 +171,24 @@ impl HostsBuilder {
         Ok(hosts_dir.with_file_name(temp_filename))
     }
 
+    fn has_content_changed(hosts_path: &Path, new_contents: &[u8]) -> io::Result<bool> {
+        let hosts_file = File::open(hosts_path)?;
+
+        if hosts_file.metadata()?.len() != new_contents.len() as u64 {
+            return Ok(true);
+        }
+
+        let hosts_buf = BufReader::new(hosts_file);
+
+        for (b1, b2) in hosts_buf.bytes().zip(new_contents) {
+            if b1.unwrap() != *b2 {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
     /// name already, it will be replaced with the new list instead.
     ///
@@ -265,10 +283,12 @@ impl HostsBuilder {
     }
 
     fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
-        // Copy the file we plan on modifying so its permissions and metadata are preserved.
-        std::fs::copy(hosts_path, temp_path)?;
-        Self::write_clobber(temp_path, contents)?;
-        std::fs::rename(temp_path, hosts_path)?;
+        if Self::has_content_changed(hosts_path, contents)? {
+            // Copy the file we plan on modifying so its permissions and metadata are preserved.
+            std::fs::copy(hosts_path, temp_path)?;
+            Self::write_clobber(temp_path, contents)?;
+            std::fs::rename(temp_path, hosts_path)?;
+        }
         Ok(())
     }
 
@@ -306,6 +326,18 @@ mod tests {
     fn test_temp_path_invalid() {
         let hosts_path = Path::new("/");
         assert!(HostsBuilder::get_temp_path(hosts_path).is_err());
+    }
+
+    #[test]
+    fn test_has_content_changed() {
+        let (mut temp_file, temp_path) = tempfile::NamedTempFile::new().unwrap().into_parts();
+        temp_file.write_all(b"preexisting\ncontent").unwrap();
+
+        let new_content = b"preexisting\ncontent\nnew\ncontent";
+        assert!(HostsBuilder::has_content_changed(&temp_path, new_content).unwrap());
+
+        let same_content = b"preexisting\ncontent";
+        assert!(!HostsBuilder::has_content_changed(&temp_path, same_content).unwrap());
     }
 
     #[test]
