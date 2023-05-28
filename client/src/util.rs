@@ -3,7 +3,9 @@ use colored::*;
 use indoc::eprintdoc;
 use log::{Level, LevelFilter};
 use serde::{de::DeserializeOwned, Serialize};
-use shared::{interface_config::ServerInfo, Interface, PeerDiff, INNERNET_PUBKEY_HEADER};
+use shared::{
+    interface_config::ServerInfo, Interface, PeerChange, PeerDiff, INNERNET_PUBKEY_HEADER,
+};
 use std::{ffi::OsStr, io, path::Path, time::Duration};
 use ureq::{Agent, AgentBuilder};
 
@@ -137,13 +139,30 @@ pub fn permissions_helptext(config_dir: &Path, data_dir: &Path, e: &io::Error) {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum ChangeAction {
+    Added,
+    Modified,
+    Removed,
+}
+
+impl ChangeAction {
+    fn colored_output(&self) -> ColoredString {
+        match self {
+            Self::Added => "added".green(),
+            Self::Modified => "modified".green(),
+            Self::Removed => "removed".green(),
+        }
+    }
+}
+
 pub fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
     let public_key = diff.public_key().to_base64();
 
-    let text = match (diff.old, diff.new) {
-        (None, Some(_)) => "added".green(),
-        (Some(_), Some(_)) => "modified".yellow(),
-        (Some(_), None) => "removed".red(),
+    let change_action = match (diff.old, diff.new) {
+        (None, Some(_)) => ChangeAction::Added,
+        (Some(_), Some(_)) => ChangeAction::Modified,
+        (Some(_), None) => ChangeAction::Removed,
         _ => unreachable!("PeerDiff can't be None -> None"),
     };
 
@@ -158,15 +177,30 @@ pub fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
     };
     let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
 
+    if change_action == ChangeAction::Modified
+        && diff
+            .changes()
+            .iter()
+            .all(|c| *c == PeerChange::NatTraverseReattempt)
+    {
+        // If this peer was "modified" but the only change is a NAT Traversal Reattempt,
+        // don't bother printing this peer.
+        return;
+    }
+
     log::info!(
         "  peer {} ({}...) was {}.",
         peer_name.yellow(),
         &public_key[..10].dimmed(),
-        text
+        change_action.colored_output(),
     );
 
     for change in diff.changes() {
-        log::debug!("    {}", change);
+        if let PeerChange::Endpoint { .. } = change {
+            log::info!("    {}", change);
+        } else {
+            log::debug!("    {}", change);
+        }
     }
 }
 
