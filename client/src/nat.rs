@@ -43,7 +43,11 @@ impl<'a> NatTraverse<'a> {
             backend,
             remaining,
         };
-        nat_traverse.refresh_remaining()?;
+
+        // We don't need to reset peer endpoints here as we have not changed their
+        // endpoint to a candidate yet.
+        let _exhausted = nat_traverse.refresh_remaining()?;
+
         Ok(nat_traverse)
     }
 
@@ -91,9 +95,7 @@ impl<'a> NatTraverse<'a> {
         let exhausted = self.refresh_remaining()?;
 
         // Reset peer endpoints that had no viable candidates back to the server-reported one, if it exists.
-        let reset_updates = exhausted
-            .into_iter()
-            .filter_map(|peer| set_endpoint(&peer.public_key, peer.endpoint.as_ref()));
+        let reset_updates = peer_reset_updates(exhausted);
 
         // Set all peers' endpoints to their next available candidate.
         let candidate_updates = self.remaining.iter_mut().filter_map(|peer| {
@@ -110,17 +112,35 @@ impl<'a> NatTraverse<'a> {
             .add_peers(&updates)
             .apply(self.interface, self.backend)?;
 
+        let mut peers_to_reset = vec![];
         let start = Instant::now();
         while start.elapsed() < STEP_INTERVAL {
-            self.refresh_remaining()?;
+            let mut exhausted = self.refresh_remaining()?;
+            peers_to_reset.append(&mut exhausted);
+
             if self.is_finished() {
                 log::debug!("NAT traverser is finished!");
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
         }
+
+        // For any peers which didn't connect and have no more candidates
+        // to try, reset their endpoint to the server-provided endpoint.
+        let reset_updates: Vec<_> = peer_reset_updates(peers_to_reset).collect();
+
+        DeviceUpdate::new()
+            .add_peers(&reset_updates)
+            .apply(self.interface, self.backend)?;
+
         Ok(())
     }
+}
+
+fn peer_reset_updates(peers_to_reset: Vec<Peer>) -> impl Iterator<Item = PeerConfigBuilder> {
+    peers_to_reset
+        .into_iter()
+        .filter_map(|peer| set_endpoint(&peer.public_key, peer.endpoint.as_ref()))
 }
 
 /// Return a PeerConfigBuilder if an endpoint exists and resolves successfully.
