@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use clap::{AppSettings, Args, IntoApp, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ArgAction};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
@@ -47,15 +47,14 @@ macro_rules! println_pad {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[clap(name = "innernet", author, version, about)]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
+#[command(name = "innernet", author, version, about)]
 struct Opts {
     #[clap(subcommand)]
     command: Option<Command>,
 
     /// Verbose output, use -vv for even higher verbositude
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u64,
+    #[clap(short, long, action = ArgAction::Count)]
+    verbose: u8,
 
     #[clap(short, long, default_value = "/etc/innernet")]
     config_dir: PathBuf,
@@ -254,7 +253,7 @@ enum Command {
 
     /// Generate shell completion scripts
     Completions {
-        #[clap(arg_enum)]
+        #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
 }
@@ -1170,7 +1169,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 
 fn main() {
     let opts = Opts::parse();
-    util::init_logger(opts.verbose);
+    util::init_logger(opts.verbose as u64);
 
     let argv0 = std::env::args().next().unwrap();
     let executable = Path::new(&argv0).file_name().unwrap().to_str().unwrap();
@@ -1275,6 +1274,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             override_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
+            use clap::CommandFactory;
             let mut app = Opts::command();
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());

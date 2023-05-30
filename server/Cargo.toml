@@ -18,8 +18,8 @@ v6-test = []
 [dependencies]
 anyhow = "1"
 bytes = "1"
-clap = { version = "3", features = ["derive"] }
-clap_complete = "3"
+clap = { version = "4.3.0", features = ["derive", "wrap_help"] }
+clap_complete = "4.3.0"
 colored = "2"
 dialoguer = { version = "0.10", default-features = false }
 hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }

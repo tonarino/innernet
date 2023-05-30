@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error};
-use clap::Args;
+use clap::{Args, builder::PossibleValuesParser};
 use ipnet::IpNet;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -465,7 +465,7 @@ pub struct NetworkOpts {
     /// external tool like e.g. babeld.
     pub no_routing: bool,
 
-    #[clap(long, default_value_t, possible_values = Backend::variants())]
+    #[clap(long, default_value_t, value_parser = PossibleValuesParser::new(Backend::variants()))]
     /// Specify a WireGuard backend to use.
     /// If not set, innernet will auto-select based on availability.
     pub backend: Backend,
@@ -611,8 +611,6 @@ impl<'a> PeerDiff<'a> {
         }
         // diff.new is now guaranteed to be a Some(_) variant.
         let new = new.unwrap();
-
-        // TODO(jake): use contains() when stable: https://github.com/rust-lang/rust/issues/62358
 
         let new_allowed_ips = &[AllowedIp {
             address: new.ip,

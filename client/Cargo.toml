@@ -16,8 +16,8 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 colored = "2"
-clap = { version = "3", features = ["derive"] }
-clap_complete = "3"
+clap = { version = "4.3.0", features = ["derive", "wrap_help"] }
+clap_complete = "4.3.0"
 dialoguer = { version = "0.10", default-features = false }
 hostsfile = { path = "../hostsfile" }
 indoc = "2.0.1"
