@@ -1,6 +1,6 @@
 use super::DatabaseCidr;
 use crate::ServerError;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use rusqlite::{params, types::Type, Connection};
 use shared::{IpNetExt, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
@@ -42,11 +42,9 @@ pub static COLUMNS: &[&str] = &[
     "candidates",
 ];
 
-lazy_static! {
-    /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
-    /// Note that the full length also must be maximum 63 characters, which this regex does not check.
-    static ref PEER_NAME_REGEX: Regex = Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap();
-}
+/// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
+/// Note that the full length also must be maximum 63 characters, which this regex does not check.
+static PEER_NAME_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap());
 
 #[derive(Debug)]
 pub struct DatabasePeer {

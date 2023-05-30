@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Error};
 use clap::Args;
 use ipnet::IpNet;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -758,11 +758,9 @@ impl From<Timestring> for Duration {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hostname(String);
 
-lazy_static! {
-    /// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
-    /// Note that the full length also must be maximum 63 characters, which this regex does not check.
-    static ref HOSTNAME_REGEX: Regex = Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap();
-}
+/// Regex to match the requirements of hostname(7), needed to have peers also be reachable hostnames.
+/// Note that the full length also must be maximum 63 characters, which this regex does not check.
+static HOSTNAME_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([a-z0-9]-?)*[a-z0-9]$").unwrap());
 
 impl Hostname {
     pub fn is_valid(name: &str) -> bool {
