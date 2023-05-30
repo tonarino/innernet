@@ -199,7 +199,7 @@ impl ConfigFile {
                 path.display()
             );
         }
-        Ok(toml::from_slice(&std::fs::read(path).with_path(path)?)?)
+        Ok(toml::from_str(&std::fs::read_to_string(path).with_path(path)?)?)
     }
 }
 
