@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use clap::{Args, Parser, Subcommand, ArgAction};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;

@@ -7,7 +7,7 @@ mod linux {
     use netlink_packet_generic::{
         constants::GENL_HDRLEN,
         ctrl::{nlas::GenlCtrlAttrs, GenlCtrl, GenlCtrlCmd},
-        GenlFamily, GenlMessage, GenlHeader,
+        GenlFamily, GenlHeader, GenlMessage,
     };
     use netlink_packet_route::RtnlMessage;
     use netlink_packet_utils::{Emitable, ParseableParametrized};
@@ -82,7 +82,8 @@ mod linux {
                 },
             };
         }
-        let result: Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error> = netlink_request(message, flags, NETLINK_GENERIC);
+        let result: Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error> =
+            netlink_request(message, flags, NETLINK_GENERIC);
         result
     }
 

@@ -112,7 +112,9 @@ impl InterfaceConfig {
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        Ok(toml::from_str(&std::fs::read_to_string(&path).with_path(path)?)?)
+        Ok(toml::from_str(
+            &std::fs::read_to_string(&path).with_path(path)?,
+        )?)
     }
 
     pub fn from_interface(config_dir: &Path, interface: &InterfaceName) -> Result<Self, Error> {

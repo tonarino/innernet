@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error};
-use clap::{Args, builder::PossibleValuesParser};
+use clap::{builder::PossibleValuesParser, Args};
 use ipnet::IpNet;
 use once_cell::sync::Lazy;
 use regex::Regex;

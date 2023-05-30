@@ -31,4 +31,4 @@ netlink-packet-route = "0.15"
 netlink-request = { path = "../netlink-request" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-nix = "0.25"
+nix = "0.26"

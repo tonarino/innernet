@@ -1,5 +1,7 @@
 use std::{ffi::NulError, fmt};
 
+use x25519_dalek::{PublicKey, StaticSecret};
+
 /// Represents an error in base64 key parsing.
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct InvalidKey;
@@ -57,14 +59,10 @@ impl Key {
     /// Generates a public key for this private key.
     #[must_use]
     pub fn get_public(&self) -> Self {
-        use curve25519_dalek::scalar::Scalar;
+        let secret = StaticSecret::from(self.0);
+        let public = PublicKey::from(&secret);
 
-        use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
-
-        // https://github.com/dalek-cryptography/x25519-dalek/blob/1c39ff92e0dfc0b24aa02d694f26f3b9539322a5/src/x25519.rs#L150
-        let point = (&ED25519_BASEPOINT_TABLE * &Scalar::from_bits(self.0)).to_montgomery();
-
-        Self(point.to_bytes())
+        Self(public.to_bytes())
     }
 
     /// Generates an all-zero key.

@@ -3,7 +3,7 @@ use crate::{
     PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST, NLM_F_DUMP,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_DUMP, NLM_F_EXCL, NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
 use netlink_packet_route::{
@@ -14,6 +14,7 @@ use netlink_packet_route::{
     },
     LinkMessage, RtnlMessage,
 };
+use netlink_packet_utils::traits::Emitable;
 use netlink_packet_wireguard::{
     self,
     constants::{WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME, WGPEER_F_REPLACE_ALLOWEDIPS},
