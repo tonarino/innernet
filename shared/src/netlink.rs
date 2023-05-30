@@ -1,5 +1,5 @@
 use ipnet::IpNet;
-use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_REQUEST};
+use netlink_packet_core::{NLM_F_ACK, NLM_F_CREATE, NLM_F_REQUEST, NLM_F_REPLACE, NLM_F_DUMP, NetlinkMessage, NetlinkPayload};
 use netlink_packet_route::{
     address,
     constants::*,
@@ -23,14 +23,12 @@ fn if_nametoindex(interface: &InterfaceName) -> Result<u32, io::Error> {
 
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
     let index = if_nametoindex(interface)?;
-    let message = LinkMessage {
-        header: LinkHeader {
-            index,
-            flags: IFF_UP,
-            ..Default::default()
-        },
-        nlas: vec![link::nlas::Nla::Mtu(mtu)],
-    };
+    let mut header = LinkHeader::default();
+    header.index = index;
+    header.flags = IFF_UP;
+    let mut message = LinkMessage::default();
+    message.header = header;
+    message.nlas = vec![link::nlas::Nla::Mtu(mtu)];
     netlink_request_rtnl(RtnlMessage::SetLink(message), None)?;
     log::debug!("set interface {} up with mtu {}", interface, mtu);
     Ok(())
@@ -54,16 +52,15 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error>
             vec![address::Nla::Address(network.addr().octets().to_vec())],
         ),
     };
-    let message = AddressMessage {
-        header: AddressHeader {
-            index,
-            family,
-            prefix_len: addr.prefix_len(),
-            scope: RT_SCOPE_UNIVERSE,
-            ..Default::default()
-        },
-        nlas,
-    };
+    let mut header = AddressHeader::default();
+    header.index = index;
+    header.family = family;
+    header.prefix_len = addr.prefix_len();
+    header.scope = RT_SCOPE_UNIVERSE;
+
+    let mut message = AddressMessage::default();
+    message.header = header;
+    message.nlas = nlas;
     netlink_request_rtnl(
         RtnlMessage::NewAddress(message),
         Some(NLM_F_REQUEST | NLM_F_ACK | NLM_F_REPLACE | NLM_F_CREATE),
@@ -78,18 +75,16 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Err
         IpNet::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),
         IpNet::V6(network) => (AF_INET6 as u8, network.network().octets().to_vec()),
     };
-    let message = RouteMessage {
-        header: RouteHeader {
-            table: RT_TABLE_MAIN,
-            protocol: RTPROT_BOOT,
-            scope: RT_SCOPE_LINK,
-            kind: RTN_UNICAST,
-            destination_prefix_length: cidr.prefix_len(),
-            address_family,
-            ..Default::default()
-        },
-        nlas: vec![route::Nla::Destination(dst), route::Nla::Oif(if_index)],
-    };
+    let mut header = RouteHeader::default();
+    header.table = RT_TABLE_MAIN;
+    header.protocol = RTPROT_BOOT;
+    header.scope = RT_SCOPE_LINK;
+    header.kind = RTN_UNICAST;
+    header.destination_prefix_length = cidr.prefix_len();
+    header.address_family = address_family;
+    let mut message = RouteMessage::default();
+    message.header = header;
+    message.nlas = vec![route::Nla::Destination(dst), route::Nla::Oif(if_index)];
 
     match netlink_request_rtnl(RtnlMessage::NewRoute(message), None) {
         Ok(_) => {

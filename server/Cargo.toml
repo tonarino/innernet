@@ -23,7 +23,7 @@ clap_complete = "3"
 colored = "2"
 dialoguer = { version = "0.10", default-features = false }
 hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
-indoc = "1"
+indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
 libc = "0.2"
 libsqlite3-sys = "0.25"

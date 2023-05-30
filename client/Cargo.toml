@@ -20,7 +20,7 @@ clap = { version = "3", features = ["derive"] }
 clap_complete = "3"
 dialoguer = { version = "0.10", default-features = false }
 hostsfile = { path = "../hostsfile" }
-indoc = "1"
+indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
