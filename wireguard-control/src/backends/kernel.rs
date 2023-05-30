@@ -22,7 +22,6 @@ use netlink_packet_wireguard::{
     Wireguard, WireguardCmd,
 };
 use netlink_request::{max_genl_payload_length, netlink_request_genl, netlink_request_rtnl};
-use netlink_packet_utils::traits::Emitable;
 
 use std::{convert::TryFrom, io};
 
