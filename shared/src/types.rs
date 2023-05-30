@@ -519,13 +519,6 @@ impl Display for Peer {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ChangeString {
-    name: &'static str,
-    old: Option<String>,
-    new: Option<String>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PeerChange {
     AllowedIPs {
@@ -575,32 +568,6 @@ impl<T: std::fmt::Debug> OptionExt for Option<T> {
                 format!("{:?}", x)
             },
             None => "[none]".to_string(),
-        }
-    }
-}
-
-impl Display for ChangeString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: {} => {}",
-            self.name,
-            self.old.as_deref().unwrap_or("[none]"),
-            self.new.as_deref().unwrap_or("[none]")
-        )
-    }
-}
-
-impl ChangeString {
-    pub fn new<T, U>(name: &'static str, old: Option<T>, new: Option<U>) -> Self
-    where
-        T: fmt::Debug,
-        U: fmt::Debug,
-    {
-        Self {
-            name,
-            old: old.map(|t| format!("{t:?}")),
-            new: new.map(|t| format!("{t:?}")),
         }
     }
 }
