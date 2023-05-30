@@ -144,10 +144,10 @@ impl DataStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use shared::{Cidr, CidrContents, Peer, PeerContents};
-    lazy_static! {
-        static ref BASE_PEERS: Vec<Peer> = vec![Peer {
+    static BASE_PEERS: Lazy<Vec<Peer>> = Lazy::new(|| {
+        vec![Peer {
             id: 0,
             contents: PeerContents {
                 name: "blah".parse().unwrap(),
@@ -161,17 +161,19 @@ mod tests {
                 persistent_keepalive_interval: None,
                 invite_expires: None,
                 candidates: vec![],
-            }
-        }];
-        static ref BASE_CIDRS: Vec<Cidr> = vec![Cidr {
+            },
+        }]
+    });
+    static BASE_CIDRS: Lazy<Vec<Cidr>> = Lazy::new(|| {
+        vec![Cidr {
             id: 1,
             contents: CidrContents {
                 name: "cidr".to_string(),
                 cidr: "10.0.0.0/24".parse().unwrap(),
-                parent: None
-            }
-        }];
-    }
+                parent: None,
+            },
+        }]
+    });
 
     fn setup_basic_store(dir: &Path) {
         let mut store = DataStore::open_with_path(dir.join("peer_store.json"), true).unwrap();

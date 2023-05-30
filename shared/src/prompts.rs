@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnet::IpNet;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use publicip::Preference;
 use std::{
     fmt::{Debug, Display},
@@ -20,9 +20,7 @@ use std::{
 };
 use wireguard_control::{InterfaceName, KeyPair};
 
-lazy_static! {
-    pub static ref THEME: ColorfulTheme = ColorfulTheme::default();
-}
+pub static THEME: Lazy<ColorfulTheme> = Lazy::new(ColorfulTheme::default);
 
 pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
     if atty::is(atty::Stream::Stdin) {
