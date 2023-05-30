@@ -73,7 +73,7 @@ struct HostsOpt {
     hosts_path: PathBuf,
 
     /// Don't write to any hosts files
-    #[clap(long = "no-write-hosts", conflicts_with = "hosts-path")]
+    #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
     no_write_hosts: bool,
 }
 
