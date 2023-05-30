@@ -116,7 +116,8 @@ impl HostsBuilder {
 
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
     /// same tag name already, it will be replaced with the new list instead.
-    pub fn write(&self) -> io::Result<()> {
+    /// Returns true if the hosts file has changed.
+    pub fn write(&self) -> io::Result<bool> {
         self.write_to(Self::default_path()?)
     }
 
@@ -196,7 +197,9 @@ impl HostsBuilder {
     ///
     /// On Windows, the format of one hostname per line will be used, all other systems will use
     /// the same format as Unix and Unix-like systems (i.e. allow multiple hostnames per line).
-    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<()> {
+    ///
+    /// Returns true if the hosts file has changed.
+    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<bool> {
         let hosts_path = hosts_path.as_ref();
         if hosts_path.is_dir() {
             // TODO(jake): use io::ErrorKind::IsADirectory when it's stable.
@@ -274,22 +277,26 @@ impl HostsBuilder {
             Err(_) => {
                 Self::write_clobber(hosts_path, &s)?;
                 log::debug!("wrote hosts file with the clobber fallback strategy");
+                Ok(true)
             },
-            _ => {
-                log::debug!("wrote hosts file with the write-and-swap strategy");
+            Ok(has_written) => {
+                if has_written {
+                    log::debug!("wrote hosts file with the write-and-swap strategy");
+                }
+                Ok(has_written)
             },
         }
-        Ok(())
     }
 
-    fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
+    fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<bool> {
         if Self::has_content_changed(hosts_path, contents)? {
             // Copy the file we plan on modifying so its permissions and metadata are preserved.
             std::fs::copy(hosts_path, temp_path)?;
             Self::write_clobber(temp_path, contents)?;
             std::fs::rename(temp_path, hosts_path)?;
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     fn write_clobber(hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
