@@ -82,9 +82,7 @@ mod linux {
                 },
             };
         }
-        let result: Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error> =
-            netlink_request(message, flags, NETLINK_GENERIC);
-        result
+        netlink_request(message, flags, NETLINK_GENERIC)
     }
 
     pub fn netlink_request_rtnl(
