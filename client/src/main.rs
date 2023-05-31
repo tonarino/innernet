@@ -1169,7 +1169,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 
 fn main() {
     let opts = Opts::parse();
-    util::init_logger(opts.verbose as u64);
+    util::init_logger(opts.verbose);
 
     let argv0 = std::env::args().next().unwrap();
     let executable = Path::new(&argv0).file_name().unwrap().to_str().unwrap();

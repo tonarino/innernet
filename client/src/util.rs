@@ -49,7 +49,7 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
-pub fn init_logger(verbosity: u64) {
+pub fn init_logger(verbosity: u8) {
     let level = match verbosity {
         0 => log::LevelFilter::Info,
         1 => log::LevelFilter::Debug,
