@@ -150,8 +150,8 @@ impl ChangeAction {
     fn colored_output(&self) -> ColoredString {
         match self {
             Self::Added => "added".green(),
-            Self::Modified => "modified".green(),
-            Self::Removed => "removed".green(),
+            Self::Modified => "modified".yellow(),
+            Self::Removed => "removed".red(),
         }
     }
 }
