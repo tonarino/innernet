@@ -33,17 +33,28 @@ impl<'a> NatTraverse<'a> {
             // Limit reported alternative candidates to 10.
             peer.candidates.truncate(10);
 
-            // remove server-reported endpoint from elsewhere in the list if it existed.
+            // Remove server-reported endpoint from elsewhere in the list if it existed.
             let endpoint = peer.endpoint.clone();
             peer.candidates
                 .retain(|addr| Some(addr) != endpoint.as_ref());
+
+            // Add the server-reported endpoint to the beginning of the list. In the event
+            // no other endpoints worked, the remaining endpoint in the list will be the one
+            // assigned to the peer so it should default to the server-reported endpoint.
+            // This is inserted at the beginning of the Vec as candidates are popped from
+            // the end as the algorithm progresses.
+            if let Some(endpoint) = endpoint {
+                peer.candidates.insert(0, endpoint);
+            }
         }
         let mut nat_traverse = Self {
             interface,
             backend,
             remaining,
         };
+
         nat_traverse.refresh_remaining()?;
+
         Ok(nat_traverse)
     }
 
@@ -55,10 +66,9 @@ impl<'a> NatTraverse<'a> {
         self.remaining.len()
     }
 
-    /// Refreshes the current state of candidate traversal attempts, returning
-    /// the peers that have been exhausted of all options (not included are
-    /// peers that have successfully connected, or peers removed from the interface).
-    fn refresh_remaining(&mut self) -> Result<Vec<Peer>, Error> {
+    /// Refreshes the current state of candidate traversal attempts, filtering out
+    /// the peers that have been exhausted of all endpoint options.
+    fn refresh_remaining(&mut self) -> Result<(), Error> {
         let device = Device::get(self.interface, self.backend)?;
         // Remove connected and missing peers
         self.remaining.retain(|peer| {
@@ -79,21 +89,14 @@ impl<'a> NatTraverse<'a> {
                 false
             }
         });
-        let (exhausted, remaining): (Vec<_>, Vec<_>) = self
-            .remaining
-            .drain(..)
-            .partition(|peer| peer.candidates.is_empty());
-        self.remaining = remaining;
-        Ok(exhausted)
+
+        self.remaining.retain(|peer| !peer.candidates.is_empty());
+
+        Ok(())
     }
 
     pub fn step(&mut self) -> Result<(), Error> {
-        let exhausted = self.refresh_remaining()?;
-
-        // Reset peer endpoints that had no viable candidates back to the server-reported one, if it exists.
-        let reset_updates = exhausted
-            .into_iter()
-            .filter_map(|peer| set_endpoint(&peer.public_key, peer.endpoint.as_ref()));
+        self.refresh_remaining()?;
 
         // Set all peers' endpoints to their next available candidate.
         let candidate_updates = self.remaining.iter_mut().filter_map(|peer| {
@@ -104,7 +107,7 @@ impl<'a> NatTraverse<'a> {
             set_endpoint(&peer.public_key, endpoint.as_ref())
         });
 
-        let updates: Vec<_> = reset_updates.chain(candidate_updates).collect();
+        let updates: Vec<_> = candidate_updates.collect();
 
         DeviceUpdate::new()
             .add_peers(&updates)
@@ -113,12 +116,14 @@ impl<'a> NatTraverse<'a> {
         let start = Instant::now();
         while start.elapsed() < STEP_INTERVAL {
             self.refresh_remaining()?;
+
             if self.is_finished() {
                 log::debug!("NAT traverser is finished!");
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
         }
+
         Ok(())
     }
 }
