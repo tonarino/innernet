@@ -42,14 +42,14 @@ impl Display for Backend {
 }
 
 impl FromStr for Backend {
-    type Err = std::io::Error;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             #[cfg(target_os = "linux")]
             "kernel" => Ok(Self::Kernel),
             "userspace" => Ok(Self::Userspace),
-            _ => Err(std::io::ErrorKind::NotFound.into()),
+            _ => Err(format!("valid values: {}.", Self::variants().join(", "))),
         }
     }
 }
