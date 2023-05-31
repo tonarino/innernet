@@ -7,7 +7,7 @@ edition = "2021"
 netlink-sys = "0.8.5"
 netlink-packet-core = "0.5"
 netlink-packet-generic = "0.3.2"
-netlink-packet-route = "0.15.0"
+netlink-packet-route = "0.15"
 netlink-packet-utils = "0.5.2"
 nix = { version = "0.25", features = ["feature"] }
 once_cell = "1"

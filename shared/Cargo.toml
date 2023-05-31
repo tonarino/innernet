@@ -9,7 +9,7 @@ version = "1.5.5"
 [dependencies]
 anyhow = "1"
 atty = "0.2"
-clap = { version = "4.3.0", features = ["derive", "wrap_help"] }
+clap = { version = "4.3", features = ["derive", "wrap_help"] }
 colored = "2.0"
 dialoguer = { version = "0.10", default-features = false }
 indoc = "2.0.1"
@@ -25,7 +25,7 @@ url = "2"
 wireguard-control = { path = "../wireguard-control" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-netlink-sys = "0.8"
+netlink-sys = "0.8.5"
 netlink-packet-core = "0.5"
 netlink-packet-route = "0.15"
 netlink-request = { path = "../netlink-request" }
