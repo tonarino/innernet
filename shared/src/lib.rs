@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+pub mod cli;
 pub mod interface_config;
 #[cfg(target_os = "linux")]
 mod netlink;
@@ -16,6 +17,7 @@ pub mod prompts;
 pub mod types;
 pub mod wg;
 
+pub use cli::*;
 pub use types::*;
 
 pub const REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);

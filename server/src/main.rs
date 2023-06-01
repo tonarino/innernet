@@ -3,14 +3,13 @@ use clap::{AppSettings, IntoApp, Parser, Subcommand};
 use colored::*;
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
-use indoc::printdoc;
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
-    NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, Cidr, CommonCommand, Endpoint, InterfaceApi, IoErrorContext, NetworkOpts,
+    Peer, PeerContents, INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -36,10 +35,10 @@ pub mod util;
 
 mod initialize;
 
-use db::{DatabaseCidr, DatabasePeer};
+use db::{DatabaseAssociation, DatabaseCidr, DatabasePeer};
 pub use error::ServerError;
 use initialize::InitializeOpts;
-use shared::{prompts, wg, CidrTree, Error, Interface};
+use shared::{prompts, wg, Error, Interface};
 pub use shared::{Association, AssociationContents};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -87,49 +86,14 @@ enum Command {
         network: NetworkOpts,
     },
 
-    /// Add a peer to an existing network.
-    AddPeer {
-        interface: Interface,
-
-        #[clap(flatten)]
-        args: AddPeerOpts,
-    },
-
-    /// Disable an enabled peer
-    DisablePeer { interface: Interface },
-
-    /// Enable a disabled peer
-    EnablePeer { interface: Interface },
-
-    /// Rename an existing peer.
-    RenamePeer {
-        interface: Interface,
-
-        #[clap(flatten)]
-        args: RenamePeerOpts,
-    },
-
-    /// Add a new CIDR to an existing network.
-    AddCidr {
-        interface: Interface,
-
-        #[clap(flatten)]
-        args: AddCidrOpts,
-    },
-
-    /// Delete a CIDR.
-    DeleteCidr {
-        interface: Interface,
-
-        #[clap(flatten)]
-        args: DeleteCidrOpts,
-    },
-
     /// Generate shell completion scripts
     Completions {
         #[clap(arg_enum)]
         shell: clap_complete::Shell,
     },
+
+    #[clap(flatten)]
+    Common(CommonCommand),
 }
 
 pub type Db = Arc<Mutex<Connection>>;
@@ -268,21 +232,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interface,
             network: routing,
         } => serve(*interface, &conf, routing).await?,
-        Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
-        Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
-        Command::DisablePeer { interface } => {
-            enable_or_disable_peer(&interface, &conf, false, opts.network)?
-        },
-        Command::EnablePeer { interface } => {
-            enable_or_disable_peer(&interface, &conf, true, opts.network)?
-        },
-        Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
-        Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
             let mut app = Opts::command();
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
             std::process::exit(0);
+        },
+        Command::Common(common_command) => {
+            let interface = common_command.interface();
+            let config = ConfigFile::from_file(conf.config_path(&interface))?;
+            let mut db = ServerInterfaceApi {
+                conn: open_database_connection(interface, &conf)?,
+                interface: interface.clone(),
+                server_endpoint: SocketAddr::new(config.address, config.listen_port),
+                network: &opts.network,
+            };
+            common_command.execute(&mut db)?;
         },
     }
 
@@ -308,91 +273,55 @@ fn open_database_connection(
     Ok(conn)
 }
 
-fn add_peer(
-    interface: &InterfaceName,
-    conf: &ServerConfig,
-    opts: AddPeerOpts,
-    network: NetworkOpts,
-) -> Result<(), Error> {
-    let config = ConfigFile::from_file(conf.config_path(interface))?;
-    let conn = open_database_connection(interface, conf)?;
-    let peers = DatabasePeer::list(&conn)?
-        .into_iter()
-        .map(|dp| dp.inner)
-        .collect::<Vec<_>>();
-    let cidrs = DatabaseCidr::list(&conn)?;
-    let cidr_tree = CidrTree::new(&cidrs[..]);
+struct ServerInterfaceApi<'a> {
+    conn: rusqlite::Connection,
+    interface: Interface,
+    server_endpoint: SocketAddr,
+    network: &'a NetworkOpts,
+}
 
-    if let Some(result) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
-        let (peer_request, keypair, target_path, mut target_file) = result;
-        let peer = DatabasePeer::create(&conn, peer_request)?;
-        if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
+impl<'a> InterfaceApi for ServerInterfaceApi<'a> {
+    fn peers(&mut self) -> anyhow::Result<Vec<Peer>> {
+        let rows = DatabasePeer::list(&self.conn)?;
+        Ok(rows.into_iter().map(|dp| dp.inner).collect())
+    }
+
+    fn cidrs(&mut self) -> anyhow::Result<Vec<Cidr>> {
+        DatabaseCidr::list(&self.conn).map_err(Into::into)
+    }
+
+    fn add_peer(&mut self, peer_request: PeerContents) -> anyhow::Result<Peer> {
+        let peer = DatabasePeer::create(&self.conn, peer_request)?;
+        if cfg!(not(test)) && Device::get(&self.interface, self.network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
             DeviceUpdate::new()
                 .add_peer(PeerConfigBuilder::from(&*peer))
-                .apply(interface, network.backend)
+                .apply(&self.interface, self.network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
 
             println!("adding to WireGuard interface: {}", &*peer);
         }
 
-        let server_peer = DatabasePeer::get(&conn, 1)?;
-        prompts::write_peer_invitation(
-            (&mut target_file, &target_path),
-            interface,
-            &peer,
-            &server_peer,
-            &cidr_tree,
-            keypair,
-            &SocketAddr::new(config.address, config.listen_port),
-        )?;
-    } else {
-        println!("exited without creating peer.");
+        Ok(peer.inner)
     }
 
-    Ok(())
-}
-
-fn rename_peer(
-    interface: &InterfaceName,
-    conf: &ServerConfig,
-    opts: RenamePeerOpts,
-) -> Result<(), Error> {
-    let conn = open_database_connection(interface, conf)?;
-    let peers = DatabasePeer::list(&conn)?
-        .into_iter()
-        .map(|dp| dp.inner)
-        .collect::<Vec<_>>();
-
-    if let Some((peer_request, old_name)) = shared::prompts::rename_peer(&peers, &opts)? {
-        let mut db_peer = DatabasePeer::list(&conn)?
+    fn rename_peer(
+        &mut self,
+        peer_request: PeerContents,
+        old_name: shared::Hostname,
+    ) -> anyhow::Result<()> {
+        let mut db_peer = DatabasePeer::list(&self.conn)?
             .into_iter()
             .find(|p| p.name == old_name)
             .ok_or_else(|| anyhow!("Peer not found."))?;
-        db_peer.update(&conn, peer_request)?;
-    } else {
-        println!("exited without creating peer.");
+        db_peer.update(&self.conn, peer_request)?;
+        Ok(())
     }
 
-    Ok(())
-}
-
-fn enable_or_disable_peer(
-    interface: &InterfaceName,
-    conf: &ServerConfig,
-    enable: bool,
-    network: NetworkOpts,
-) -> Result<(), Error> {
-    let conn = open_database_connection(interface, conf)?;
-    let peers = DatabasePeer::list(&conn)?
-        .into_iter()
-        .map(|dp| dp.inner)
-        .collect::<Vec<_>>();
-
-    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
-        let mut db_peer = DatabasePeer::get(&conn, peer.id)?;
+    fn enable_or_disable_peer(&mut self, peer: Peer, enable: bool) -> anyhow::Result<()> {
+        let mut db_peer = DatabasePeer::get(&self.conn, peer.id)?;
         db_peer.update(
-            &conn,
+            &self.conn,
             PeerContents {
                 is_disabled: !enable,
                 ..peer.contents.clone()
@@ -402,7 +331,7 @@ fn enable_or_disable_peer(
         if enable {
             DeviceUpdate::new()
                 .add_peer(db_peer.deref().into())
-                .apply(interface, network.backend)
+                .apply(&self.interface, self.network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
         } else {
             let public_key =
@@ -410,64 +339,41 @@ fn enable_or_disable_peer(
 
             DeviceUpdate::new()
                 .remove_peer_by_key(&public_key)
-                .apply(interface, network.backend)
+                .apply(&self.interface, self.network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
         }
-    } else {
-        log::info!("exiting without enabling or disabling peer.");
+
+        Ok(())
     }
 
-    Ok(())
-}
-
-fn add_cidr(
-    interface: &InterfaceName,
-    conf: &ServerConfig,
-    opts: AddCidrOpts,
-) -> Result<(), Error> {
-    let conn = open_database_connection(interface, conf)?;
-    let cidrs = DatabaseCidr::list(&conn)?;
-    if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs, &opts)? {
-        let cidr = DatabaseCidr::create(&conn, cidr_request)?;
-        printdoc!(
-            "
-            CIDR \"{cidr_name}\" added.
-
-            Right now, peers within {cidr_name} can only see peers in the same CIDR, and in
-            the special \"innernet-server\" CIDR that includes the innernet server peer.
-
-            You'll need to add more associations for peers in diffent CIDRs to communicate.
-            ",
-            cidr_name = cidr.name.bold()
-        );
-    } else {
-        println!("exited without creating CIDR.");
+    fn add_cidr(&mut self, cidr_request: shared::CidrContents) -> anyhow::Result<Cidr> {
+        DatabaseCidr::create(&self.conn, cidr_request).map_err(Into::into)
     }
 
-    Ok(())
-}
+    fn delete_cidr(&mut self, cidr_id: i64) -> anyhow::Result<()> {
+        DatabaseCidr::delete(&self.conn, cidr_id).map_err(Into::into)
+    }
 
-fn delete_cidr(
-    interface: &InterfaceName,
-    conf: &ServerConfig,
-    args: DeleteCidrOpts,
-) -> Result<(), Error> {
-    println!("Fetching eligible CIDRs");
-    let conn = open_database_connection(interface, conf)?;
-    let cidrs = DatabaseCidr::list(&conn)?;
-    let peers = DatabasePeer::list(&conn)?
-        .into_iter()
-        .map(|dp| dp.inner)
-        .collect::<Vec<_>>();
+    fn associations(&mut self) -> anyhow::Result<Vec<Association>> {
+        DatabaseAssociation::list(&self.conn).map_err(Into::into)
+    }
 
-    let cidr_id = prompts::delete_cidr(&cidrs, &peers, &args)?;
+    fn add_association(&mut self, association_request: AssociationContents) -> anyhow::Result<()> {
+        DatabaseAssociation::create(&self.conn, association_request)?;
+        Ok(())
+    }
 
-    println!("Deleting CIDR...");
-    DatabaseCidr::delete(&conn, cidr_id)?;
+    fn delete_association(&mut self, association: &Association) -> anyhow::Result<()> {
+        DatabaseAssociation::delete(&self.conn, association.id).map_err(Into::into)
+    }
 
-    println!("CIDR deleted.");
+    fn interface(&self) -> &Interface {
+        &self.interface
+    }
 
-    Ok(())
+    fn server_endpoint(&self) -> SocketAddr {
+        self.server_endpoint
+    }
 }
 
 fn uninstall(

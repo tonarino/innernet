@@ -5,14 +5,11 @@ use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
 use shared::{
-    get_local_addrs,
-    interface_config::InterfaceConfig,
-    prompts,
-    wg::{DeviceExt, PeerInfoExt},
-    AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext,
-    ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer, RedeemContents,
-    RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
+    get_local_addrs, interface_config::InterfaceConfig, print_interface, print_peer, print_tree,
+    prompts, wg::DeviceExt, Association, AssociationContents, Cidr, CidrTree, CommonCommand,
+    Endpoint, EndpointContents, InstallOpts, Interface, InterfaceApi, IoErrorContext,
+    ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer, PeerState, RedeemContents,
+    State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
@@ -21,7 +18,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
+use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
 mod data_store;
 mod nat;
@@ -30,21 +27,9 @@ mod util;
 use data_store::DataStore;
 use nat::NatTraverse;
 use shared::{wg, Error};
-use util::{human_duration, human_size, Api};
+use util::Api;
 
 use crate::util::all_installed;
-
-struct PeerState<'a> {
-    peer: &'a Peer,
-    info: Option<&'a PeerInfo>,
-}
-
-macro_rules! println_pad {
-    ($pad:expr, $($arg:tt)*) => {
-        print!("{:pad$}", "", pad = $pad);
-        println!($($arg)*);
-    }
-}
 
 #[derive(Clone, Debug, Parser)]
 #[clap(name = "innernet", author, version, about)]
@@ -160,82 +145,6 @@ enum Command {
     /// Bring down the interface (equivalent to 'wg-quick down <interface>')
     Down { interface: Interface },
 
-    /// Add a new peer
-    ///
-    /// By default, you'll be prompted interactively to create a peer, but you can
-    /// also specify all the options in the command, eg:
-    ///
-    /// --name 'person' --cidr 'humans' --admin false --auto-ip --save-config 'person.toml' --yes
-    AddPeer {
-        interface: Interface,
-
-        #[clap(flatten)]
-        sub_opts: AddPeerOpts,
-    },
-
-    /// Rename a peer
-    ///
-    /// By default, you'll be prompted interactively to select a peer, but you can
-    /// also specify all the options in the command, eg:
-    ///
-    /// --name 'person' --new-name 'human'
-    RenamePeer {
-        interface: Interface,
-
-        #[clap(flatten)]
-        sub_opts: RenamePeerOpts,
-    },
-
-    /// Add a new CIDR
-    AddCidr {
-        interface: Interface,
-
-        #[clap(flatten)]
-        sub_opts: AddCidrOpts,
-    },
-
-    /// Delete a CIDR
-    DeleteCidr {
-        interface: Interface,
-
-        #[clap(flatten)]
-        sub_opts: DeleteCidrOpts,
-    },
-
-    /// List CIDRs
-    ListCidrs {
-        interface: Interface,
-
-        /// Display CIDRs in tree format
-        #[clap(short, long)]
-        tree: bool,
-    },
-
-    /// Disable an enabled peer
-    DisablePeer { interface: Interface },
-
-    /// Enable a disabled peer
-    EnablePeer { interface: Interface },
-
-    /// Add an association between CIDRs
-    AddAssociation {
-        interface: Interface,
-
-        #[clap(flatten)]
-        sub_opts: AddDeleteAssociationOpts,
-    },
-
-    /// Delete an association between CIDRs
-    DeleteAssociation {
-        interface: Interface,
-
-        #[clap(flatten)]
-        sub_opts: AddDeleteAssociationOpts,
-    },
-
-    /// List existing assocations between CIDRs
-    ListAssociations { interface: Interface },
-
     /// Set the local listen port.
     SetListenPort {
         interface: Interface,
@@ -257,6 +166,9 @@ enum Command {
         #[clap(arg_enum)]
         shell: clap_complete::Shell,
     },
+
+    #[clap(flatten)]
+    Common(CommonCommand),
 }
 
 /// Application-level error.
@@ -681,257 +593,6 @@ fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Er
     Ok(())
 }
 
-fn add_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: AddCidrOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    log::info!("Fetching CIDRs");
-    let api = Api::new(&server);
-    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-
-    if let Some(cidr_request) = prompts::add_cidr(&cidrs, &sub_opts)? {
-        log::info!("Creating CIDR...");
-        let cidr: Cidr = api.http_form("POST", "/admin/cidrs", cidr_request)?;
-
-        eprintdoc!(
-            "
-            CIDR \"{cidr_name}\" added.
-
-            Right now, peers within {cidr_name} can only see peers in the same CIDR
-            , and in the special \"infra\" CIDR that includes the innernet server peer.
-
-            You'll need to add more associations for peers in diffent CIDRs to communicate.
-            ",
-            cidr_name = cidr.name.bold()
-        );
-    } else {
-        log::info!("exited without creating CIDR.");
-    }
-
-    Ok(())
-}
-
-fn delete_cidr(
-    interface: &InterfaceName,
-    opts: &Opts,
-    sub_opts: DeleteCidrOpts,
-) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    println!("Fetching eligible CIDRs");
-    let api = Api::new(&server);
-    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
-
-    let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
-
-    println!("Deleting CIDR...");
-    api.http("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
-
-    println!("CIDR deleted.");
-
-    Ok(())
-}
-
-fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), Error> {
-    let data_store = DataStore::open(&opts.data_dir, interface)?;
-    if tree {
-        let cidr_tree = CidrTree::new(data_store.cidrs());
-        colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0);
-        colored::control::unset_override();
-    } else {
-        for cidr in data_store.cidrs() {
-            println!("{} {}", cidr.cidr, cidr.name);
-        }
-    }
-    Ok(())
-}
-
-fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let api = Api::new(&server);
-
-    log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    log::info!("Fetching peers");
-    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
-    let cidr_tree = CidrTree::new(&cidrs[..]);
-
-    if let Some(result) = prompts::add_peer(&peers, &cidr_tree, &sub_opts)? {
-        let (peer_request, keypair, target_path, mut target_file) = result;
-        log::info!("Creating peer...");
-        let peer: Peer = api.http_form("POST", "/admin/peers", peer_request)?;
-        let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
-        prompts::write_peer_invitation(
-            (&mut target_file, &target_path),
-            interface,
-            &peer,
-            server_peer,
-            &cidr_tree,
-            keypair,
-            &server.internal_endpoint,
-        )?;
-    } else {
-        log::info!("Exited without creating peer.");
-    }
-
-    Ok(())
-}
-
-fn rename_peer(
-    interface: &InterfaceName,
-    opts: &Opts,
-    sub_opts: RenamePeerOpts,
-) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let api = Api::new(&server);
-
-    log::info!("Fetching peers");
-    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
-
-    if let Some((peer_request, old_name)) = prompts::rename_peer(&peers, &sub_opts)? {
-        log::info!("Renaming peer...");
-
-        let id = peers
-            .iter()
-            .filter(|p| p.name == old_name)
-            .map(|p| p.id)
-            .next()
-            .ok_or_else(|| anyhow!("Peer not found."))?;
-
-        api.http_form("PUT", &format!("/admin/peers/{id}"), peer_request)?;
-        log::info!("Peer renamed.");
-    } else {
-        log::info!("exited without renaming peer.");
-    }
-
-    Ok(())
-}
-
-fn enable_or_disable_peer(
-    interface: &InterfaceName,
-    opts: &Opts,
-    enable: bool,
-) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let api = Api::new(&server);
-
-    log::info!("Fetching peers.");
-    let peers: Vec<Peer> = api.http("GET", "/admin/peers")?;
-
-    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
-        let Peer { id, mut contents } = peer;
-        contents.is_disabled = !enable;
-        api.http_form("PUT", &format!("/admin/peers/{id}"), contents)?;
-    } else {
-        log::info!("exiting without enabling or disabling peer.");
-    }
-
-    Ok(())
-}
-
-fn add_association(
-    interface: &InterfaceName,
-    opts: &Opts,
-    sub_opts: AddDeleteAssociationOpts,
-) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let api = Api::new(&server);
-
-    log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-
-    let association = if let (Some(ref cidr1), Some(ref cidr2)) = (&sub_opts.cidr1, &sub_opts.cidr2)
-    {
-        let cidr1 = cidrs
-            .iter()
-            .find(|c| &c.name == cidr1)
-            .ok_or_else(|| anyhow!("can't find cidr '{}'", cidr1))?;
-        let cidr2 = cidrs
-            .iter()
-            .find(|c| &c.name == cidr2)
-            .ok_or_else(|| anyhow!("can't find cidr '{}'", cidr2))?;
-        (cidr1, cidr2)
-    } else if let Some((cidr1, cidr2)) = prompts::add_association(&cidrs[..], &sub_opts)? {
-        (cidr1, cidr2)
-    } else {
-        log::info!("exiting without adding association.");
-        return Ok(());
-    };
-
-    api.http_form(
-        "POST",
-        "/admin/associations",
-        AssociationContents {
-            cidr_id_1: association.0.id,
-            cidr_id_2: association.1.id,
-        },
-    )?;
-
-    Ok(())
-}
-
-fn delete_association(
-    interface: &InterfaceName,
-    opts: &Opts,
-    sub_opts: AddDeleteAssociationOpts,
-) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let api = Api::new(&server);
-
-    log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    log::info!("Fetching associations");
-    let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
-
-    if let Some(association) =
-        prompts::delete_association(&associations[..], &cidrs[..], &sub_opts)?
-    {
-        api.http("DELETE", &format!("/admin/associations/{}", association.id))?;
-    } else {
-        log::info!("exiting without adding association.");
-    }
-
-    Ok(())
-}
-
-fn list_associations(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let api = Api::new(&server);
-
-    log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
-    log::info!("Fetching associations");
-    let associations: Vec<Association> = api.http("GET", "/admin/associations")?;
-
-    for association in associations {
-        println!(
-            "{}: {} <=> {}",
-            association.id,
-            &cidrs
-                .iter()
-                .find(|c| c.id == association.cidr_id_1)
-                .unwrap()
-                .name
-                .yellow(),
-            &cidrs
-                .iter()
-                .find(|c| c.id == association.cidr_id_2)
-                .unwrap()
-                .name
-                .yellow()
-        );
-    }
-
-    Ok(())
-}
-
 fn set_listen_port(
     interface: &InterfaceName,
     opts: &Opts,
@@ -1067,107 +728,6 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
-    println_pad!(
-        level * 2,
-        "{} {}",
-        cidr.cidr.to_string().bold().blue(),
-        cidr.name.blue(),
-    );
-
-    let mut children: Vec<_> = cidr.children().collect();
-    children.sort();
-    children
-        .iter()
-        .for_each(|child| print_tree(child, peers, level + 1));
-
-    for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level);
-    }
-}
-
-fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
-    if short {
-        let listen_port_str = device_info
-            .listen_port
-            .map(|p| format!("(:{p}) "))
-            .unwrap_or_default();
-        println!(
-            "{} {}",
-            device_info.name.to_string().green().bold(),
-            listen_port_str.dimmed(),
-        );
-    } else {
-        println!(
-            "{}: {}",
-            "network".green().bold(),
-            device_info.name.to_string().green(),
-        );
-        if let Some(listen_port) = device_info.listen_port {
-            println!("  {}: {}", "listening port".bold(), listen_port);
-        }
-    }
-    Ok(())
-}
-
-fn print_peer(peer: &PeerState, short: bool, level: usize) {
-    let pad = level * 2;
-    let PeerState { peer, info } = peer;
-    if short {
-        let connected = info
-            .map(|info| info.is_recently_connected())
-            .unwrap_or_default();
-
-        let is_you = info.is_none();
-
-        println_pad!(
-            pad,
-            "| {} {}: {} ({}{}…)",
-            if connected || is_you {
-                "◉".bold()
-            } else {
-                "◯".dimmed()
-            },
-            peer.ip.to_string().yellow().bold(),
-            peer.name.yellow(),
-            if is_you { "you, " } else { "" },
-            &peer.public_key[..6].dimmed(),
-        );
-    } else {
-        println_pad!(
-            pad,
-            "{}: {} ({}...)",
-            "peer".yellow().bold(),
-            peer.name.yellow(),
-            &peer.public_key[..10].yellow(),
-        );
-        println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
-        if let Some(info) = info {
-            if let Some(endpoint) = info.config.endpoint {
-                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
-            }
-            if let Some(last_handshake) = info.stats.last_handshake_time {
-                let duration = last_handshake.elapsed().expect("horrible clock problem");
-                println_pad!(
-                    pad,
-                    "  {}: {}",
-                    "last handshake".bold(),
-                    human_duration(duration),
-                );
-            }
-            if info.stats.tx_bytes > 0 || info.stats.rx_bytes > 0 {
-                println_pad!(
-                    pad,
-                    "  {}: {} received, {} sent",
-                    "transfer".bold(),
-                    human_size(info.stats.rx_bytes),
-                    human_size(info.stats.tx_bytes),
-                );
-            }
-        }
-    }
-}
-
 fn main() {
     let opts = Opts::parse();
     util::init_logger(opts.verbose);
@@ -1234,34 +794,6 @@ fn run(opts: &Opts) -> Result<(), Error> {
         )?,
         Command::Down { interface } => wg::down(&interface, opts.network.backend)?,
         Command::Uninstall { interface, yes } => uninstall(&interface, opts, yes)?,
-        Command::AddPeer {
-            interface,
-            sub_opts,
-        } => add_peer(&interface, opts, sub_opts)?,
-        Command::RenamePeer {
-            interface,
-            sub_opts,
-        } => rename_peer(&interface, opts, sub_opts)?,
-        Command::AddCidr {
-            interface,
-            sub_opts,
-        } => add_cidr(&interface, opts, sub_opts)?,
-        Command::DeleteCidr {
-            interface,
-            sub_opts,
-        } => delete_cidr(&interface, opts, sub_opts)?,
-        Command::ListCidrs { interface, tree } => list_cidrs(&interface, opts, tree)?,
-        Command::DisablePeer { interface } => enable_or_disable_peer(&interface, opts, false)?,
-        Command::EnablePeer { interface } => enable_or_disable_peer(&interface, opts, true)?,
-        Command::AddAssociation {
-            interface,
-            sub_opts,
-        } => add_association(&interface, opts, sub_opts)?,
-        Command::DeleteAssociation {
-            interface,
-            sub_opts,
-        } => delete_association(&interface, opts, sub_opts)?,
-        Command::ListAssociations { interface } => list_associations(&interface, opts)?,
         Command::SetListenPort {
             interface,
             sub_opts,
@@ -1280,7 +812,106 @@ fn run(opts: &Opts) -> Result<(), Error> {
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
             std::process::exit(0);
         },
+        Command::Common(common_command) => {
+            let InterfaceConfig { server, .. } =
+                InterfaceConfig::from_interface(&opts.config_dir, common_command.interface())?;
+            let mut db = ClientInterfaceApi {
+                api: Api::new(&server),
+                interface: common_command.interface().clone(),
+                server_endpoint: server.internal_endpoint,
+            };
+            common_command.execute(&mut db)?;
+        },
     }
 
     Ok(())
+}
+
+struct ClientInterfaceApi<'a> {
+    api: Api<'a>,
+    interface: Interface,
+    server_endpoint: SocketAddr,
+}
+
+impl<'a> InterfaceApi for ClientInterfaceApi<'a> {
+    fn cidrs(&mut self) -> anyhow::Result<Vec<Cidr>> {
+        self.api.http("GET", "/admin/cidrs").map_err(Into::into)
+    }
+
+    fn peers(&mut self) -> anyhow::Result<Vec<Peer>> {
+        self.api.http("GET", "/admin/peers").map_err(Into::into)
+    }
+
+    fn associations(&mut self) -> anyhow::Result<Vec<Association>> {
+        self.api
+            .http("GET", "/admin/associations")
+            .map_err(Into::into)
+    }
+
+    fn add_cidr(&mut self, cidr_request: shared::CidrContents) -> anyhow::Result<Cidr> {
+        self.api
+            .http_form("POST", "/admin/cidrs", cidr_request)
+            .map_err(Into::into)
+    }
+
+    fn delete_cidr(&mut self, cidr_id: i64) -> anyhow::Result<()> {
+        self.api
+            .http("DELETE", &format!("/admin/cidrs/{cidr_id}"))
+            .map_err(Into::into)
+    }
+
+    fn add_peer(&mut self, peer_request: shared::PeerContents) -> anyhow::Result<Peer> {
+        self.api
+            .http_form("POST", "/admin/peers", peer_request)
+            .map_err(Into::into)
+    }
+
+    fn rename_peer(
+        &mut self,
+        peer_request: shared::PeerContents,
+        old_name: shared::Hostname,
+    ) -> anyhow::Result<()> {
+        // TODO optimize this: list of peers may have already been fetched in
+        // shared::cli::rename_peer
+        let peers = self.peers()?;
+
+        let id = peers
+            .iter()
+            .filter(|p| p.name == old_name)
+            .map(|p| p.id)
+            .next()
+            .ok_or_else(|| anyhow!("Peer not found."))?;
+
+        self.api
+            .http_form("PUT", &format!("/admin/peers/{id}"), peer_request)
+            .map_err(Into::into)
+    }
+
+    fn enable_or_disable_peer(&mut self, peer: Peer, enable: bool) -> anyhow::Result<()> {
+        let Peer { id, mut contents } = peer;
+        contents.is_disabled = !enable;
+        self.api
+            .http_form("PUT", &format!("/admin/peers/{id}"), contents)
+            .map_err(Into::into)
+    }
+
+    fn add_association(&mut self, association_request: AssociationContents) -> anyhow::Result<()> {
+        self.api
+            .http_form("POST", "/admin/associations", association_request)
+            .map_err(Into::into)
+    }
+
+    fn delete_association(&mut self, association: &Association) -> anyhow::Result<()> {
+        self.api
+            .http("DELETE", &format!("/admin/associations/{}", association.id))
+            .map_err(Into::into)
+    }
+
+    fn interface(&self) -> &Interface {
+        &self.interface
+    }
+
+    fn server_endpoint(&self) -> SocketAddr {
+        self.server_endpoint
+    }
 }
