@@ -37,7 +37,7 @@ pub struct InitializeOpts {
     pub network_cidr: Option<IpNet>,
 
     /// This server's external endpoint (ex: 100.100.100.100:51820)
-    #[clap(long, conflicts_with = "auto-external-endpoint")]
+    #[clap(long, conflicts_with = "auto_external_endpoint")]
     pub external_endpoint: Option<Endpoint>,
 
     /// Auto-resolve external endpoint

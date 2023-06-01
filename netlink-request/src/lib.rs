@@ -7,9 +7,10 @@ mod linux {
     use netlink_packet_generic::{
         constants::GENL_HDRLEN,
         ctrl::{nlas::GenlCtrlAttrs, GenlCtrl, GenlCtrlCmd},
-        GenlFamily, GenlMessage,
+        GenlFamily, GenlHeader, GenlMessage,
     };
     use netlink_packet_route::RtnlMessage;
+    use netlink_packet_utils::{Emitable, ParseableParametrized};
     use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
     use nix::unistd::{sysconf, SysconfVar};
     use once_cell::sync::OnceCell;
@@ -49,7 +50,7 @@ mod linux {
         flags: Option<u16>,
     ) -> Result<Vec<NetlinkMessage<GenlMessage<F>>>, io::Error>
     where
-        F: GenlFamily + Clone + Debug + Eq,
+        F: GenlFamily + Clone + Debug + Eq + Emitable + ParseableParametrized<[u8], GenlHeader>,
         GenlMessage<F>: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
     {
         if message.family_id() == 0 {
@@ -98,7 +99,7 @@ mod linux {
     ) -> Result<Vec<NetlinkMessage<I>>, io::Error>
     where
         NetlinkPayload<I>: From<I>,
-        I: Clone + Debug + Eq + NetlinkSerializable + NetlinkDeserializable,
+        I: Clone + Debug + Eq + Emitable + NetlinkSerializable + NetlinkDeserializable,
     {
         let mut req = NetlinkMessage::from(message);
 

@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use clap::{AppSettings, Args, IntoApp, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
@@ -47,15 +47,14 @@ macro_rules! println_pad {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[clap(name = "innernet", author, version, about)]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
+#[command(name = "innernet", author, version, about)]
 struct Opts {
     #[clap(subcommand)]
     command: Option<Command>,
 
     /// Verbose output, use -vv for even higher verbositude
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u64,
+    #[clap(short, long, action = ArgAction::Count)]
+    verbose: u8,
 
     #[clap(short, long, default_value = "/etc/innernet")]
     config_dir: PathBuf,
@@ -74,7 +73,7 @@ struct HostsOpt {
     hosts_path: PathBuf,
 
     /// Don't write to any hosts files
-    #[clap(long = "no-write-hosts", conflicts_with = "hosts-path")]
+    #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
     no_write_hosts: bool,
 }
 
@@ -254,7 +253,7 @@ enum Command {
 
     /// Generate shell completion scripts
     Completions {
-        #[clap(arg_enum)]
+        #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
 }
@@ -1275,6 +1274,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             override_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
+            use clap::CommandFactory;
             let mut app = Opts::command();
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());

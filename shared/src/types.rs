@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Error};
-use clap::Args;
+use clap::{
+    builder::{PossibleValuesParser, TypedValueParser},
+    Args,
+};
 use ipnet::IpNet;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -286,7 +289,7 @@ pub struct RedeemContents {
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct InstallOpts {
     /// Set a specific interface name
-    #[clap(long, conflicts_with = "default-name")]
+    #[clap(long, conflicts_with = "default_name")]
     pub name: Option<String>,
 
     /// Use the network name inside the invitation as the interface name
@@ -305,7 +308,7 @@ pub struct AddPeerOpts {
     pub name: Option<Hostname>,
 
     /// Specify desired IP of new peer (within parent CIDR)
-    #[clap(long, conflicts_with = "auto-ip")]
+    #[clap(long, conflicts_with = "auto_ip")]
     pub ip: Option<IpAddr>,
 
     /// Auto-assign the peer the first available IP within the CIDR
@@ -398,7 +401,7 @@ pub struct ListenPortOpts {
     pub listen_port: Option<u16>,
 
     /// Unset the local listen port to use a randomized port
-    #[clap(short, long, conflicts_with = "listen-port")]
+    #[clap(short, long, conflicts_with = "listen_port")]
     pub unset: bool,
 
     /// Bypass confirmation
@@ -433,7 +436,7 @@ pub struct NatOpts {
     /// ex. --exclude-nat-candidates '0.0.0.0/0' would report no candidates.
     pub exclude_nat_candidates: Vec<IpNet>,
 
-    #[clap(long, conflicts_with = "exclude-nat-candidates")]
+    #[clap(long, conflicts_with = "exclude_nat_candidates")]
     /// Don't report any candidates to coordinating server.
     /// Shorthand for --exclude-nat-candidates '0.0.0.0/0'.
     pub no_nat_candidates: bool,
@@ -465,7 +468,7 @@ pub struct NetworkOpts {
     /// external tool like e.g. babeld.
     pub no_routing: bool,
 
-    #[clap(long, default_value_t, possible_values = Backend::variants())]
+    #[clap(long, default_value_t, value_parser = PossibleValuesParser::new(Backend::variants()).map(|s| s.parse::<Backend>().unwrap()))]
     /// Specify a WireGuard backend to use.
     /// If not set, innernet will auto-select based on availability.
     pub backend: Backend,
@@ -631,8 +634,6 @@ impl<'a> PeerDiff<'a> {
         }
         // diff.new is now guaranteed to be a Some(_) variant.
         let new = new.unwrap();
-
-        // TODO(jake): use contains() when stable: https://github.com/rust-lang/rust/issues/62358
 
         let new_allowed_ips = &[AllowedIp {
             address: new.ip,

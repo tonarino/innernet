@@ -10,17 +10,18 @@ repository = "https://github.com/tonarino/innernet"
 version = "1.5.5"
 
 [dependencies]
-base64 = "0.13"
-hex = "0.4"
+base64 = "0.13.1"
+hex = "0.4.3"
 libc = "0.2"
 log = "0.4"
 rand_core = { version = "0.6", features = ["getrandom"] }
-curve25519-dalek = "4.0.0-pre.2"
+x25519-dalek = { version = "=2.0.0-rc.2", features = ["static_secrets"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-request = { path = "../netlink-request" }
 netlink-sys = "0.8"
-netlink-packet-core = "0.4"
-netlink-packet-generic = "0.3"
-netlink-packet-route = "0.13"
+netlink-packet-core = "0.5"
+netlink-packet-generic = "0.3.2"
+netlink-packet-route = "0.15"
+netlink-packet-utils = "0.5.2"
 netlink-packet-wireguard = "0.2"
