@@ -230,9 +230,7 @@ impl HostsBuilder {
             (Some(begin), Some(end)) => {
                 let old_section: Vec<String> = lines.drain(begin..end + 1).collect();
 
-                let sections_are_eq = old_section == lines_to_insert;
-
-                if sections_are_eq {
+                if old_section == lines_to_insert {
                     return Ok(false);
                 }
 
