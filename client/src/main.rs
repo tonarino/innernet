@@ -287,9 +287,12 @@ fn update_hosts_file(
             &format!("{}.{}.wg", peer.contents.name, interface),
         );
     }
-    match hosts_builder.write_to(&hosts_path).with_path(hosts_path) {
+    match hosts_builder.write_to(&hosts_path).with_path(&hosts_path) {
         Ok(has_written) if has_written => {
-            log::info!("updated {} with the latest peers.", "/etc/hosts".yellow())
+            log::info!(
+                "updated {} with the latest peers.",
+                hosts_path.to_string_lossy().yellow()
+            )
         },
         Ok(_) => {},
         Err(e) => log::warn!("failed to update hosts ({})", e),
