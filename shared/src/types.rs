@@ -519,35 +519,55 @@ impl Display for Peer {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ChangeString {
-    name: &'static str,
-    old: Option<String>,
-    new: Option<String>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeerChange {
+    AllowedIPs {
+        old: Vec<AllowedIp>,
+        new: Vec<AllowedIp>,
+    },
+    PersistentKeepalive {
+        old: Option<u16>,
+        new: Option<u16>,
+    },
+    Endpoint {
+        old: Option<SocketAddr>,
+        new: Option<SocketAddr>,
+    },
+    NatTraverseReattempt,
 }
 
-impl Display for ChangeString {
+impl Display for PeerChange {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: {} => {}",
-            self.name,
-            self.old.as_deref().unwrap_or("[none]"),
-            self.new.as_deref().unwrap_or("[none]")
-        )
+        match self {
+            Self::AllowedIPs { old, new } => write!(f, "Allowed IPs: {:?} => {:?}", old, new),
+            Self::PersistentKeepalive { old, new } => write!(
+                f,
+                "Persistent Keepalive: {} => {}",
+                old.display_string(),
+                new.display_string()
+            ),
+            Self::Endpoint { old, new } => write!(
+                f,
+                "Endpoint: {} => {}",
+                old.display_string(),
+                new.display_string()
+            ),
+            Self::NatTraverseReattempt => write!(f, "NAT Traversal Reattempt"),
+        }
     }
 }
 
-impl ChangeString {
-    pub fn new<T, U>(name: &'static str, old: Option<T>, new: Option<U>) -> Self
-    where
-        T: fmt::Debug,
-        U: fmt::Debug,
-    {
-        Self {
-            name,
-            old: old.map(|t| format!("{t:?}")),
-            new: new.map(|t| format!("{t:?}")),
+trait OptionExt {
+    fn display_string(&self) -> String;
+}
+
+impl<T: std::fmt::Debug> OptionExt for Option<T> {
+    fn display_string(&self) -> String {
+        match self {
+            Some(x) => {
+                format!("{:?}", x)
+            },
+            None => "[none]".to_string(),
         }
     }
 }
@@ -559,7 +579,7 @@ pub struct PeerDiff<'a> {
     pub old: Option<&'a PeerConfig>,
     pub new: Option<&'a Peer>,
     builder: PeerConfigBuilder,
-    changes: Vec<ChangeString>,
+    changes: Vec<PeerChange>,
 }
 
 impl<'a> PeerDiff<'a> {
@@ -588,14 +608,14 @@ impl<'a> PeerDiff<'a> {
         self.builder.public_key()
     }
 
-    pub fn changes(&self) -> &[ChangeString] {
+    pub fn changes(&self) -> &[PeerChange] {
         &self.changes
     }
 
     fn peer_config_builder(
         old_info: Option<&PeerInfo>,
         new: Option<&Peer>,
-    ) -> Option<(PeerConfigBuilder, Vec<ChangeString>)> {
+    ) -> Option<(PeerConfigBuilder, Vec<PeerChange>)> {
         let old = old_info.map(|p| &p.config);
         let public_key = match (old, new) {
             (Some(old), _) => old.public_key.clone(),
@@ -622,11 +642,10 @@ impl<'a> PeerDiff<'a> {
             builder = builder
                 .replace_allowed_ips()
                 .add_allowed_ips(new_allowed_ips);
-            changes.push(ChangeString::new(
-                "AllowedIPs",
-                old.map(|o| &o.allowed_ips[..]),
-                Some(&new_allowed_ips[0]),
-            ));
+            changes.push(PeerChange::AllowedIPs {
+                old: old.map(|o| o.allowed_ips.clone()).unwrap_or_else(Vec::new),
+                new: new_allowed_ips.to_vec(),
+            });
         }
 
         if old.is_none()
@@ -636,11 +655,10 @@ impl<'a> PeerDiff<'a> {
                 Some(interval) => builder.set_persistent_keepalive_interval(interval),
                 None => builder.unset_persistent_keepalive(),
             };
-            changes.push(ChangeString::new(
-                "PersistentKeepalive",
-                old.and_then(|p| p.persistent_keepalive_interval),
-                new.persistent_keepalive_interval,
-            ));
+            changes.push(PeerChange::PersistentKeepalive {
+                old: old.and_then(|p| p.persistent_keepalive_interval),
+                new: new.persistent_keepalive_interval,
+            });
         }
 
         // We won't update the endpoint if there's already a stable connection.
@@ -653,20 +671,15 @@ impl<'a> PeerDiff<'a> {
             if let Some(addr) = resolved {
                 if old.is_none() || matches!(old, Some(old) if old.endpoint != resolved) {
                     builder = builder.set_endpoint(addr);
-                    changes.push(ChangeString::new(
-                        "Endpoint",
-                        old.and_then(|p| p.endpoint),
-                        Some(addr),
-                    ));
+                    changes.push(PeerChange::Endpoint {
+                        old: old.and_then(|p| p.endpoint),
+                        new: Some(addr),
+                    });
                     endpoint_changed = true;
                 }
             }
             if !endpoint_changed && !new.candidates.is_empty() {
-                changes.push(ChangeString::new(
-                    "Connection status",
-                    "Disconnected".into(),
-                    "NAT traverse reattempt".into(),
-                ));
+                changes.push(PeerChange::NatTraverseReattempt)
             }
         }
 
