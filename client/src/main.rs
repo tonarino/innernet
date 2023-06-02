@@ -279,8 +279,6 @@ fn update_hosts_file(
     hosts_path: PathBuf,
     peers: &[Peer],
 ) -> Result<(), WrappedIoError> {
-    log::info!("updating {} with the latest peers.", "/etc/hosts".yellow());
-
     let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
     for peer in peers {
         hosts_builder.add_hostname(
@@ -288,9 +286,16 @@ fn update_hosts_file(
             &format!("{}.{}.wg", peer.contents.name, interface),
         );
     }
-    if let Err(e) = hosts_builder.write_to(&hosts_path).with_path(hosts_path) {
-        log::warn!("failed to update hosts ({})", e);
-    }
+    match hosts_builder.write_to(&hosts_path).with_path(&hosts_path) {
+        Ok(has_written) if has_written => {
+            log::info!(
+                "updated {} with the latest peers.",
+                hosts_path.to_string_lossy().yellow()
+            )
+        },
+        Ok(_) => {},
+        Err(e) => log::warn!("failed to update hosts ({})", e),
+    };
 
     Ok(())
 }
