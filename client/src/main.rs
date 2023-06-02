@@ -1176,16 +1176,6 @@ fn main() {
     let opts = Opts::parse();
     util::init_logger(opts.verbose);
 
-    let argv0 = std::env::args().next().unwrap();
-    let executable = Path::new(&argv0).file_name().unwrap().to_str().unwrap();
-    if executable == "inn" {
-        log::warn!("");
-        log::warn!("  {}: the {} shortcut will be removed from OS packages soon in favor of users creating a shell alias.", "WARNING".bold(), "inn".yellow());
-        log::warn!("");
-        log::warn!("  See https://github.com/tonarino/innernet/issues/176 for instructions to continue using it.");
-        log::warn!("");
-    }
-
     if let Err(e) = run(&opts) {
         println!();
         log::error!("{}\n", e);
