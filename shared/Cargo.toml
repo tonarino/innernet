@@ -1,5 +1,5 @@
 [package]
-authors = ["Jake McGinty <me@jake.su>"]
+authors = ["Jake McGinty <me@jakebot.org>"]
 edition = "2021"
 license = "MIT"
 name = "shared"
