@@ -1,5 +1,10 @@
 [package]
-authors = ["Jake McGinty <me@jake.su>"]
+authors = [
+  "Jake McGinty <me@jakebot.org>",
+  "Brian Schwind <brian@tonari.no>",
+  "Ryo Kawaguchi <ryo@tonari.no>",
+  "Matěj Laitl <matej@tonari.no>",
+]
 edition = "2021"
 license = "MIT"
 name = "shared"

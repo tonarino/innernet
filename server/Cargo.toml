@@ -1,11 +1,18 @@
 [package]
-authors = ["Jake McGinty <me@jakebot.org>"]
+authors = [
+  "Jake McGinty <me@jakebot.org>",
+  "Brian Schwind <brian@tonari.no>",
+  "Ryo Kawaguchi <ryo@tonari.no>",
+  "Matěj Laitl <matej@tonari.no>",
+]
 description = "A server to coordinate innernet networks."
 edition = "2021"
+homepage = "https://github.com/tonarino/innernet"
 license = "MIT"
 name = "server"
 publish = false
 readme = "README.md"
+repository = "https://github.com/tonarino/innernet"
 version = "1.5.5"
 
 [[bin]]
@@ -81,8 +88,8 @@ buildflags = ["--release"]
 "../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet-server.8.gz" }
 "../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
 "../../doc/innernet-server.completions.bash" = { path = "/etc/bash_completion.d/innernet-server" }
-"../../doc/innernet-server.completions.fish" =  { path = "/usr/share/fish/vendor_completions.d/innernet-server.fish" }
-"../../doc/innernet-server.completions.zsh" =  { path = "/usr/share/zsh/site-functions/_innernet-server" }
+"../../doc/innernet-server.completions.fish" = { path = "/usr/share/fish/vendor_completions.d/innernet-server.fish" }
+"../../doc/innernet-server.completions.zsh" = { path = "/usr/share/zsh/site-functions/_innernet-server" }
 
 [package.metadata.rpm.targets]
 innernet-server = { path = "/usr/bin/innernet-server" }

@@ -1,5 +1,5 @@
 [package]
-authors = ["K900 <me@0upti.me>", "Jake McGinty <jake@tonari.no>"]
+authors = ["K900 <me@0upti.me>", "Jake McGinty <me@jakebot.org>"]
 categories = ["os::unix-apis"]
 description = "High level bindings to the WireGuard embeddable C library"
 edition = "2021"
