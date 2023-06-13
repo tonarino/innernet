@@ -272,7 +272,7 @@ fn get_userspace_implementation() -> io::Result<PathBuf> {
             .or_else(|_| std::env::var("WG_QUICK_USERSPACE_IMPLEMENTATION"))
             .unwrap_or_else(|_| "wireguard-go".to_string()),
     );
-    if wg_path.exists() == false {
+    if !wg_path.exists() {
         Err(io::Error::new(
             io::ErrorKind::Other,
             &*format!(
