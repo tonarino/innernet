@@ -1,5 +1,5 @@
 _innernet() {
-    local i cur prev opts cmds
+    local i cur prev opts cmd
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
@@ -8,69 +8,129 @@ _innernet() {
 
     for i in ${COMP_WORDS[@]}
     do
-        case "${i}" in
-            "$1")
+        case "${cmd},${i}" in
+            ",$1")
                 cmd="innernet"
                 ;;
-            add-association)
-                cmd+="__add__association"
+            innernet,add-association)
+                cmd="innernet__add__association"
                 ;;
-            add-cidr)
-                cmd+="__add__cidr"
+            innernet,add-cidr)
+                cmd="innernet__add__cidr"
                 ;;
-            add-peer)
-                cmd+="__add__peer"
+            innernet,add-peer)
+                cmd="innernet__add__peer"
                 ;;
-            completions)
-                cmd+="__completions"
+            innernet,completions)
+                cmd="innernet__completions"
                 ;;
-            delete-association)
-                cmd+="__delete__association"
+            innernet,delete-association)
+                cmd="innernet__delete__association"
                 ;;
-            delete-cidr)
-                cmd+="__delete__cidr"
+            innernet,delete-cidr)
+                cmd="innernet__delete__cidr"
                 ;;
-            disable-peer)
-                cmd+="__disable__peer"
+            innernet,disable-peer)
+                cmd="innernet__disable__peer"
                 ;;
-            down)
-                cmd+="__down"
+            innernet,down)
+                cmd="innernet__down"
                 ;;
-            enable-peer)
-                cmd+="__enable__peer"
+            innernet,enable-peer)
+                cmd="innernet__enable__peer"
                 ;;
-            fetch)
-                cmd+="__fetch"
+            innernet,fetch)
+                cmd="innernet__fetch"
                 ;;
-            help)
-                cmd+="__help"
+            innernet,help)
+                cmd="innernet__help"
                 ;;
-            install)
-                cmd+="__install"
+            innernet,install)
+                cmd="innernet__install"
                 ;;
-            list-associations)
-                cmd+="__list__associations"
+            innernet,list-associations)
+                cmd="innernet__list__associations"
                 ;;
-            list-cidrs)
-                cmd+="__list__cidrs"
+            innernet,list-cidrs)
+                cmd="innernet__list__cidrs"
                 ;;
-            override-endpoint)
-                cmd+="__override__endpoint"
+            innernet,override-endpoint)
+                cmd="innernet__override__endpoint"
                 ;;
-            rename-peer)
-                cmd+="__rename__peer"
+            innernet,rename-peer)
+                cmd="innernet__rename__peer"
                 ;;
-            set-listen-port)
-                cmd+="__set__listen__port"
+            innernet,set-listen-port)
+                cmd="innernet__set__listen__port"
                 ;;
-            show)
-                cmd+="__show"
+            innernet,show)
+                cmd="innernet__show"
                 ;;
-            uninstall)
-                cmd+="__uninstall"
+            innernet,uninstall)
+                cmd="innernet__uninstall"
                 ;;
-            up)
-                cmd+="__up"
+            innernet,up)
+                cmd="innernet__up"
+                ;;
+            innernet__help,add-association)
+                cmd="innernet__help__add__association"
+                ;;
+            innernet__help,add-cidr)
+                cmd="innernet__help__add__cidr"
+                ;;
+            innernet__help,add-peer)
+                cmd="innernet__help__add__peer"
+                ;;
+            innernet__help,completions)
+                cmd="innernet__help__completions"
+                ;;
+            innernet__help,delete-association)
+                cmd="innernet__help__delete__association"
+                ;;
+            innernet__help,delete-cidr)
+                cmd="innernet__help__delete__cidr"
+                ;;
+            innernet__help,disable-peer)
+                cmd="innernet__help__disable__peer"
+                ;;
+            innernet__help,down)
+                cmd="innernet__help__down"
+                ;;
+            innernet__help,enable-peer)
+                cmd="innernet__help__enable__peer"
+                ;;
+            innernet__help,fetch)
+                cmd="innernet__help__fetch"
+                ;;
+            innernet__help,help)
+                cmd="innernet__help__help"
+                ;;
+            innernet__help,install)
+                cmd="innernet__help__install"
+                ;;
+            innernet__help,list-associations)
+                cmd="innernet__help__list__associations"
+                ;;
+            innernet__help,list-cidrs)
+                cmd="innernet__help__list__cidrs"
+                ;;
+            innernet__help,override-endpoint)
+                cmd="innernet__help__override__endpoint"
+                ;;
+            innernet__help,rename-peer)
+                cmd="innernet__help__rename__peer"
+                ;;
+            innernet__help,set-listen-port)
+                cmd="innernet__help__set__listen__port"
+                ;;
+            innernet__help,show)
+                cmd="innernet__help__show"
+                ;;
+            innernet__help,uninstall)
+                cmd="innernet__help__uninstall"
+                ;;
+            innernet__help,up)
+                cmd="innernet__help__up"
                 ;;
             *)
                 ;;
@@ -79,7 +139,7 @@ _innernet() {
 
     case "${cmd}" in
         innernet)
-            opts="-h -V -v -c -d --help --version --verbose --config-dir --data-dir --no-routing --backend --mtu install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
+            opts="-v -c -d -h -V --verbose --config-dir --data-dir --no-routing --backend --mtu --help --version install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -102,7 +162,7 @@ _innernet() {
                     return 0
                     ;;
                 --backend)
-                    COMPREPLY=($(compgen -W "kernel userspace" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "userspace" -- "${cur}"))
                     return 0
                     ;;
                 --mtu)
@@ -117,7 +177,7 @@ _innernet() {
             return 0
             ;;
         innernet__add__association)
-            opts="-h --yes --help <INTERFACE> <CIDR1> <CIDR2>"
+            opts="-h --yes --help <INTERFACE> [CIDR1] [CIDR2]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -176,7 +236,7 @@ _innernet() {
                     return 0
                     ;;
                 --admin)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --save-config)
@@ -209,7 +269,7 @@ _innernet() {
             return 0
             ;;
         innernet__delete__association)
-            opts="-h --yes --help <INTERFACE> <CIDR1> <CIDR2>"
+            opts="-h --yes --help <INTERFACE> [CIDR1] [CIDR2]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -305,8 +365,288 @@ _innernet() {
             return 0
             ;;
         innernet__help)
-            opts="<SUBCOMMAND>..."
+            opts="install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__add__association)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__add__cidr)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__add__peer)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__completions)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__delete__association)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__delete__cidr)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__disable__peer)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__down)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__enable__peer)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__fetch)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__install)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__list__associations)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__list__cidrs)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__override__endpoint)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__rename__peer)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__set__listen__port)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__uninstall)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__help__up)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -439,7 +779,7 @@ _innernet() {
             return 0
             ;;
         innernet__show)
-            opts="-s -t -h --short --tree --help <INTERFACE>"
+            opts="-s -t -h --short --tree --help [INTERFACE]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -467,7 +807,7 @@ _innernet() {
             return 0
             ;;
         innernet__up)
-            opts="-d -h --daemon --interval --hosts-path --no-write-hosts --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help <INTERFACE>"
+            opts="-d -h --daemon --interval --hosts-path --no-write-hosts --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help [INTERFACE]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

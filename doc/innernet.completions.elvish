@@ -24,13 +24,13 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --data-dir 'data-dir'
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
             cand --mtu 'Specify the desired MTU for your interface (default: 1280)'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
-            cand -V 'Print version information'
-            cand --version 'Print version information'
             cand -v 'Verbose output, use -vv for even higher verbositude'
             cand --verbose 'Verbose output, use -vv for even higher verbositude'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
+            cand -h 'Print help'
+            cand --help 'Print help'
+            cand -V 'Print version'
+            cand --version 'Print version'
             cand install 'Install a new innernet config'
             cand show 'Enumerate all innernet connections'
             cand up 'Bring up your local interface, and update it with latest peer list'
@@ -62,16 +62,16 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --delete-invite 'Delete the invitation after a successful install'
             cand --no-nat-traversal 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
             cand --no-nat-candidates 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0'''
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;show'= {
             cand -s 'One-line peer list'
             cand --short 'One-line peer list'
             cand -t 'Display peers in a tree based on the CIDRs'
             cand --tree 'Display peers in a tree based on the CIDRs'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;up'= {
             cand --interval 'Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode'
@@ -82,8 +82,8 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --no-write-hosts 'Don''t write to any hosts files'
             cand --no-nat-traversal 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
             cand --no-nat-candidates 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0'''
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;fetch'= {
             cand --hosts-path 'The path to write hosts to'
@@ -91,17 +91,17 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --no-write-hosts 'Don''t write to any hosts files'
             cand --no-nat-traversal 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates'
             cand --no-nat-candidates 'Don''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates ''0.0.0.0/0'''
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;uninstall'= {
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;down'= {
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;add-peer'= {
             cand --name 'Name of new peer'
@@ -112,57 +112,57 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --invite-expires 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')'
             cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help (see more with ''--help'')'
+            cand --help 'Print help (see more with ''--help'')'
         }
         &'innernet;rename-peer'= {
             cand --name 'Name of peer to rename'
             cand --new-name 'The new name of the peer'
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help (see more with ''--help'')'
+            cand --help 'Print help (see more with ''--help'')'
         }
         &'innernet;add-cidr'= {
             cand --name 'The CIDR name (eg. ''engineers'')'
             cand --cidr 'The CIDR network (eg. ''10.42.5.0/24'')'
             cand --parent 'The CIDR parent name'
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;delete-cidr'= {
             cand --name 'The CIDR name (eg. ''engineers'')'
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;list-cidrs'= {
             cand -t 'Display CIDRs in tree format'
             cand --tree 'Display CIDRs in tree format'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;disable-peer'= {
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;enable-peer'= {
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;add-association'= {
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;delete-association'= {
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;list-associations'= {
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;set-listen-port'= {
             cand -l 'The listen port you''d like to set for the interface'
@@ -170,8 +170,8 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand -u 'Unset the local listen port to use a randomized port'
             cand --unset 'Unset the local listen port to use a randomized port'
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;override-endpoint'= {
             cand -e 'The listen port you''d like to set for the interface'
@@ -179,14 +179,74 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand -u 'Unset an existing override to use the automatic endpoint discovery'
             cand --unset 'Unset an existing override to use the automatic endpoint discovery'
             cand --yes 'Bypass confirmation'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;completions'= {
-            cand -h 'Print help information'
-            cand --help 'Print help information'
+            cand -h 'Print help'
+            cand --help 'Print help'
         }
         &'innernet;help'= {
+            cand install 'Install a new innernet config'
+            cand show 'Enumerate all innernet connections'
+            cand up 'Bring up your local interface, and update it with latest peer list'
+            cand fetch 'Fetch and update your local interface with the latest peer list'
+            cand uninstall 'Uninstall an innernet network'
+            cand down 'Bring down the interface (equivalent to ''wg-quick down <interface>'')'
+            cand add-peer 'Add a new peer'
+            cand rename-peer 'Rename a peer'
+            cand add-cidr 'Add a new CIDR'
+            cand delete-cidr 'Delete a CIDR'
+            cand list-cidrs 'List CIDRs'
+            cand disable-peer 'Disable an enabled peer'
+            cand enable-peer 'Enable a disabled peer'
+            cand add-association 'Add an association between CIDRs'
+            cand delete-association 'Delete an association between CIDRs'
+            cand list-associations 'List existing assocations between CIDRs'
+            cand set-listen-port 'Set the local listen port'
+            cand override-endpoint 'Override your external endpoint that the server sends to other peers'
+            cand completions 'Generate shell completion scripts'
+            cand help 'Print this message or the help of the given subcommand(s)'
+        }
+        &'innernet;help;install'= {
+        }
+        &'innernet;help;show'= {
+        }
+        &'innernet;help;up'= {
+        }
+        &'innernet;help;fetch'= {
+        }
+        &'innernet;help;uninstall'= {
+        }
+        &'innernet;help;down'= {
+        }
+        &'innernet;help;add-peer'= {
+        }
+        &'innernet;help;rename-peer'= {
+        }
+        &'innernet;help;add-cidr'= {
+        }
+        &'innernet;help;delete-cidr'= {
+        }
+        &'innernet;help;list-cidrs'= {
+        }
+        &'innernet;help;disable-peer'= {
+        }
+        &'innernet;help;enable-peer'= {
+        }
+        &'innernet;help;add-association'= {
+        }
+        &'innernet;help;delete-association'= {
+        }
+        &'innernet;help;list-associations'= {
+        }
+        &'innernet;help;set-listen-port'= {
+        }
+        &'innernet;help;override-endpoint'= {
+        }
+        &'innernet;help;completions'= {
+        }
+        &'innernet;help;help'= {
         }
     ]
     $completions[$command]
