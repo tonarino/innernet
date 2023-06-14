@@ -216,10 +216,10 @@ brew install tonarino/innernet/innernet
 
 ```sh
 # to install innernet:
-cargo install --git https://github.com/tonarino/innernet --tag v1.5.5 client
+cargo install --git https://github.com/tonarino/innernet --tag v1.6.0 client
 
 # to install innernet-server:
-cargo install --git https://github.com/tonarino/innernet --tag v1.5.5 server
+cargo install --git https://github.com/tonarino/innernet --tag v1.6.0 server
 ```
 
 Note that you'll be responsible for updating manually.
@@ -255,6 +255,8 @@ The resulting binary will be located at `./target/release/innernet`
 
 ### Releases
 
-1. Run `cargo release [--dry-run] [minor|major|patch|...]` to automatically bump the crates appropriately.
-2. Create a new git tag (ex. `v0.6.0`).
-3. Push (with tags) to the repo.
+Please run the release script from a Linux machine: generated shell completions depend on available wireguard backends and Mac doesn't support the `kernel` backend. 
+
+1. Fetch and check-out the `main` branch.
+2. Run `./release.sh [patch|major|minor|rc]`
+3. Push the `main` branch and the created tag to the repo.
