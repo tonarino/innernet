@@ -255,6 +255,8 @@ The resulting binary will be located at `./target/release/innernet`
 
 ### Releases
 
-1. Run `cargo release [--dry-run] [minor|major|patch|...]` to automatically bump the crates appropriately.
-2. Create a new git tag (ex. `v0.6.0`).
-3. Push (with tags) to the repo.
+Please run the release script from a Linux machine: generated shell completions depend on available wireguard backends and Mac doesn't support the `kernel` backend. 
+
+1. Fetch and check-out the `main` branch.
+2. Run `./release.sh [patch|major|minor|rc]`
+3. Push the `main` branch and the created tag to the repo.
