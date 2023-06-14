@@ -1,5 +1,8 @@
 # innernet
 
+[![Actively Maintained](https://img.shields.io/badge/Maintenance%20Level-Actively%20Maintained-green.svg)](https://gist.github.com/cheerfulstoic/d107229326a01ff0f333a1d3476e068d)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/tonarino/innernet/blob/master/LICENSE)
+
 A private network system that uses [WireGuard](https://wireguard.com) under the hood. See the [announcement blog post](https://blog.tonari.no/introducing-innernet) for a longer-winded explanation.
 
 <img src="https://user-images.githubusercontent.com/373823/118917068-09ae7700-b96b-11eb-80f4-6860072d504d.gif" width="600" height="370">
@@ -195,14 +198,13 @@ It's assumed that WireGuard is installed on your system, either via the kernel m
 pacman -S innernet
 ```
 
-### Ubuntu
+### Debian and Ubuntu
 
-Fetch the appropriate `.deb` packages from
-https://github.com/tonarino/innernet/releases and install with
+[**@tommie**](https://github.com/tommie) is kindly providing Debian/Ubuntu innernet builds in the https://github.com/tommie/innernet-debian repository.
 
-```sh
-sudo apt install ./innernet*.deb
-```
+### Other Linux Distributions
+
+We're looking for volunteers who are able to set up external builds for popular distributions. Please see issue [#203](https://github.com/tonarino/innernet/issues/203).
 
 ### macOS
 
@@ -214,10 +216,10 @@ brew install tonarino/innernet/innernet
 
 ```sh
 # to install innernet:
-cargo install --git https://github.com/tonarino/innernet --tag v1.5.4 client
+cargo install --git https://github.com/tonarino/innernet --tag v1.5.5 client
 
 # to install innernet-server:
-cargo install --git https://github.com/tonarino/innernet --tag v1.5.4 server
+cargo install --git https://github.com/tonarino/innernet --tag v1.5.5 server
 ```
 
 Note that you'll be responsible for updating manually.
@@ -256,5 +258,3 @@ The resulting binary will be located at `./target/release/innernet`
 1. Run `cargo release [--dry-run] [minor|major|patch|...]` to automatically bump the crates appropriately.
 2. Create a new git tag (ex. `v0.6.0`).
 3. Push (with tags) to the repo.
-
-innernet uses GitHub Actions to automatically produce a debian package for the [releases page](https://github.com/tonarino/innernet/releases).

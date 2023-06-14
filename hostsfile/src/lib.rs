@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fmt,
     fs::OpenOptions,
     io::{self, BufRead, BufReader, ErrorKind, Write},
@@ -81,7 +81,7 @@ impl std::error::Error for Error {
 /// ```
 pub struct HostsBuilder {
     tag: String,
-    hostname_map: HashMap<IpAddr, Vec<String>>,
+    hostname_map: BTreeMap<IpAddr, Vec<String>>,
 }
 
 impl HostsBuilder {
@@ -90,7 +90,7 @@ impl HostsBuilder {
     pub fn new<S: Into<String>>(tag: S) -> Self {
         Self {
             tag: tag.into(),
-            hostname_map: HashMap::new(),
+            hostname_map: BTreeMap::new(),
         }
     }
 
@@ -116,8 +116,9 @@ impl HostsBuilder {
 
     /// Inserts a new section to the system's default hosts file.  If there is a section with the
     /// same tag name already, it will be replaced with the new list instead.
-    pub fn write(&self) -> io::Result<()> {
-        self.write_to(&Self::default_path()?)
+    /// Returns true if the hosts file has changed.
+    pub fn write(&self) -> io::Result<bool> {
+        self.write_to(Self::default_path()?)
     }
 
     /// Returns the default hosts path based on the current OS.
@@ -178,7 +179,9 @@ impl HostsBuilder {
     ///
     /// On Windows, the format of one hostname per line will be used, all other systems will use
     /// the same format as Unix and Unix-like systems (i.e. allow multiple hostnames per line).
-    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<()> {
+    ///
+    /// Returns true if the hosts file has changed.
+    pub fn write_to<P: AsRef<Path>>(&self, hosts_path: P) -> io::Result<bool> {
         let hosts_path = hosts_path.as_ref();
         if hosts_path.is_dir() {
             // TODO(jake): use io::ErrorKind::IsADirectory when it's stable.
@@ -206,9 +209,31 @@ impl HostsBuilder {
         let begin = lines.iter().position(|line| line.trim() == begin_marker);
         let end = lines.iter().position(|line| line.trim() == end_marker);
 
+        let mut lines_to_insert = vec![];
+        if !self.hostname_map.is_empty() {
+            lines_to_insert.push(begin_marker);
+            for (ip, hostnames) in &self.hostname_map {
+                if cfg!(windows) {
+                    // windows only allows one hostname per line
+                    for hostname in hostnames {
+                        lines_to_insert.push(format!("{ip} {hostname}"));
+                    }
+                } else {
+                    // assume the same format as Unix
+                    lines_to_insert.push(format!("{} {}", ip, hostnames.join(" ")));
+                }
+            }
+            lines_to_insert.push(end_marker);
+        }
+
         let insert = match (begin, end) {
             (Some(begin), Some(end)) => {
-                lines.drain(begin..end + 1);
+                let old_section: Vec<String> = lines.drain(begin..end + 1).collect();
+
+                if old_section == lines_to_insert {
+                    return Ok(false);
+                }
+
                 begin
             },
             (None, None) => {
@@ -231,25 +256,16 @@ impl HostsBuilder {
         let mut s = vec![];
 
         for line in &lines[..insert] {
-            writeln!(s, "{}", line)?;
+            writeln!(s, "{line}")?;
         }
-        if !self.hostname_map.is_empty() {
-            writeln!(s, "{}", begin_marker)?;
-            for (ip, hostnames) in &self.hostname_map {
-                if cfg!(windows) {
-                    // windows only allows one hostname per line
-                    for hostname in hostnames {
-                        writeln!(s, "{} {}", ip, hostname)?;
-                    }
-                } else {
-                    // assume the same format as Unix
-                    writeln!(s, "{} {}", ip, hostnames.join(" "))?;
-                }
-            }
-            writeln!(s, "{}", end_marker)?;
+
+        // Append hostnames_map section
+        for line in lines_to_insert {
+            writeln!(s, "{line}")?;
         }
+
         for line in &lines[insert..] {
-            writeln!(s, "{}", line)?;
+            writeln!(s, "{line}")?;
         }
 
         match Self::write_and_swap(&temp_path, hosts_path, &s) {
@@ -260,13 +276,14 @@ impl HostsBuilder {
             _ => {
                 log::debug!("wrote hosts file with the write-and-swap strategy");
             },
-        }
-        Ok(())
+        };
+
+        Ok(true)
     }
 
     fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
         // Copy the file we plan on modifying so its permissions and metadata are preserved.
-        std::fs::copy(&hosts_path, &temp_path)?;
+        std::fs::copy(hosts_path, temp_path)?;
         Self::write_clobber(temp_path, contents)?;
         std::fs::rename(temp_path, hosts_path)?;
         Ok(())
@@ -293,7 +310,7 @@ mod tests {
     fn test_temp_path_good() {
         let hosts_path = Path::new("/etc/hosts");
         let temp_path = HostsBuilder::get_temp_path(hosts_path).unwrap();
-        println!("{:?}", temp_path);
+        println!("{temp_path:?}");
         assert!(temp_path
             .file_name()
             .unwrap()
@@ -314,10 +331,11 @@ mod tests {
         temp_file.write_all(b"preexisting\ncontent").unwrap();
         let mut builder = HostsBuilder::new("foo");
         builder.add_hostname([1, 1, 1, 1].into(), "whatever");
-        builder.write_to(&temp_path).unwrap();
+        assert!(builder.write_to(&temp_path).unwrap());
+        assert!(!builder.write_to(&temp_path).unwrap());
 
         let contents = std::fs::read_to_string(&temp_path).unwrap();
-        println!("contents: {}", contents);
+        println!("contents: {contents}");
         assert!(contents.starts_with("preexisting\ncontent"));
         assert!(contents.contains("# DO NOT EDIT foo BEGIN"));
         assert!(contents.contains("1.1.1.1 whatever"));

@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use ipnet::IpNet;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use publicip::Preference;
 use std::{
     fmt::{Debug, Display},
@@ -20,9 +20,7 @@ use std::{
 };
 use wireguard_control::{InterfaceName, KeyPair};
 
-lazy_static! {
-    pub static ref THEME: ColorfulTheme = ColorfulTheme::default();
-}
+pub static THEME: Lazy<ColorfulTheme> = Lazy::new(ColorfulTheme::default);
 
 pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
     if atty::is(atty::Stream::Stdin) {
@@ -30,7 +28,7 @@ pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
     } else {
         Err(io::Error::new(
             io::ErrorKind::BrokenPipe,
-            format!("Prompt \"{}\" failed because TTY isn't connected.", prompt),
+            format!("Prompt \"{prompt}\" failed because TTY isn't connected."),
         ))
     }
 }
@@ -294,7 +292,7 @@ pub fn add_peer(
     let is_admin = if let Some(is_admin) = args.admin {
         is_admin
     } else {
-        confirm(&format!("Make {} an admin?", name))?
+        confirm(&format!("Make {name} an admin?"))?
     };
 
     let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
@@ -311,7 +309,7 @@ pub fn add_peer(
     } else {
         input(
             "Save peer invitation file to",
-            Prefill::Default(format!("{}.toml", name)),
+            Prefill::Default(format!("{name}.toml")),
         )?
     };
 
@@ -486,7 +484,7 @@ pub fn set_listen_port(
         .wait_for_newline(true)
         .with_prompt(
             &(if let Some(port) = &listen_port {
-                format!("Set listen port to {}?", port)
+                format!("Set listen port to {port}?")
             } else {
                 "Unset and randomize listen port?".to_string()
             }),
@@ -504,11 +502,9 @@ pub fn set_listen_port(
 }
 
 pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
-    println!("getting external IP address.");
-
     let external_ip = if Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
-        .with_prompt("Auto-fill public IP address (via a DNS query to 1.1.1.1)?")
+        .with_prompt("Auto-detect external endpoint IP address (via a DNS query to 1.1.1.1)?")
         .interact()?
     {
         publicip::get_any(Preference::Ipv4)
@@ -533,7 +529,7 @@ pub fn override_endpoint(
         Some(endpoint) => endpoint.clone(),
         None => ask_endpoint(listen_port)?,
     };
-    if args.yes || confirm(&format!("Set external endpoint to {}?", endpoint))? {
+    if args.yes || confirm(&format!("Set external endpoint to {endpoint}?"))? {
         Ok(Some(endpoint))
     } else {
         Ok(None)

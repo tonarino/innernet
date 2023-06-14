@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Read, Seek, SeekFrom, Write},
+    io::{self, Read, Seek, Write},
     path::{Path, PathBuf},
 };
 use wireguard_control::InterfaceName;
@@ -133,7 +133,7 @@ impl DataStore {
     }
 
     pub fn write(&mut self) -> Result<(), io::Error> {
-        self.file.seek(SeekFrom::Start(0))?;
+        self.file.rewind()?;
         self.file.set_len(0)?;
         self.file
             .write_all(serde_json::to_string_pretty(&self.contents)?.as_bytes())?;
@@ -144,10 +144,10 @@ impl DataStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use shared::{Cidr, CidrContents, Peer, PeerContents};
-    lazy_static! {
-        static ref BASE_PEERS: Vec<Peer> = vec![Peer {
+    static BASE_PEERS: Lazy<Vec<Peer>> = Lazy::new(|| {
+        vec![Peer {
             id: 0,
             contents: PeerContents {
                 name: "blah".parse().unwrap(),
@@ -161,22 +161,24 @@ mod tests {
                 persistent_keepalive_interval: None,
                 invite_expires: None,
                 candidates: vec![],
-            }
-        }];
-        static ref BASE_CIDRS: Vec<Cidr> = vec![Cidr {
+            },
+        }]
+    });
+    static BASE_CIDRS: Lazy<Vec<Cidr>> = Lazy::new(|| {
+        vec![Cidr {
             id: 1,
             contents: CidrContents {
                 name: "cidr".to_string(),
                 cidr: "10.0.0.0/24".parse().unwrap(),
-                parent: None
-            }
-        }];
-    }
+                parent: None,
+            },
+        }]
+    });
 
     fn setup_basic_store(dir: &Path) {
-        let mut store = DataStore::open_with_path(&dir.join("peer_store.json"), true).unwrap();
+        let mut store = DataStore::open_with_path(dir.join("peer_store.json"), true).unwrap();
 
-        println!("{:?}", store);
+        println!("{store:?}");
         assert_eq!(0, store.peers().len());
         assert_eq!(0, store.cidrs().len());
 
@@ -189,7 +191,7 @@ mod tests {
     fn test_sanity() {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
-        let store = DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
+        let store = DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
         assert_eq!(store.peers(), &*BASE_PEERS);
         assert_eq!(store.cidrs(), &*BASE_CIDRS);
     }
@@ -199,7 +201,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
         let mut store =
-            DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
+            DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
         store.update_peers(&BASE_PEERS).unwrap();
@@ -216,7 +218,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
         let mut store =
-            DataStore::open_with_path(&dir.path().join("peer_store.json"), false).unwrap();
+            DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
 
         // Should work, since peer is unmodified.
         store.update_peers(&[]).unwrap();

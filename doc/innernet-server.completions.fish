@@ -9,6 +9,8 @@ complete -c innernet-server -n "__fish_use_subcommand" -f -a "new" -d 'Create a 
 complete -c innernet-server -n "__fish_use_subcommand" -f -a "uninstall" -d 'Permanently uninstall a created network, rendering it unusable. Use with care'
 complete -c innernet-server -n "__fish_use_subcommand" -f -a "serve" -d 'Serve the coordinating server for an existing network'
 complete -c innernet-server -n "__fish_use_subcommand" -f -a "add-peer" -d 'Add a peer to an existing network'
+complete -c innernet-server -n "__fish_use_subcommand" -f -a "disable-peer" -d 'Disable an enabled peer'
+complete -c innernet-server -n "__fish_use_subcommand" -f -a "enable-peer" -d 'Enable a disabled peer'
 complete -c innernet-server -n "__fish_use_subcommand" -f -a "rename-peer" -d 'Rename an existing peer'
 complete -c innernet-server -n "__fish_use_subcommand" -f -a "add-cidr" -d 'Add a new CIDR to an existing network'
 complete -c innernet-server -n "__fish_use_subcommand" -f -a "delete-cidr" -d 'Delete a CIDR'
@@ -20,6 +22,7 @@ complete -c innernet-server -n "__fish_seen_subcommand_from new" -l external-end
 complete -c innernet-server -n "__fish_seen_subcommand_from new" -l listen-port -d 'Port to listen on (for the WireGuard interface)' -r
 complete -c innernet-server -n "__fish_seen_subcommand_from new" -l auto-external-endpoint -d 'Auto-resolve external endpoint'
 complete -c innernet-server -n "__fish_seen_subcommand_from new" -s h -l help -d 'Print help information'
+complete -c innernet-server -n "__fish_seen_subcommand_from uninstall" -l yes -d 'Bypass confirmation'
 complete -c innernet-server -n "__fish_seen_subcommand_from uninstall" -s h -l help -d 'Print help information'
 complete -c innernet-server -n "__fish_seen_subcommand_from serve" -l backend -d 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability' -r -f -a "{kernel	,userspace	}"
 complete -c innernet-server -n "__fish_seen_subcommand_from serve" -l mtu -d 'Specify the desired MTU for your interface (default: 1280)' -r
@@ -34,6 +37,8 @@ complete -c innernet-server -n "__fish_seen_subcommand_from add-peer" -l invite-
 complete -c innernet-server -n "__fish_seen_subcommand_from add-peer" -l auto-ip -d 'Auto-assign the peer the first available IP within the CIDR'
 complete -c innernet-server -n "__fish_seen_subcommand_from add-peer" -l yes -d 'Bypass confirmation'
 complete -c innernet-server -n "__fish_seen_subcommand_from add-peer" -s h -l help -d 'Print help information'
+complete -c innernet-server -n "__fish_seen_subcommand_from disable-peer" -s h -l help -d 'Print help information'
+complete -c innernet-server -n "__fish_seen_subcommand_from enable-peer" -s h -l help -d 'Print help information'
 complete -c innernet-server -n "__fish_seen_subcommand_from rename-peer" -l name -d 'Name of peer to rename' -r
 complete -c innernet-server -n "__fish_seen_subcommand_from rename-peer" -l new-name -d 'The new name of the peer' -r
 complete -c innernet-server -n "__fish_seen_subcommand_from rename-peer" -l yes -d 'Bypass confirmation'

@@ -33,6 +33,8 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand uninstall 'Permanently uninstall a created network, rendering it unusable. Use with care'
             cand serve 'Serve the coordinating server for an existing network'
             cand add-peer 'Add a peer to an existing network'
+            cand disable-peer 'Disable an enabled peer'
+            cand enable-peer 'Enable a disabled peer'
             cand rename-peer 'Rename an existing peer'
             cand add-cidr 'Add a new CIDR to an existing network'
             cand delete-cidr 'Delete a CIDR'
@@ -49,6 +51,7 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand --help 'Print help information'
         }
         &'innernet-server;uninstall'= {
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help information'
             cand --help 'Print help information'
         }
@@ -68,6 +71,14 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand --invite-expires 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')'
             cand --auto-ip 'Auto-assign the peer the first available IP within the CIDR'
             cand --yes 'Bypass confirmation'
+            cand -h 'Print help information'
+            cand --help 'Print help information'
+        }
+        &'innernet-server;disable-peer'= {
+            cand -h 'Print help information'
+            cand --help 'Print help information'
+        }
+        &'innernet-server;enable-peer'= {
             cand -h 'Print help information'
             cand --help 'Print help information'
         }

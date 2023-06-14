@@ -1,12 +1,19 @@
 [package]
-authors = ["Jake McGinty <me@jake.su>"]
+authors = [
+  "Jake McGinty <me@jakebot.org>",
+  "Brian Schwind <brian@tonari.no>",
+  "Ryo Kawaguchi <ryo@tonari.no>",
+  "Matěj Laitl <matej@tonari.no>",
+]
 description = "A server to coordinate innernet networks."
 edition = "2021"
+homepage = "https://github.com/tonarino/innernet"
 license = "MIT"
 name = "server"
 publish = false
 readme = "README.md"
-version = "1.5.4"
+repository = "https://github.com/tonarino/innernet"
+version = "1.5.5"
 
 [[bin]]
 name = "innernet-server"
@@ -18,34 +25,38 @@ v6-test = []
 [dependencies]
 anyhow = "1"
 bytes = "1"
-clap = { version = "3", features = ["derive"] }
-clap_complete = "3"
+clap = { version = "4.3", features = ["derive", "wrap_help"] }
+clap_complete = "4.3"
 colored = "2"
 dialoguer = { version = "0.10", default-features = false }
 hyper = { version = "0.14", default-features = false, features = ["http1", "server", "runtime", "stream"] }
-indoc = "1"
+indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
-lazy_static = "1"
 libc = "0.2"
-libsqlite3-sys = "0.25"
+libsqlite3-sys = "0.26"
 log = "0.4"
+once_cell = "1.17.1"
 parking_lot = "0.12"
 pretty_env_logger = "0.4"
 publicip = { path = "../publicip" }
 regex = { version = "1", default-features = false, features = ["std"] }
-rusqlite = "0.28"
+rusqlite = "0.29"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shared = { path = "../shared" }
 subtle = "2"
 thiserror = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-toml = "0.5"
+tokio = { version = "1.28.0", features = ["macros", "rt-multi-thread", "time"] }
+toml = "0.7.4"
 url = "2"
 wireguard-control = { path = "../wireguard-control" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-socket2 = { version = "0.4", features = ["all"] }
+socket2 = { version = "0.5.2", features = ["all"] }
+
+# Workaround for https://github.com/rusqlite/rusqlite/issues/914
+[target.'cfg(target_env = "musl")'.dependencies]
+rusqlite = { version = "0.29", features = ["bundled"] }
 
 [dev-dependencies]
 anyhow = "1"
@@ -77,8 +88,8 @@ buildflags = ["--release"]
 "../../doc/innernet-server.8.gz" = { path = "/usr/share/man/man8/innernet-server.8.gz" }
 "../innernet-server@.service" = { path = "/usr/lib/systemd/system/innernet-server@.service" }
 "../../doc/innernet-server.completions.bash" = { path = "/etc/bash_completion.d/innernet-server" }
-"../../doc/innernet-server.completions.fish" =  { path = "/usr/share/fish/vendor_completions.d/innernet-server.fish" }
-"../../doc/innernet-server.completions.zsh" =  { path = "/usr/share/zsh/site-functions/_innernet-server" }
+"../../doc/innernet-server.completions.fish" = { path = "/usr/share/fish/vendor_completions.d/innernet-server.fish" }
+"../../doc/innernet-server.completions.zsh" = { path = "/usr/share/zsh/site-functions/_innernet-server" }
 
 [package.metadata.rpm.targets]
 innernet-server = { path = "/usr/bin/innernet-server" }

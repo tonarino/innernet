@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use clap::{AppSettings, Args, IntoApp, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use hostsfile::HostsBuilder;
@@ -47,15 +47,14 @@ macro_rules! println_pad {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[clap(name = "innernet", author, version, about)]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
+#[command(name = "innernet", author, version, about)]
 struct Opts {
     #[clap(subcommand)]
     command: Option<Command>,
 
     /// Verbose output, use -vv for even higher verbositude
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u64,
+    #[clap(short, long, action = ArgAction::Count)]
+    verbose: u8,
 
     #[clap(short, long, default_value = "/etc/innernet")]
     config_dir: PathBuf,
@@ -74,13 +73,13 @@ struct HostsOpt {
     hosts_path: PathBuf,
 
     /// Don't write to any hosts files
-    #[clap(long = "no-write-hosts", conflicts_with = "hosts-path")]
+    #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
     no_write_hosts: bool,
 }
 
 impl From<HostsOpt> for Option<PathBuf> {
     fn from(opt: HostsOpt) -> Self {
-        (!opt.no_write_hosts).then(|| opt.hosts_path)
+        (!opt.no_write_hosts).then_some(opt.hosts_path)
     }
 }
 
@@ -254,7 +253,7 @@ enum Command {
 
     /// Generate shell completion scripts
     Completions {
-        #[clap(arg_enum)]
+        #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
 }
@@ -280,18 +279,23 @@ fn update_hosts_file(
     hosts_path: PathBuf,
     peers: &[Peer],
 ) -> Result<(), WrappedIoError> {
-    log::info!("updating {} with the latest peers.", "/etc/hosts".yellow());
-
-    let mut hosts_builder = HostsBuilder::new(format!("innernet {}", interface));
+    let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
     for peer in peers {
         hosts_builder.add_hostname(
             peer.contents.ip,
             &format!("{}.{}.wg", peer.contents.name, interface),
         );
     }
-    if let Err(e) = hosts_builder.write_to(&hosts_path).with_path(hosts_path) {
-        log::warn!("failed to update hosts ({})", e);
-    }
+    match hosts_builder.write_to(&hosts_path).with_path(&hosts_path) {
+        Ok(has_written) if has_written => {
+            log::info!(
+                "updated {} with the latest peers.",
+                hosts_path.to_string_lossy().yellow()
+            )
+        },
+        Ok(_) => {},
+        Err(e) => log::warn!("failed to update hosts ({})", e),
+    };
 
     Ok(())
 }
@@ -501,7 +505,7 @@ fn up(
         };
 
         for iface in interfaces {
-            fetch(&*iface, opts, true, hosts_path.clone(), nat)?;
+            fetch(&iface, opts, true, hosts_path.clone(), nat)?;
         }
 
         match loop_interval {
@@ -725,7 +729,7 @@ fn delete_cidr(
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
 
     println!("Deleting CIDR...");
-    api.http("DELETE", &*format!("/admin/cidrs/{}", cidr_id))?;
+    api.http("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
 
     println!("CIDR deleted.");
 
@@ -801,7 +805,7 @@ fn rename_peer(
             .next()
             .ok_or_else(|| anyhow!("Peer not found."))?;
 
-        api.http_form("PUT", &format!("/admin/peers/{}", id), peer_request)?;
+        api.http_form("PUT", &format!("/admin/peers/{id}"), peer_request)?;
         log::info!("Peer renamed.");
     } else {
         log::info!("exited without renaming peer.");
@@ -825,9 +829,9 @@ fn enable_or_disable_peer(
     if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
         let Peer { id, mut contents } = peer;
         contents.is_disabled = !enable;
-        api.http_form("PUT", &format!("/admin/peers/{}", id), contents)?;
+        api.http_form("PUT", &format!("/admin/peers/{id}"), contents)?;
     } else {
-        log::info!("exiting without disabling peer.");
+        log::info!("exiting without enabling or disabling peer.");
     }
 
     Ok(())
@@ -966,7 +970,7 @@ fn override_endpoint(
     };
 
     let endpoint_contents = if sub_opts.unset {
-        prompts::unset_override_endpoint(&sub_opts)?.then(|| EndpointContents::Unset)
+        prompts::unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
         let endpoint = prompts::override_endpoint(&sub_opts, port)?;
         endpoint.map(EndpointContents::Set)
@@ -1090,7 +1094,7 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     if short {
         let listen_port_str = device_info
             .listen_port
-            .map(|p| format!("(:{}) ", p))
+            .map(|p| format!("(:{p}) "))
             .unwrap_or_default();
         println!(
             "{} {}",
@@ -1171,16 +1175,6 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 fn main() {
     let opts = Opts::parse();
     util::init_logger(opts.verbose);
-
-    let argv0 = std::env::args().next().unwrap();
-    let executable = Path::new(&argv0).file_name().unwrap().to_str().unwrap();
-    if executable == "inn" {
-        log::warn!("");
-        log::warn!("  {}: the {} shortcut will be removed from OS packages soon in favor of users creating a shell alias.", "WARNING".bold(), "inn".yellow());
-        log::warn!("");
-        log::warn!("  See https://github.com/tonarino/innernet/issues/176 for instructions to continue using it.");
-        log::warn!("");
-    }
 
     if let Err(e) = run(&opts) {
         println!();
@@ -1275,6 +1269,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             override_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
+            use clap::CommandFactory;
             let mut app = Opts::command();
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());

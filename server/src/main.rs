@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use clap::{AppSettings, IntoApp, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use colored::*;
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
@@ -45,8 +45,7 @@ pub use shared::{Association, AssociationContents};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Parser)]
-#[clap(name = "innernet-server", author, version, about)]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
+#[command(name = "innernet-server", author, version, about)]
 struct Opts {
     #[clap(subcommand)]
     command: Command,
@@ -95,6 +94,12 @@ enum Command {
         args: AddPeerOpts,
     },
 
+    /// Disable an enabled peer
+    DisablePeer { interface: Interface },
+
+    /// Enable a disabled peer
+    EnablePeer { interface: Interface },
+
     /// Rename an existing peer.
     RenamePeer {
         interface: Interface,
@@ -121,7 +126,7 @@ enum Command {
 
     /// Generate shell completion scripts
     Completions {
-        #[clap(arg_enum)]
+        #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
 }
@@ -193,7 +198,9 @@ impl ConfigFile {
                 path.display()
             );
         }
-        Ok(toml::from_slice(&std::fs::read(&path).with_path(path)?)?)
+        Ok(toml::from_str(
+            &std::fs::read_to_string(path).with_path(path)?,
+        )?)
     }
 }
 
@@ -264,9 +271,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
         Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
+        Command::DisablePeer { interface } => {
+            enable_or_disable_peer(&interface, &conf, false, opts.network)?
+        },
+        Command::EnablePeer { interface } => {
+            enable_or_disable_peer(&interface, &conf, true, opts.network)?
+        },
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
+            use clap::CommandFactory;
             let mut app = Opts::command();
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
@@ -291,7 +305,7 @@ fn open_database_connection(
 
     let conn = Connection::open(&database_path)?;
     // Foreign key constraints aren't on in SQLite by default. Enable.
-    conn.pragma_update(None, "foreign_keys", &1)?;
+    conn.pragma_update(None, "foreign_keys", 1)?;
     db::auto_migrate(&conn)?;
     Ok(conn)
 }
@@ -329,7 +343,7 @@ fn add_peer(
             (&mut target_file, &target_path),
             interface,
             &peer,
-            &*server_peer,
+            &server_peer,
             &cidr_tree,
             keypair,
             &SocketAddr::new(config.address, config.listen_port),
@@ -360,6 +374,49 @@ fn rename_peer(
         db_peer.update(&conn, peer_request)?;
     } else {
         println!("exited without creating peer.");
+    }
+
+    Ok(())
+}
+
+fn enable_or_disable_peer(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    enable: bool,
+    network: NetworkOpts,
+) -> Result<(), Error> {
+    let conn = open_database_connection(interface, conf)?;
+    let peers = DatabasePeer::list(&conn)?
+        .into_iter()
+        .map(|dp| dp.inner)
+        .collect::<Vec<_>>();
+
+    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
+        let mut db_peer = DatabasePeer::get(&conn, peer.id)?;
+        db_peer.update(
+            &conn,
+            PeerContents {
+                is_disabled: !enable,
+                ..peer.contents.clone()
+            },
+        )?;
+
+        if enable {
+            DeviceUpdate::new()
+                .add_peer(db_peer.deref().into())
+                .apply(interface, network.backend)
+                .map_err(|_| ServerError::WireGuard)?;
+        } else {
+            let public_key =
+                Key::from_base64(&peer.public_key).map_err(|_| ServerError::WireGuard)?;
+
+            DeviceUpdate::new()
+                .remove_peer_by_key(&public_key)
+                .apply(interface, network.backend)
+                .map_err(|_| ServerError::WireGuard)?;
+        }
+    } else {
+        log::info!("exiting without enabling or disabling peer.");
     }
 
     Ok(())
@@ -586,7 +643,7 @@ async fn serve(
 /// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(target_os = "linux")]
 fn get_listener(addr: SocketAddr, interface: &InterfaceName) -> Result<TcpListener, Error> {
-    let listener = TcpListener::bind(&addr)?;
+    let listener = TcpListener::bind(addr)?;
     listener.set_nonblocking(true)?;
     let sock = socket2::Socket::from(listener);
     sock.bind_device(Some(interface.as_str_lossy().as_bytes()))?;
@@ -601,7 +658,7 @@ fn get_listener(addr: SocketAddr, interface: &InterfaceName) -> Result<TcpListen
 /// See https://github.com/tonarino/innernet/issues/26 for more details.
 #[cfg(not(target_os = "linux"))]
 fn get_listener(addr: SocketAddr, _interface: &InterfaceName) -> Result<TcpListener, Error> {
-    let listener = TcpListener::bind(&addr)?;
+    let listener = TcpListener::bind(addr)?;
     listener.set_nonblocking(true)?;
     Ok(listener)
 }

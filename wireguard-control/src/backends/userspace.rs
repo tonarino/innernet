@@ -27,14 +27,14 @@ fn get_base_folder() -> io::Result<PathBuf> {
 }
 
 fn get_namefile(name: &InterfaceName) -> io::Result<PathBuf> {
-    Ok(get_base_folder()?.join(&format!("{}.name", name.as_str_lossy())))
+    Ok(get_base_folder()?.join(format!("{}.name", name.as_str_lossy())))
 }
 
 fn get_socketfile(name: &InterfaceName) -> io::Result<PathBuf> {
     if cfg!(target_os = "linux") {
-        Ok(get_base_folder()?.join(&format!("{}.sock", name)))
+        Ok(get_base_folder()?.join(format!("{name}.sock")))
     } else {
-        Ok(get_base_folder()?.join(&format!("{}.sock", resolve_tun(name)?)))
+        Ok(get_base_folder()?.join(format!("{}.sock", resolve_tun(name)?)))
     }
 }
 
@@ -231,7 +231,7 @@ impl ConfigParser {
                 }
             },
             "protocol_version" | "last_handshake_time_nsec" => {},
-            _ => println!("got unsupported info: {}={}", key, value),
+            _ => println!("got unsupported info: {key}={value}"),
         }
 
         Ok(())
@@ -286,16 +286,13 @@ fn get_userspace_implementation() -> io::Result<PathBuf> {
 }
 
 fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
-    let mut command = Command::new(&get_userspace_implementation()?);
+    let mut command = Command::new(get_userspace_implementation()?);
     let output = if cfg!(target_os = "linux") {
         command.args(&[iface.to_string()]).output()?
     } else {
         command
-            .env(
-                "WG_TUN_NAME_FILE",
-                &format!("{}/{}.name", VAR_RUN_PATH, iface),
-            )
-            .args(&["utun"])
+            .env("WG_TUN_NAME_FILE", &format!("{VAR_RUN_PATH}/{iface}.name"))
+            .args(["utun"])
             .output()?
     };
     if !output.status.success() {
@@ -315,7 +312,7 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
             start_userspace_wireguard(iface)?;
             std::thread::sleep(Duration::from_millis(100));
             open_socket(iface)
-                .map_err(|e| io::Error::new(e.kind(), format!("failed to open socket ({})", e)))?
+                .map_err(|e| io::Error::new(e.kind(), format!("failed to open socket ({e})")))?
         },
         Ok(sock) => sock,
     };
@@ -327,11 +324,11 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     }
 
     if let Some(f) = builder.fwmark {
-        writeln!(request, "fwmark={}", f).ok();
+        writeln!(request, "fwmark={f}").ok();
     }
 
     if let Some(f) = builder.listen_port {
-        writeln!(request, "listen_port={}", f).ok();
+        writeln!(request, "listen_port={f}").ok();
     }
 
     if builder.replace_peers {
@@ -359,14 +356,13 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
         }
 
         if let Some(endpoint) = peer.endpoint {
-            writeln!(request, "endpoint={}", endpoint).ok();
+            writeln!(request, "endpoint={endpoint}").ok();
         }
 
         if let Some(keepalive_interval) = peer.persistent_keepalive_interval {
             writeln!(
                 request,
-                "persistent_keepalive_interval={}",
-                keepalive_interval
+                "persistent_keepalive_interval={keepalive_interval}"
             )
             .ok();
         }
@@ -393,7 +389,7 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     match &split[..] {
         ["errno", "0"] => Ok(()),
         ["errno", val] => {
-            println!("ERROR {}", val);
+            println!("ERROR {val}");
             Err(io::ErrorKind::InvalidInput.into())
         },
         _ => Err(io::ErrorKind::Other.into()),

@@ -3,7 +3,7 @@ use crate::{
     PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_DUMP, NLM_F_EXCL, NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
 use netlink_packet_route::{
@@ -12,16 +12,16 @@ use netlink_packet_route::{
         self,
         nlas::{Info, InfoKind},
     },
-    traits::Emitable,
     LinkMessage, RtnlMessage,
 };
+use netlink_packet_utils::traits::Emitable;
 use netlink_packet_wireguard::{
     self,
     constants::{WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME, WGPEER_F_REPLACE_ALLOWEDIPS},
     nlas::{WgAllowedIp, WgAllowedIpAttrs, WgDeviceAttrs, WgPeer, WgPeerAttrs},
     Wireguard, WireguardCmd,
 };
-use netlink_request::{netlink_request_genl, netlink_request_rtnl, MAX_GENL_PAYLOAD_LENGTH};
+use netlink_request::{max_genl_payload_length, netlink_request_genl, netlink_request_rtnl};
 
 use std::{convert::TryFrom, io};
 
@@ -285,19 +285,18 @@ impl ApplyPayload {
 
     /// Push a device attribute which will be optimally packed into 1 or more netlink messages
     pub fn push(&mut self, nla: WgDeviceAttrs) -> io::Result<()> {
+        let max_payload_len = max_genl_payload_length();
+
         let nla_buffer_len = nla.buffer_len();
-        if (self.current_buffer_len + nla_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
+        if (self.current_buffer_len + nla_buffer_len) > max_payload_len {
             self.flush_nlas();
         }
 
         // If the NLA *still* doesn't fit...
-        if (self.current_buffer_len + nla_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
+        if (self.current_buffer_len + nla_buffer_len) > max_payload_len {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!(
-                    "encoded NLA ({} bytes) is too large: {:?}",
-                    nla_buffer_len, nla
-                ),
+                format!("encoded NLA ({nla_buffer_len} bytes) is too large: {nla:?}"),
             ));
         }
         self.nlas.push(nla);
@@ -308,6 +307,7 @@ impl ApplyPayload {
     /// A helper function to assist in breaking up large peer lists across multiple netlink messages
     pub fn push_peer(&mut self, peer: WgPeer) -> io::Result<()> {
         const EMPTY_PEERS: WgDeviceAttrs = WgDeviceAttrs::Peers(vec![]);
+        let max_payload_len = max_genl_payload_length();
         let mut needs_peer_nla = !self
             .nlas
             .iter()
@@ -317,7 +317,7 @@ impl ApplyPayload {
         if needs_peer_nla {
             additional_buffer_len += EMPTY_PEERS.buffer_len();
         }
-        if (self.current_buffer_len + additional_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
+        if (self.current_buffer_len + additional_buffer_len) > max_payload_len {
             self.flush_nlas();
             needs_peer_nla = true;
         }
@@ -327,13 +327,10 @@ impl ApplyPayload {
         }
 
         // If the peer *still* doesn't fit...
-        if (self.current_buffer_len + peer_buffer_len) > MAX_GENL_PAYLOAD_LENGTH {
+        if (self.current_buffer_len + peer_buffer_len) > max_payload_len {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!(
-                    "encoded peer ({} bytes) is too large: {:?}",
-                    peer_buffer_len, peer
-                ),
+                format!("encoded peer ({peer_buffer_len} bytes) is too large: {peer:?}"),
             ));
         }
 
@@ -379,7 +376,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("unexpected netlink payload: {:?}", nlmsg),
+                    format!("unexpected netlink payload: {nlmsg:?}"),
                 ))
             },
         };
@@ -403,7 +400,7 @@ pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
 mod tests {
     use super::*;
     use netlink_packet_wireguard::nlas::WgAllowedIp;
-    use netlink_request::MAX_NETLINK_BUFFER_LENGTH;
+    use netlink_request::max_netlink_buffer_length;
     use std::str::FromStr;
 
     #[test]
@@ -461,8 +458,9 @@ mod tests {
         let messages = payload.finish();
         println!("generated {} messages", messages.len());
         assert!(messages.len() > 1);
+        let max_buffer_len = max_netlink_buffer_length();
         for message in messages {
-            assert!(NetlinkMessage::from(message).buffer_len() <= MAX_NETLINK_BUFFER_LENGTH);
+            assert!(NetlinkMessage::from(message).buffer_len() <= max_buffer_len);
         }
     }
 }

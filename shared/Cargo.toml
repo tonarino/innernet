@@ -1,34 +1,39 @@
 [package]
-authors = ["Jake McGinty <me@jake.su>"]
+authors = [
+  "Jake McGinty <me@jakebot.org>",
+  "Brian Schwind <brian@tonari.no>",
+  "Ryo Kawaguchi <ryo@tonari.no>",
+  "Matěj Laitl <matej@tonari.no>",
+]
 edition = "2021"
 license = "MIT"
 name = "shared"
 publish = false
-version = "1.5.4"
+version = "1.5.5"
 
 [dependencies]
 anyhow = "1"
 atty = "0.2"
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4.3", features = ["derive", "wrap_help"] }
 colored = "2.0"
 dialoguer = { version = "0.10", default-features = false }
-indoc = "1"
+indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
-lazy_static = "1"
 libc = "0.2"
 log = "0.4"
+once_cell = "1.17.1"
 publicip = { path = "../publicip" }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
-toml = "0.5"
+toml = "0.7.4"
 url = "2"
 wireguard-control = { path = "../wireguard-control" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-netlink-sys = "0.8"
-netlink-packet-core = "0.4"
-netlink-packet-route = "0.11"
+netlink-sys = "0.8.5"
+netlink-packet-core = "0.5"
+netlink-packet-route = "0.15"
 netlink-request = { path = "../netlink-request" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-nix = "0.23"
+nix = "0.26"

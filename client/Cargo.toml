@@ -1,13 +1,19 @@
 [package]
-authors = ["Jake McGinty <jake@tonari.no>"]
+authors = [
+  "Jake McGinty <me@jakebot.org>",
+  "Brian Schwind <brian@tonari.no>",
+  "Ryo Kawaguchi <ryo@tonari.no>",
+  "Matěj Laitl <matej@tonari.no>",
+]
 description = "A client to manage innernet network interfaces."
 edition = "2021"
 homepage = "https://github.com/tonarino/innernet"
 license = "MIT"
 name = "client"
 publish = false
+readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.5.4"
+version = "1.5.5"
 
 [[bin]]
 name = "innernet"
@@ -16,13 +22,12 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 colored = "2"
-clap = { version = "3", features = ["derive"] }
-clap_complete = "3"
+clap = { version = "4.3", features = ["derive", "wrap_help"] }
+clap_complete = "4.3"
 dialoguer = { version = "0.10", default-features = false }
 hostsfile = { path = "../hostsfile" }
-indoc = "1"
+indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
-lazy_static = "1"
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -32,12 +37,12 @@ ureq = { version = "2", default-features = false, features = ["json"] }
 wireguard-control = { path = "../wireguard-control" }
 
 [dev-dependencies]
+once_cell = "1.17.1"
 tempfile = "3"
 
 [package.metadata.deb]
 assets = [
   ["target/release/innernet", "usr/bin/", "755"],
-  ["target/release/innernet", "usr/bin/inn", "755"],
   ["innernet@.service", "usr/lib/systemd/system/", "644"],
   ["../doc/innernet.8.gz", "usr/share/man/man8/", "644"],
   ["../doc/innernet.completions.bash", "etc/bash_completion.d/innernet", "644"],
@@ -62,8 +67,8 @@ buildflags = ["--release"]
 "../../doc/innernet.8.gz" = { path = "/usr/share/man/man8/innernet.8.gz" }
 "../innernet@.service" = { path = "/usr/lib/systemd/system/innernet@.service" }
 "../../doc/innernet.completions.bash" = { path = "/etc/bash_completion.d/innernet" }
-"../../doc/innernet.completions.fish" =  { path = "/usr/share/fish/vendor_completions.d/innernet.fish" }
-"../../doc/innernet.completions.zsh" =  { path = "/usr/share/zsh/site-functions/_innernet" }
+"../../doc/innernet.completions.fish" = { path = "/usr/share/fish/vendor_completions.d/innernet.fish" }
+"../../doc/innernet.completions.zsh" = { path = "/usr/share/zsh/site-functions/_innernet" }
 
 [package.metadata.rpm.targets]
 innernet = { path = "/usr/bin/innernet" }

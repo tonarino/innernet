@@ -23,7 +23,7 @@ jobs:
     - name: Install Dependencies
       env:
         ACCEPT_EULA: Y
-      run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-9-dev
+      run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-11-dev
     - uses: Swatinem/rust-cache@v1
     - name: Build
       uses: actions-rs/cargo@v1

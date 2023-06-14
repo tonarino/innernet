@@ -16,17 +16,17 @@ fn create_database<P: AsRef<Path>>(
     database_path: P,
 ) -> Result<Connection, Box<dyn std::error::Error>> {
     let conn = Connection::open(&database_path)?;
-    conn.pragma_update(None, "foreign_keys", &1)?;
+    conn.pragma_update(None, "foreign_keys", 1)?;
     conn.execute(db::peer::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::association::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::cidr::CREATE_TABLE_SQL, params![])?;
-    conn.pragma_update(None, "user_version", &db::CURRENT_VERSION)?;
+    conn.pragma_update(None, "user_version", db::CURRENT_VERSION)?;
     log::debug!("set database version to db::CURRENT_VERSION");
 
     Ok(conn)
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Parser)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Parser)]
 pub struct InitializeOpts {
     /// The network name (ex: evilcorp)
     #[clap(long)]
@@ -37,7 +37,7 @@ pub struct InitializeOpts {
     pub network_cidr: Option<IpNet>,
 
     /// This server's external endpoint (ex: 100.100.100.100:51820)
-    #[clap(long, conflicts_with = "auto-external-endpoint")]
+    #[clap(long, conflicts_with = "auto_external_endpoint")]
     pub external_endpoint: Option<Endpoint>,
 
     /// Auto-resolve external endpoint
@@ -178,7 +178,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         address: our_ip,
         network_cidr_prefix: root_cidr.prefix_len(),
     };
-    config.write_to_path(&config_path)?;
+    config.write_to_path(config_path)?;
 
     let db_init_data = DbInitData {
         network_name: name.to_string(),

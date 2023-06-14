@@ -103,8 +103,8 @@ impl Server {
 
         let interface = interface.parse().unwrap();
         // Add developer CIDR and user CIDR and some peers for testing.
-        let db = Connection::open(&conf.database_path(&interface))?;
-        db.pragma_update(None, "foreign_keys", &1)?;
+        let db = Connection::open(conf.database_path(&interface))?;
+        db.pragma_update(None, "foreign_keys", 1)?;
         assert_eq!(ADMIN_CIDR_ID, create_cidr(&db, "admin", ADMIN_CIDR)?.id);
         assert_eq!(
             ADMIN_PEER_ID,
@@ -187,9 +187,9 @@ impl Server {
 
     fn base_request_builder(&self, verb: &str, path: &str) -> http::request::Builder {
         let path = if cfg!(feature = "v6-test") {
-            format!("http://[{}]{}", WG_MANAGE_PEER_IP, path)
+            format!("http://[{WG_MANAGE_PEER_IP}]{path}")
         } else {
-            format!("http://{}{}", WG_MANAGE_PEER_IP, path)
+            format!("http://{WG_MANAGE_PEER_IP}{path}")
         };
         Request::builder().uri(path).method(verb).header(
             shared::INNERNET_PUBKEY_HEADER,
