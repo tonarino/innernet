@@ -4,8 +4,8 @@ ARG VER
 FROM ${DISTRO}:${VER} as builder
 LABEL stage=innernet-rpm
 
-RUN dnf -y update && \
-	dnf -y install clang-devel sqlite-devel glibc-devel rpm-build && \
+RUN yum -y update && \
+	yum -y install gcc clang-devel sqlite-devel glibc-devel rpm-build && \
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 
 WORKDIR /workdir
