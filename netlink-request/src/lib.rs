@@ -143,8 +143,8 @@ mod linux {
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
                 match response.payload {
                     // We've parsed all parts of the response and can leave the loop.
-                    NetlinkPayload::Done(_) => return Ok(responses),
                     NetlinkPayload::Error(e) if e.code.is_some() => return Err(e.into()),
+                    NetlinkPayload::Done(_) | NetlinkPayload::Error(_) => return Ok(responses),
                     _ => {},
                 }
                 responses.push(response.clone());
