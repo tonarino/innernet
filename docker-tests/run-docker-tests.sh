@@ -8,10 +8,10 @@ cd "$SELF_DIR/.."
 if [[ $# -eq 1 ]]; then
     case "$1" in
         kernel)
-            INNERNET_ARGS=""
+            INNERNET_ARGS="-vvv"
             ;;
         userspace)
-            INNERNET_ARGS="--backend userspace"
+            INNERNET_ARGS="-vvv --backend userspace"
             ;;
         *)
             echo "invalid backend (must be kernel or userspace)"
@@ -56,7 +56,7 @@ SERVER_CONTAINER=$(cmd docker create -it --rm \
     --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
     innernet)
-cmd docker start -a "$SERVER_CONTAINER" &
+cmd docker start -a "$SERVER_CONTAINER" | sed -e 's/^/\x1B[0;95mserver\x1B[0m: /' &
 
 info "server started as $SERVER_CONTAINER"
 info "Waiting for server to initialize."
@@ -69,12 +69,13 @@ PEER1_CONTAINER=$(cmd docker create --rm -it \
     --ip 172.18.1.2 \
     --volume /dev/net/tun:/dev/net/tun \
     --env INTERFACE=evilcorp \
+    --env RUST_LOG=trace \
     --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
     innernet /app/start-client.sh)
 info "peer1 started as $PEER1_CONTAINER"
 cmd docker cp "$tmp_dir/peer1.toml" "$PEER1_CONTAINER:/app/invite.toml"
-cmd docker start "$PEER1_CONTAINER"
+cmd docker start -a "$PEER1_CONTAINER" | sed -e 's/^/\x1B[0;96mpeer 1\x1B[0m: /' &
 sleep 10
 
 info "Creating a new CIDR from first peer."
@@ -114,7 +115,7 @@ PEER2_CONTAINER=$(docker create --rm -it \
     innernet /app/start-client.sh)
 info "peer2 started as $PEER2_CONTAINER"
 cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
-cmd docker start "$PEER2_CONTAINER"
+cmd docker start -a "$PEER2_CONTAINER" | sed -e 's/^/\x1B[0;93mpeer 2\x1B[0m: /' &
 sleep 10
 
 info "Creating short-lived invitation for third peer."
@@ -144,7 +145,7 @@ cmd docker exec "$PEER1_CONTAINER" innernet \
 
 info "peer2 started as $PEER2_CONTAINER"
 cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
-cmd docker start "$PEER2_CONTAINER"
+cmd docker start -a "$PEER2_CONTAINER" | sed -e 's/^/\x1B[0;93mpeer 2\x1B[0m: /' &
 sleep 10
 
 info "Creating invitation for fourth and fifth peer from first peer."
@@ -189,11 +190,14 @@ PEER5_CONTAINER=$(docker create --rm -it \
     innernet /app/start-client.sh)
 cmd docker cp "$tmp_dir/peer5.toml" "$PEER5_CONTAINER:/app/invite.toml"
 
-cmd docker start "$PEER4_CONTAINER"
+cmd docker start -a "$PEER4_CONTAINER" | sed -e 's/^/\x1B[0;92mpeer 4\x1B[0m: /' &
 info "peer4 started as $PEER4_CONTAINER"
-cmd docker start -a "$PEER5_CONTAINER" &
+cmd docker start -a "$PEER5_CONTAINER" | sed -e 's/^/\x1B[0;94mpeer 5\x1B[0m: /' &
 info "peer5 started as $PEER5_CONTAINER"
 
 info "Checking connectivity betweeen peers."
 cmd docker exec "$PEER2_CONTAINER" ping -c3 10.66.0.1
 cmd docker exec "$PEER2_CONTAINER" ping -c3 10.66.1.1
+
+echo
+info "test succeeded."

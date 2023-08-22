@@ -2,11 +2,11 @@
 ## WireGuard
 ####################################################################################################
 FROM golang:latest as wireguard
-ARG wg_go_tag=0.0.20210323
-ARG wg_tools_tag=v1.0.20210315
+ARG wg_go_tag=0.0.20230223
+ARG wg_tools_tag=v1.0.20210914
 
 RUN mkdir /repo \
-    && curl -L https://github.com/WireGuard/wireguard-go/archive/refs/tags/0.0.20210424.tar.gz \
+    && curl -L https://github.com/WireGuard/wireguard-go/archive/refs/tags/0.0.20230223.tar.gz \
     | tar -xzC /repo --strip-components=1 \
     && cd /repo \
     && make
