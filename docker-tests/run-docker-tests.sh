@@ -36,6 +36,7 @@ info() {
 }
 
 tmp_dir=$(mktemp -d -t innernet-tests-XXXXXXXXXX)
+info "temp dir: $tmp_dir"
 cleanup() {
     info "Cleaning up."
     rm -rf "$tmp_dir"

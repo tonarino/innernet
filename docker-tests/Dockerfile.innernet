@@ -1,7 +1,7 @@
 ####################################################################################################
 ## WireGuard
 ####################################################################################################
-FROM golang:latest as wireguard
+FROM golang:bookworm as wireguard
 ARG wg_go_tag=0.0.20230223
 ARG wg_tools_tag=v1.0.20210914
 
@@ -9,12 +9,12 @@ RUN mkdir /repo \
     && curl -L https://github.com/WireGuard/wireguard-go/archive/refs/tags/0.0.20230223.tar.gz \
     | tar -xzC /repo --strip-components=1 \
     && cd /repo \
-    && make
+    && CGO_ENABLED=0 make
 
 ####################################################################################################
 ## Final image
 ####################################################################################################
-FROM rust:slim
+FROM rust:slim-bookworm
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libsqlite3-dev iproute2 iputils-ping build-essential clang libclang-dev && \
     rm -rf /var/lib/apt/lists/*
