@@ -644,7 +644,7 @@ impl<'a> PeerDiff<'a> {
                 .replace_allowed_ips()
                 .add_allowed_ips(new_allowed_ips);
             changes.push(PeerChange::AllowedIPs {
-                old: old.map(|o| o.allowed_ips.clone()).unwrap_or_else(Vec::new),
+                old: old.map(|o| o.allowed_ips.clone()).unwrap_or_default(),
                 new: new_allowed_ips.to_vec(),
             });
         }
@@ -921,7 +921,7 @@ mod tests {
 
         println!("{peer:?}");
         println!("{:?}", info.config);
-        assert!(matches!(diff, Some(_)));
+        assert!(diff.is_some());
     }
 
     #[test]
