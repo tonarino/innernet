@@ -97,7 +97,7 @@ impl HostsBuilder {
     /// Adds a mapping of `ip` to `hostname`. If there hostnames associated with the IP already,
     /// the hostname will be appended to the list.
     pub fn add_hostname<S: ToString>(&mut self, ip: IpAddr, hostname: S) {
-        let hostnames_dest = self.hostname_map.entry(ip).or_insert_with(Vec::new);
+        let hostnames_dest = self.hostname_map.entry(ip).or_default();
         hostnames_dest.push(hostname.to_string());
     }
 
@@ -108,7 +108,7 @@ impl HostsBuilder {
         ip: IpAddr,
         hostnames: I,
     ) {
-        let hostnames_dest = self.hostname_map.entry(ip).or_insert_with(Vec::new);
+        let hostnames_dest = self.hostname_map.entry(ip).or_default();
         for hostname in hostnames.into_iter() {
             hostnames_dest.push(hostname.to_string());
         }
