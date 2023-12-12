@@ -10,9 +10,9 @@ use shared::{
     prompts,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, Endpoint, EndpointContents, InstallOpts, Interface, IoErrorContext,
-    ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer, RedeemContents,
-    RenamePeerOpts, EnableDisablePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, InstallOpts,
+    Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer,
+    RedeemContents, RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
@@ -212,7 +212,7 @@ enum Command {
     },
 
     /// Disable an enabled peer
-    DisablePeer { 
+    DisablePeer {
         interface: Interface,
 
         #[clap(flatten)]
@@ -220,7 +220,7 @@ enum Command {
     },
 
     /// Enable a disabled peer
-    EnablePeer { 
+    EnablePeer {
         interface: Interface,
 
         #[clap(flatten)]
@@ -1262,11 +1262,11 @@ fn run(opts: &Opts) -> Result<(), Error> {
             sub_opts,
         } => delete_cidr(&interface, opts, sub_opts)?,
         Command::ListCidrs { interface, tree } => list_cidrs(&interface, opts, tree)?,
-        Command::DisablePeer { 
+        Command::DisablePeer {
             interface,
             sub_opts,
         } => enable_or_disable_peer(&interface, opts, sub_opts, false)?,
-        Command::EnablePeer { 
+        Command::EnablePeer {
             interface,
             sub_opts,
         } => enable_or_disable_peer(&interface, opts, sub_opts, true)?,

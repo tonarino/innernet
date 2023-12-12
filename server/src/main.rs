@@ -9,8 +9,8 @@ use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
-    NetworkOpts, PeerContents, RenamePeerOpts, EnableDisablePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint,
+    IoErrorContext, NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -96,20 +96,20 @@ enum Command {
     },
 
     /// Disable an enabled peer
-    DisablePeer { 
+    DisablePeer {
         interface: Interface,
-        
+
         #[clap(flatten)]
         args: EnableDisablePeerOpts,
     },
 
     /// Enable a disabled peer
-    EnablePeer { 
+    EnablePeer {
         interface: Interface,
 
         #[clap(flatten)]
         args: EnableDisablePeerOpts,
-     },
+    },
 
     /// Rename an existing peer.
     RenamePeer {

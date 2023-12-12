@@ -348,7 +348,6 @@ pub struct RenamePeerOpts {
     pub yes: bool,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct EnableDisablePeerOpts {
     /// Name of peer to enable/disable
