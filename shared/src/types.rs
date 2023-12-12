@@ -355,7 +355,7 @@ pub struct EnableDisablePeerOpts {
     pub name: Option<Hostname>,
 
     /// Bypass confirmation
-    #[clap(long,requires("name"))]
+    #[clap(long, requires("name"))]
     pub yes: bool,
 }
 
