@@ -411,7 +411,6 @@ pub fn enable_or_disable_peer(
             .into_iter()
             .find(|p| &p.name == name)
             .ok_or_else(|| anyhow!("Peer '{}' does not exist", name))?
-            .clone()
     } else {
         let peer_selection: Vec<_> = enabled_peers
             .iter()
@@ -421,7 +420,7 @@ pub fn enable_or_disable_peer(
             &format!("Peer to {}able", if enable { "en" } else { "dis" }),
             &peer_selection,
         )?;
-        enabled_peers[index].clone()
+        enabled_peers[index]
     };
 
     Ok(
