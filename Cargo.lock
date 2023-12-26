@@ -234,7 +234,7 @@ checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 
 [[package]]
 name = "client"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "netlink-request"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "netlink-packet-core",
  "netlink-packet-generic",
@@ -1144,7 +1144,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1179,7 +1179,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "anyhow",
  "atty",
@@ -1685,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "wireguard-control"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "base64 0.13.1",
  "hex",

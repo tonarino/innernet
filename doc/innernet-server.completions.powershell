@@ -30,7 +30,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('-V', 'V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('new', 'new', [CompletionResultType]::ParameterValue, 'Create a new network')
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Permanently uninstall a created network, rendering it unusable. Use with care')

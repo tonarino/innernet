@@ -9,7 +9,7 @@ edition = "2021"
 license = "MIT"
 name = "shared"
 publish = false
-version = "1.6.0"
+version = "1.6.1"
 
 [dependencies]
 anyhow = "1"
