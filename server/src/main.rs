@@ -9,8 +9,8 @@ use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, Endpoint, IoErrorContext,
-    NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint,
+    IoErrorContext, NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -95,10 +95,20 @@ enum Command {
     },
 
     /// Disable an enabled peer
-    DisablePeer { interface: Interface },
+    DisablePeer {
+        interface: Interface,
+
+        #[clap(flatten)]
+        args: EnableDisablePeerOpts,
+    },
 
     /// Enable a disabled peer
-    EnablePeer { interface: Interface },
+    EnablePeer {
+        interface: Interface,
+
+        #[clap(flatten)]
+        args: EnableDisablePeerOpts,
+    },
 
     /// Rename an existing peer.
     RenamePeer {
@@ -271,11 +281,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => serve(*interface, &conf, routing).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
         Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
-        Command::DisablePeer { interface } => {
-            enable_or_disable_peer(&interface, &conf, false, opts.network)?
+        Command::DisablePeer { interface, args } => {
+            enable_or_disable_peer(&interface, &conf, false, opts.network, args)?
         },
-        Command::EnablePeer { interface } => {
-            enable_or_disable_peer(&interface, &conf, true, opts.network)?
+        Command::EnablePeer { interface, args } => {
+            enable_or_disable_peer(&interface, &conf, true, opts.network, args)?
         },
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
@@ -384,6 +394,7 @@ fn enable_or_disable_peer(
     conf: &ServerConfig,
     enable: bool,
     network: NetworkOpts,
+    opts: EnableDisablePeerOpts,
 ) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let peers = DatabasePeer::list(&conn)?
@@ -391,7 +402,7 @@ fn enable_or_disable_peer(
         .map(|dp| dp.inner)
         .collect::<Vec<_>>();
 
-    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], enable)? {
+    if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], &opts, enable)? {
         let mut db_peer = DatabasePeer::get(&conn, peer.id)?;
         db_peer.update(
             &conn,

@@ -1,8 +1,8 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
-    DeleteCidrOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, OverrideEndpointOpts,
-    Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts,
+    OverrideEndpointOpts, Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -394,28 +394,41 @@ pub fn rename_peer(
 
 /// Presents a selection and confirmation of eligible peers for either disabling or enabling,
 /// and returns back the ID of the selected peer.
-pub fn enable_or_disable_peer(peers: &[Peer], enable: bool) -> Result<Option<Peer>, Error> {
+pub fn enable_or_disable_peer(
+    peers: &[Peer],
+    args: &EnableDisablePeerOpts,
+    enable: bool,
+) -> Result<Option<Peer>, Error> {
     let enabled_peers: Vec<_> = peers
         .iter()
         .filter(|peer| enable && peer.is_disabled || !enable && !peer.is_disabled)
         .collect();
 
-    let peer_selection: Vec<_> = enabled_peers
-        .iter()
-        .map(|peer| format!("{} ({})", &peer.name, &peer.ip))
-        .collect();
-    let (index, _) = select(
-        &format!("Peer to {}able", if enable { "en" } else { "dis" }),
-        &peer_selection,
-    )?;
-    let peer = enabled_peers[index];
+    let peer = if let Some(ref name) = args.name {
+        enabled_peers
+            .into_iter()
+            .find(|p| &p.name == name)
+            .ok_or_else(|| anyhow!("Peer '{}' does not exist", name))?
+    } else {
+        let peer_selection: Vec<_> = enabled_peers
+            .iter()
+            .map(|peer| format!("{} ({})", &peer.name, &peer.ip))
+            .collect();
+        let (index, _) = select(
+            &format!("Peer to {}able", if enable { "en" } else { "dis" }),
+            &peer_selection,
+        )?;
+        enabled_peers[index]
+    };
 
     Ok(
-        if confirm(&format!(
-            "{}able peer {}?",
-            if enable { "En" } else { "Dis" },
-            peer.name.yellow()
-        ))? {
+        if args.yes
+            || confirm(&format!(
+                "{}able peer {}?",
+                if enable { "En" } else { "Dis" },
+                peer.name.yellow()
+            ))?
+        {
             Some(peer.clone())
         } else {
             None
