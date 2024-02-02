@@ -1,0 +1,115 @@
+iname: Build and release  template
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ci/innernet-ref.txt'
+      - '.github/workflows/release.yml'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
+
+    runs-on: [self-hosted,"${{ matrix.os }}"]
+
+    steps:
+    - name: Notify workflow started
+      run: |
+        msg=$(jq -nc \
+        --arg msg "${{ github.workflow }} run started on ${{ matrix.os }} for repo ${{ github.event.repository.name }}" \
+        '{text:$msg}' )
+        curl -s -X POST -H 'Content-type: application/json' --data "$msg" "${{ secrets.SLACKWEBHOOK }}" >/dev/null
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+        lfs: true
+        fetch-depth: 0
+
+    - name: get commit
+      run: |
+        innernetRef=$(grep -E '*' ./ci/innernet-ref.txt | tr -d '\n\r')
+        echo "innernetRef=$innernetRef" >> "$GITHUB_ENV"
+        echo "$innernetRef"
+
+    - uses: actions/checkout@v4
+      with:
+        repository: rpcpool/innernet
+        ref: "${{ env.innernetRef }}"
+        path: pathx
+        submodules: recursive
+        fetch-depth: 0
+        lfs: true
+
+    - name: get tag
+      run: |
+        curl -sL https://gist.github.com/Juanito87/e8b2d9f70302d863eecf02e52e747c26/raw/getTag.sh > ci/getTag.sh
+        source ci/getTag.sh sui
+        echo "CI_TAG=$CI_TAG" >> "$GITHUB_ENV"
+        echo "BUILD_NAME=$BUILD_NAME" >> "$GITHUB_ENV"
+        cd innernet
+        echo "channel=$(cat rust-toolchain.toml | grep channel | awk '{print $3}' | sed 's/"//g')" >> "$GITHUB_ENV"
+
+    - name: set cargo env
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ env.channel }}
+
+    - name: set build cargo cache
+      uses: actions/cache@v3
+      with:
+        path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            innernet/target/${{ matrix.os }}
+        key: ${{ runner.os }}_innernet_${{ hashFiles('innernet/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}_innernet
+
+    - name: Build innernet
+      working-directory: innernet
+      env:
+        CARGO_TARGET_DIR: "${{ matrix.os }}"
+      run: |
+        build instructions
+
+    - name: Rename builds
+      working-directory: innernet
+      run: |
+        mv ${{ matrix.os }}/release/innernet ${{matrix.os}}/release/innernet-${{ matrix.os }}
+
+    - name: Publish artifact
+      uses: actions/upload-artifact@v3.1.1
+      if: github.ref_name != 'main'
+      with:
+        name: innernetname
+        if-no-files-found: error
+        path: |
+          ${{matrix.os}}/release/innernet-${{ matrix.os }}
+
+    - name: Publish to release
+      uses: softprops/action-gh-release@v1
+      if: github.ref_name == 'main'
+      with:
+        name: ${{ env.BUILD_NAME }}
+        tag_name: ${{ env.BUILD_NAME }}
+        token: ${{ github.token }}
+        files: |
+          ${{matrix.os}}/release/innernet-${{ matrix.os }}
+
+    - name: Notify workflow finished
+      if: always()
+      run: |
+        msg=$(jq -nc \
+        --arg msg "${{ github.workflow }} run ${{ job.status }} on ${{ matrix.os }} for repo ${{ github.event.repository.name }}, running post run hooks" \
+        '{text:$msg}' )
+        curl -s -X POST -H 'Content-type: application/json' --data "$msg" "${{ secrets.SLACKWEBHOOK }}" >/dev/null
