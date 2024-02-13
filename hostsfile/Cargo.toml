@@ -9,6 +9,7 @@ version = "1.2.0"
 
 [dependencies]
 log = "0.4"
+selinux = { version = "0.4", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

@@ -16,13 +16,13 @@ RUN mkdir /repo \
 ####################################################################################################
 FROM rust:slim-bookworm
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libsqlite3-dev iproute2 iputils-ping build-essential clang libclang-dev && \
+    apt-get install -y --no-install-recommends libsqlite3-dev iproute2 iputils-ping build-essential clang libclang-dev libselinux1-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY . .
-RUN cargo build \
+RUN cargo build --features client/selinux \
     && strip /app/target/debug/innernet /app/target/debug/innernet-server \
     && cp /app/target/debug/innernet /app/target/debug/innernet-server /usr/bin/ \
     && cargo clean
