@@ -1,8 +1,17 @@
 [workspace]
-members = ["server", "client", "hostsfile", "shared", "publicip", "netlink-request"]
+resolver = "2"
+
+members = [
+  "server",
+  "client",
+  "hostsfile",
+  "shared",
+  "publicip",
+  "netlink-request",
+]
 
 [profile.release]
 codegen-units = 1
-opt-level = "s"
 lto = "fat"
+opt-level = "s"
 panic = "abort"
