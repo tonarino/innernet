@@ -147,7 +147,7 @@ pub type Endpoints = Arc<RwLock<HashMap<String, SocketAddr>>>;
 #[derive(Clone)]
 pub struct Context {
     pub db: Db,
-    pub endpoints: Arc<RwLock<HashMap<String, SocketAddr>>>,
+    pub endpoints: Endpoints,
     pub interface: InterfaceName,
     pub backend: Backend,
     pub public_key: Key,
