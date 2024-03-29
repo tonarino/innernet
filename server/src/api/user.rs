@@ -169,7 +169,10 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, SystemTime};
+    use std::{
+        str::FromStr,
+        time::{Duration, SystemTime},
+    };
 
     use super::*;
     use crate::{db::DatabaseAssociation, test};
@@ -462,6 +465,98 @@ mod tests {
 
         let peer = DatabasePeer::get(&server.db().lock(), test::DEVELOPER1_PEER_ID)?;
         assert_eq!(peer.candidates, candidates);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_endpoint_in_candidates() -> Result<(), Error> {
+        // We want to verify that the current wireguard endpoint always shows up
+        // either in the peer.endpoint field, or the peer.candidates field (in the
+        // case that the peer has specified an endpoint override).
+        let server = test::Server::new()?;
+
+        let peer = DatabasePeer::get(&server.db().lock(), test::DEVELOPER1_PEER_ID)?;
+        assert_eq!(peer.candidates, vec![]);
+
+        // Specify one NAT candidate. At this point, we have an unspecified
+        // endpoint and one NAT candidate specified.
+        let candidates = vec!["1.1.1.1:51820".parse::<Endpoint>().unwrap()];
+        assert_eq!(
+            server
+                .form_request(
+                    test::DEVELOPER1_PEER_IP,
+                    "PUT",
+                    "/v1/user/candidates",
+                    &candidates
+                )
+                .await
+                .status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let res = server
+            .request(test::DEVELOPER1_PEER_IP, "GET", "/v1/user/state")
+            .await;
+
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let whole_body = hyper::body::aggregate(res).await?;
+        let State { peers, .. } = serde_json::from_reader(whole_body.reader())?;
+
+        let developer_1 = peers
+            .into_iter()
+            .find(|p| p.id == test::DEVELOPER1_PEER_ID)
+            .unwrap();
+        assert_eq!(
+            developer_1.endpoint,
+            Some(Endpoint::from_str(test::DEVELOPER1_PEER_ENDPOINT).unwrap())
+        );
+        assert_eq!(developer_1.candidates, candidates);
+
+        // Now, explicitly set an endpoint with the override-endpoint API
+        // and check that the original wireguard endpoint still shows up
+        // in the list of NAT candidates.
+        assert_eq!(
+            server
+                .form_request(
+                    test::DEVELOPER1_PEER_IP,
+                    "PUT",
+                    "/v1/user/endpoint",
+                    &EndpointContents::Set("1.2.3.4:51820".parse().unwrap())
+                )
+                .await
+                .status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let res = server
+            .request(test::DEVELOPER1_PEER_IP, "GET", "/v1/user/state")
+            .await;
+
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let whole_body = hyper::body::aggregate(res).await?;
+        let State { peers, .. } = serde_json::from_reader(whole_body.reader())?;
+
+        let developer_1 = peers
+            .into_iter()
+            .find(|p| p.id == test::DEVELOPER1_PEER_ID)
+            .unwrap();
+
+        // The peer endpoint should be the one we just specified in the override-endpoint request.
+        assert_eq!(
+            developer_1.endpoint,
+            Some(Endpoint::from_str("1.2.3.4:51820").unwrap())
+        );
+
+        // The list of candidates should now contain the one we specified at the beginning of the
+        // test, and the wireguard-reported endpoint of the peer.
+        let nat_candidate_1 = Endpoint::from_str("1.1.1.1:51820").unwrap();
+        let nat_candidate_2 = Endpoint::from_str(test::DEVELOPER1_PEER_ENDPOINT).unwrap();
+        assert_eq!(developer_1.candidates.len(), 2);
+        assert!(developer_1.candidates.contains(&nat_candidate_1));
+        assert!(developer_1.candidates.contains(&nat_candidate_2));
+
         Ok(())
     }
 }
