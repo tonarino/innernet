@@ -169,10 +169,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        str::FromStr,
-        time::{Duration, SystemTime},
-    };
+    use std::time::{Duration, SystemTime};
 
     use super::*;
     use crate::{db::DatabaseAssociation, test};
@@ -509,7 +506,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             developer_1.endpoint,
-            Some(Endpoint::from_str(test::DEVELOPER1_PEER_ENDPOINT).unwrap())
+            Some(test::DEVELOPER1_PEER_ENDPOINT.parse().unwrap())
         );
         assert_eq!(developer_1.candidates, candidates);
 
@@ -544,15 +541,12 @@ mod tests {
             .unwrap();
 
         // The peer endpoint should be the one we just specified in the override-endpoint request.
-        assert_eq!(
-            developer_1.endpoint,
-            Some(Endpoint::from_str("1.2.3.4:51820").unwrap())
-        );
+        assert_eq!(developer_1.endpoint, Some("1.2.3.4:51820".parse().unwrap()));
 
         // The list of candidates should now contain the one we specified at the beginning of the
         // test, and the wireguard-reported endpoint of the peer.
-        let nat_candidate_1 = Endpoint::from_str("1.1.1.1:51820").unwrap();
-        let nat_candidate_2 = Endpoint::from_str(test::DEVELOPER1_PEER_ENDPOINT).unwrap();
+        let nat_candidate_1 = "1.1.1.1:51820".parse().unwrap();
+        let nat_candidate_2 = test::DEVELOPER1_PEER_ENDPOINT.parse().unwrap();
         assert_eq!(developer_1.candidates.len(), 2);
         assert!(developer_1.candidates.contains(&nat_candidate_1));
         assert!(developer_1.candidates.contains(&nat_candidate_2));
