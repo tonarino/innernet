@@ -10,7 +10,7 @@ use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::Serialize;
 use shared::{Cidr, CidrContents, Error, PeerContents};
-use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wireguard_control::{Backend, InterfaceName, Key, KeyPair};
 
@@ -27,7 +27,9 @@ mod v4 {
     pub const ADMIN_PEER_IP: &str = "10.80.1.1";
     pub const WG_MANAGE_PEER_IP: &str = ADMIN_PEER_IP;
     pub const DEVELOPER1_PEER_IP: &str = "10.80.64.2";
+    pub const DEVELOPER1_PEER_ENDPOINT: &str = "169.10.26.8:14720";
     pub const DEVELOPER2_PEER_IP: &str = "10.80.64.3";
+    pub const DEVELOPER2_PEER_ENDPOINT: &str = "169.55.140.9:5833";
     pub const USER1_PEER_IP: &str = "10.80.128.2";
     pub const USER2_PEER_IP: &str = "10.80.129.2";
     pub const EXPERIMENT_SUBCIDR_PEER_IP: &str = "10.81.0.1";
@@ -48,7 +50,9 @@ mod v6 {
     pub const ADMIN_PEER_IP: &str = "fd00:1337::1:0:0:1";
     pub const WG_MANAGE_PEER_IP: &str = ADMIN_PEER_IP;
     pub const DEVELOPER1_PEER_IP: &str = "fd00:1337::2:0:0:1";
+    pub const DEVELOPER1_PEER_ENDPOINT: &str = "[1001:db8::1]:14720";
     pub const DEVELOPER2_PEER_IP: &str = "fd00:1337::2:0:0:2";
+    pub const DEVELOPER2_PEER_ENDPOINT: &str = "[2001:db8::1]:5833";
     pub const USER1_PEER_IP: &str = "fd00:1337::3:0:0:1";
     pub const USER2_PEER_IP: &str = "fd00:1337::3:0:0:2";
     pub const EXPERIMENT_SUBCIDR_PEER_IP: &str = "fd00:1337::4:0:0:1";
@@ -114,21 +118,19 @@ impl Server {
             DEVELOPER_CIDR_ID,
             create_cidr(&db, "developer", DEVELOPER_CIDR)?.id
         );
+
+        let developer_1 = developer_peer_contents("developer1", DEVELOPER1_PEER_IP)?;
+        let developer_1_public_key = developer_1.public_key.clone();
         assert_eq!(
             DEVELOPER1_PEER_ID,
-            DatabasePeer::create(
-                &db,
-                developer_peer_contents("developer1", DEVELOPER1_PEER_IP)?
-            )?
-            .id
+            DatabasePeer::create(&db, developer_1,)?.id
         );
+
+        let developer_2 = developer_peer_contents("developer2", DEVELOPER2_PEER_IP)?;
+        let developer_2_public_key = developer_2.public_key.clone();
         assert_eq!(
             DEVELOPER2_PEER_ID,
-            DatabasePeer::create(
-                &db,
-                developer_peer_contents("developer2", DEVELOPER2_PEER_IP)?
-            )?
-            .id
+            DatabasePeer::create(&db, developer_2)?.id
         );
         assert_eq!(USER_CIDR_ID, create_cidr(&db, "user", USER_CIDR)?.id);
         assert_eq!(
@@ -141,7 +143,18 @@ impl Server {
         );
 
         let db = Arc::new(Mutex::new(db));
-        let endpoints = Arc::new(RwLock::new(HashMap::new()));
+
+        let endpoints = [
+            (
+                developer_1_public_key,
+                DEVELOPER1_PEER_ENDPOINT.parse().unwrap(),
+            ),
+            (
+                developer_2_public_key,
+                DEVELOPER2_PEER_ENDPOINT.parse().unwrap(),
+            ),
+        ];
+        let endpoints = Arc::new(RwLock::new(endpoints.into()));
 
         Ok(Self {
             conf,
