@@ -198,6 +198,7 @@ impl HostsBuilder {
 
         let hosts_file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(hosts_path)?;
