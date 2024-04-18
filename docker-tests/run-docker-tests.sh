@@ -36,6 +36,8 @@ while [[ $# -gt 0 ]]; do
         ;;
     *)
         TEST_FILTER+=("$1")
+        shift
+        ;;
   esac
 done
 
@@ -200,9 +202,7 @@ test_simultaneous_redemption() {
 # Run tests (functions prefixed with test_) in alphabetical order.
 # Optional filter provided by positional arguments is applied.
 for func in $(declare -F | awk '{print $3}'); do
-    echo '-'$func
     if [[ "$func" =~ ^test_ ]]; then
-        echo '='$func
         if [ ${#TEST_FILTER[@]} -eq 0 ] || [[ "${TEST_FILTER[*]}" =~ "$func" ]]; then
             $func
         fi
