@@ -23,6 +23,8 @@ while [[ $# -gt 0 ]]; do
     --verbose)
         INNERNET_ARGS="$INNERNET_ARGS -vvv"
         CLIENT_ARGS="$CLIENT_ARGS --verbose"
+        SERVER_RUST_LOG="debug"
+        CLIENT_RUST_LOG="trace"
         shift
         ;;
     --help)
@@ -68,7 +70,7 @@ SERVER_CONTAINER=$(cmd docker create -it --rm \
     --network "$NETWORK" \
     --ip 172.18.1.1 \
     --volume /dev/net/tun:/dev/net/tun \
-    --env RUST_LOG=debug \
+    --env RUST_LOG="$SERVER_RUST_LOG" \
     --env INNERNET_ARGS="$INNERNET_ARGS" \
     --cap-add NET_ADMIN \
     innernet)
@@ -85,7 +87,7 @@ create_peer_docker() {
         --ip $IP \
         --volume /dev/net/tun:/dev/net/tun \
         --cap-add NET_ADMIN \
-        --env RUST_LOG=trace \
+        --env RUST_LOG="$CLIENT_RUST_LOG" \
         --env INTERFACE=evilcorp \
         --env INNERNET_ARGS="$INNERNET_ARGS" \
         --env CLIENT_ARGS="$CLIENT_ARGS" \
@@ -210,4 +212,4 @@ for func in $(declare -F | awk '{print $3}'); do
 done
 
 echo
-info "test succeeded."
+info "Test succeeded."
