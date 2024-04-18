@@ -382,6 +382,21 @@ pub struct AddCidrOpts {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct RenameCidrOpts {
+    /// Name of CIDR to rename
+    #[clap(long)]
+    pub name: Option<String>,
+
+    /// The new name of the CIDR
+    #[clap(long)]
+    pub new_name: Option<String>,
+
+    /// Bypass confirmation
+    #[clap(long)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct DeleteCidrOpts {
     /// The CIDR name (eg. 'engineers')
     #[clap(long)]

@@ -2,7 +2,8 @@ use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
     DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts,
-    OverrideEndpointOpts, Peer, PeerContents, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    OverrideEndpointOpts, Peer, PeerContents, RenameCidrOpts, RenamePeerOpts,
+    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -105,6 +106,49 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
     Ok(
         if request.yes || confirm(&format!("Create CIDR \"{}\"?", cidr_request.name))? {
             Some(cidr_request)
+        } else {
+            None
+        },
+    )
+}
+
+/// Bring up a prompt to rename an existing CIDR. Returns the CIDR request.
+pub fn rename_cidr(
+    cidrs: &[Cidr],
+    args: &RenameCidrOpts,
+) -> Result<Option<(CidrContents, String)>, Error> {
+    let old_cidr = if let Some(ref name) = args.name {
+        cidrs
+            .iter()
+            .find(|c| &c.name == name)
+            .ok_or_else(|| anyhow!("CIDR '{}' does not exist", name))?
+            .clone()
+    } else {
+        let (cidr_index, _) = select(
+            "CIDR to rename",
+            &cidrs.iter().map(|ep| ep.name.clone()).collect::<Vec<_>>(),
+        )?;
+        cidrs[cidr_index].clone()
+    };
+    let old_name = old_cidr.name.clone();
+    let new_name = if let Some(ref name) = args.new_name {
+        name.clone()
+    } else {
+        input("New Name", Prefill::None)?
+    };
+
+    let mut new_cidr = old_cidr;
+    new_cidr.contents.name = new_name.clone();
+
+    Ok(
+        if args.yes
+            || confirm(&format!(
+                "Rename CIDR {} to {}?",
+                old_name.yellow(),
+                new_name.yellow()
+            ))?
+        {
+            Some((new_cidr.contents, old_name))
         } else {
             None
         },
@@ -342,7 +386,7 @@ pub fn add_peer(
     )
 }
 
-/// Bring up a prompt to create a new peer. Returns the peer request.
+/// Bring up a prompt to rename an existing peer. Returns the peer request.
 pub fn rename_peer(
     peers: &[Peer],
     args: &RenamePeerOpts,

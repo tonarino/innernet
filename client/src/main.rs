@@ -12,7 +12,7 @@ use shared::{
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
     CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, InstallOpts,
     Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer,
-    RedeemContents, RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
+    RedeemContents, RenameCidrOpts, RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     fmt, io,
@@ -191,6 +191,19 @@ enum Command {
 
         #[clap(flatten)]
         sub_opts: AddCidrOpts,
+    },
+
+    /// Rename a CIDR
+    ///
+    /// By default, you'll be prompted interactively to select a CIDR, but you can
+    /// also specify all the options in the command, eg:
+    ///
+    /// --name 'group' --new-name 'family'
+    RenameCidr {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: RenameCidrOpts,
     },
 
     /// Delete a CIDR
@@ -724,6 +737,37 @@ fn add_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: AddCidrOpts) -> Re
     Ok(())
 }
 
+fn rename_cidr(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: RenameCidrOpts,
+) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let api = Api::new(&server);
+
+    log::info!("Fetching CIDRs");
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
+
+    if let Some((cidr_request, old_name)) = prompts::rename_cidr(&cidrs, &sub_opts)? {
+        log::info!("Renaming CIDR...");
+
+        let id = cidrs
+            .iter()
+            .filter(|c| c.name == old_name)
+            .map(|c| c.id)
+            .next()
+            .ok_or_else(|| anyhow!("CIDR not found."))?;
+
+        api.http_form("PUT", &format!("/admin/cidrs/{id}"), cidr_request)?;
+        log::info!("CIDR renamed.");
+    } else {
+        log::info!("Exited without renaming CIDR.");
+    }
+
+    Ok(())
+}
+
 fn delete_cidr(
     interface: &InterfaceName,
     opts: &Opts,
@@ -1251,6 +1295,10 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interface,
             sub_opts,
         } => add_cidr(&interface, opts, sub_opts)?,
+        Command::RenameCidr {
+            interface,
+            sub_opts,
+        } => rename_cidr(&interface, opts, sub_opts)?,
         Command::DeleteCidr {
             interface,
             sub_opts,
