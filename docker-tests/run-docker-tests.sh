@@ -201,6 +201,30 @@ test_simultaneous_redemption() {
     cmd docker exec "$PEER2_CONTAINER" ping -c3 10.66.1.1
 }
 
+test_rename_cidr() {
+    info "Renaming CIDR from peer1"
+    cmd docker exec "$PEER1_CONTAINER" innernet \
+        rename-cidr evilcorp \
+            --name "robots" \
+            --new-name "coolbeans" \
+            --yes
+    sleep 5
+
+    info "Confirming the CIDR rename from peer1"
+    cmd docker exec "$PEER1_CONTAINER" innernet list-cidrs evilcorp | grep coolbeans
+
+    info "Renaming CIDR from server"
+    cmd docker exec "$SERVER_CONTAINER" innernet-server \
+        rename-cidr evilcorp \
+            --name "coolbeans" \
+            --new-name "robots" \
+            --yes
+    sleep 5
+
+    info "Confirming the CIDR rename from peer1"
+    cmd docker exec "$PEER1_CONTAINER" innernet list-cidrs evilcorp | grep robots
+}
+
 # Run tests (functions prefixed with test_) in alphabetical order.
 # Optional filter provided by positional arguments is applied.
 for func in $(declare -F | awk '{print $3}'); do
