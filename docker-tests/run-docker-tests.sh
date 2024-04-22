@@ -8,14 +8,19 @@ cd "$SELF_DIR/.."
 help() {
     cat >&2 <<-_EOF
 Usage: "${0##*/}" [options...] (<test>)
- --userspace  Use userspace wireguard instead of kernel one
- --verbose    Print verbose innernet logs
+ --interactive  Enter interactive mode, providing a chance to attach to innernet docker containers
+ --userspace    Use userspace wireguard instead of kernel one
+ --verbose      Print verbose innernet logs
 _EOF
 }
 
 TEST_FILTER=()
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --interactive)
+        INTERACTIVE=true
+        shift
+        ;;
     --userspace)
         INNERNET_ARGS="$INNERNET_ARGS --backend userspace"
         shift
@@ -134,6 +139,18 @@ info "peer2 started as $PEER2_CONTAINER"
 cmd docker cp "$tmp_dir/peer2.toml" "$PEER2_CONTAINER:/app/invite.toml"
 cmd docker start -a "$PEER2_CONTAINER" | sed -e 's/^/\x1B[0;93mpeer 2\x1B[0m: /' &
 sleep 10
+
+if [[ $INTERACTIVE == true ]]; then
+    info "Open a new terminal and connect to one of the docker containers to test innernet commands."
+    info ""
+    info "Server:"
+    info "  docker exec -it ${SERVER_CONTAINER:0:12} bash"
+    info "Admin client:"
+    info "  docker exec -it ${PEER1_CONTAINER:0:12} bash"
+    info "Non-admin client:"
+    info "  docker exec -it ${PEER2_CONTAINER:0:12} bash"
+    wait
+fi
 
 test_short_lived_invitation() {
     info "Creating short-lived invitation for third peer."
