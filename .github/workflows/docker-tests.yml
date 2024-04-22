@@ -17,5 +17,5 @@ jobs:
     - name: Build the Docker images
       run: docker-tests/build-docker-images.sh
     - name: Run the Docker tests
-      run: docker-tests/run-docker-tests.sh userspace
+      run: docker-tests/run-docker-tests.sh --userspace --verbose
 
