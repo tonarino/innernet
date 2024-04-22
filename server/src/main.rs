@@ -10,7 +10,8 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
     get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint,
-    IoErrorContext, NetworkOpts, PeerContents, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts, RenamePeerOpts,
+    INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -124,6 +125,14 @@ enum Command {
 
         #[clap(flatten)]
         args: AddCidrOpts,
+    },
+
+    /// Rename an existing CIDR.
+    RenameCidr {
+        interface: Interface,
+
+        #[clap(flatten)]
+        args: RenameCidrOpts,
     },
 
     /// Delete a CIDR.
@@ -288,6 +297,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             enable_or_disable_peer(&interface, &conf, true, opts.network, args)?
         },
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
+        Command::RenameCidr { interface, args } => rename_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
         Command::Completions { shell } => {
             use clap::CommandFactory;
@@ -455,6 +465,27 @@ fn add_cidr(
         );
     } else {
         println!("exited without creating CIDR.");
+    }
+
+    Ok(())
+}
+
+fn rename_cidr(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    opts: RenameCidrOpts,
+) -> Result<(), Error> {
+    let conn = open_database_connection(interface, conf)?;
+    let cidrs = DatabaseCidr::list(&conn)?;
+
+    if let Some((cidr_request, old_name)) = shared::prompts::rename_cidr(&cidrs, &opts)? {
+        let db_cidr = DatabaseCidr::list(&conn)?
+            .into_iter()
+            .find(|c| c.name == old_name)
+            .ok_or_else(|| anyhow!("CIDR not found."))?;
+        db::DatabaseCidr::from(db_cidr).update(&conn, cidr_request)?;
+    } else {
+        println!("exited without renaming CIDR.");
     }
 
     Ok(())

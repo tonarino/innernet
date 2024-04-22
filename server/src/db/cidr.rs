@@ -2,7 +2,7 @@ use crate::ServerError;
 use ipnet::IpNet;
 use rusqlite::{params, Connection};
 use shared::{Cidr, CidrContents};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE cidrs (
       id               INTEGER PRIMARY KEY,
@@ -32,6 +32,12 @@ impl Deref for DatabaseCidr {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl DerefMut for DatabaseCidr {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
@@ -104,6 +110,23 @@ impl DatabaseCidr {
         )?;
         let id = conn.last_insert_rowid();
         Ok(Cidr { id, contents })
+    }
+
+    /// Update self with new contents, validating them and updating the backend in the process.
+    /// Currently this only supports updating the name and ignores changes to any other field.
+    pub fn update(&mut self, conn: &Connection, contents: CidrContents) -> Result<(), ServerError> {
+        let new_contents = CidrContents {
+            name: contents.name,
+            ..self.contents.clone()
+        };
+
+        conn.execute(
+            "UPDATE cidrs SET name = ?2 WHERE id = ?1",
+            params![self.id, &*new_contents.name,],
+        )?;
+
+        self.contents = new_contents;
+        Ok(())
     }
 
     pub fn delete(conn: &Connection, id: i64) -> Result<(), ServerError> {

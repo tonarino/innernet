@@ -19,6 +19,11 @@ pub async fn routes(
             let form = form_body(req).await?;
             handlers::create(form, session).await
         },
+        (&Method::PUT, Some(id)) => {
+            let id: i64 = id.parse().map_err(|_| ServerError::NotFound)?;
+            let form = form_body(req).await?;
+            handlers::update(id, form, session).await
+        },
         (&Method::DELETE, Some(id)) => {
             let id: i64 = id.parse().map_err(|_| ServerError::NotFound)?;
             handlers::delete(id, session).await
@@ -41,6 +46,18 @@ mod handlers {
         let cidr = DatabaseCidr::create(&conn, contents)?;
 
         json_status_response(cidr, StatusCode::CREATED)
+    }
+
+    pub async fn update(
+        id: i64,
+        form: CidrContents,
+        session: Session,
+    ) -> Result<Response<Body>, ServerError> {
+        let conn = session.context.db.lock();
+        let cidr = DatabaseCidr::get(&conn, id)?;
+        DatabaseCidr::from(cidr).update(&conn, form)?;
+
+        status_response(StatusCode::NO_CONTENT)
     }
 
     pub async fn list(session: Session) -> Result<Response<Body>, ServerError> {
