@@ -754,10 +754,9 @@ fn rename_cidr(
 
         let id = cidrs
             .iter()
-            .filter(|c| c.name == old_name)
-            .map(|c| c.id)
-            .next()
-            .ok_or_else(|| anyhow!("CIDR not found."))?;
+            .find(|c| c.name == old_name)
+            .ok_or_else(|| anyhow!("CIDR not found."))?
+            .id;
 
         api.http_form("PUT", &format!("/admin/cidrs/{id}"), cidr_request)?;
         log::info!("CIDR renamed.");

@@ -113,6 +113,7 @@ impl DatabaseCidr {
     }
 
     /// Update self with new contents, validating them and updating the backend in the process.
+    /// Currently this only supports updating the name and ignores changes to any other field.
     pub fn update(&mut self, conn: &Connection, contents: CidrContents) -> Result<(), ServerError> {
         let new_contents = CidrContents {
             name: contents.name,

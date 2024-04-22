@@ -485,7 +485,7 @@ fn rename_cidr(
             .ok_or_else(|| anyhow!("CIDR not found."))?;
         db::DatabaseCidr::from(db_cidr).update(&conn, cidr_request)?;
     } else {
-        println!("exited without creating CIDR.");
+        println!("exited without renaming CIDR.");
     }
 
     Ok(())
