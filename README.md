@@ -253,6 +253,19 @@ cargo build --release --bin innernet
 
 The resulting binary will be located at `./target/release/innernet`
 
+### Testing
+
+You can manually invoke Docker-based tests assuming you have Docker daemon running. If you specify
+`--interactive` flag, it allows you to attach to the server and client innernet Docker
+containers, so you can test various innernet commands inside a sandboxed environment.
+
+```
+docker-tests/build-docker-images.sh
+docker-tests/run-docker-tests.sh [--interactive]
+```
+
+If you are developing a new feature, please consider adding a new test case to `run-docker-tests.sh` ([example PR](https://github.com/tonarino/innernet/pull/310/files#diff-5d47ea0d379e45f35471e2afa48fdba09d2ca4bcf090e16bb1adccebea080081().
+
 ### Releases
 
 Please run the release script from a Linux machine: generated shell completions depend on available wireguard backends and Mac doesn't support the `kernel` backend. 
