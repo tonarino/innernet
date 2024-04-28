@@ -232,6 +232,14 @@ Note that you'll be responsible for updating manually.
 - `libclang` (see more info at [https://crates.io/crates/clang-sys](https://crates.io/crates/clang-sys))
 - `libsqlite3`
 
+### Cargo build feature for SELinux
+
+If your target system uses SELinux, you will want to enable the
+'selinux' feature when building the innernet binary. This will ensure
+that innernet maintains the correct selinux context on the /etc/hosts
+file when adding hosts.  To do so add ```--features selinux``` to the
+```cargo build``` options.
+
 Build:
 
 ```sh
