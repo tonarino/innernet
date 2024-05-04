@@ -138,7 +138,7 @@ pub fn rename_cidr(
     };
 
     let mut new_cidr = old_cidr;
-    new_cidr.contents.name = new_name.clone();
+    new_cidr.contents.name.clone_from(&new_name);
 
     Ok(
         if args.yes
