@@ -15,7 +15,7 @@ use shared::{
     RedeemContents, RenameCidrOpts, RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
-    fmt, io,
+    io,
     net::SocketAddr,
     path::{Path, PathBuf},
     thread,
@@ -279,22 +279,6 @@ enum Command {
         #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
-}
-
-/// Application-level error.
-#[derive(Debug, Clone)]
-pub(crate) struct ClientError(String);
-
-impl fmt::Display for ClientError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for ClientError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        None
-    }
 }
 
 fn update_hosts_file(
