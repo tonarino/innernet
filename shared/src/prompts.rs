@@ -567,7 +567,9 @@ pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
         publicip::get_any(Preference::Ipv4)
     } else if Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
-        .with_prompt("You do not have a fixed global IP (use the unspecified address)?")
+        .with_prompt(
+            "Use an unspecified IP address? (this can occur if you do not have a fixed global IP)",
+        )
         .interact()?
     {
         Some(IpAddr::V6(Ipv6Addr::UNSPECIFIED))

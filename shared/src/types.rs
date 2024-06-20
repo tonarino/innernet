@@ -453,6 +453,8 @@ pub struct OverrideEndpointOpts {
     /// The external endpoint that you'd like the innernet server to broadcast
     /// to other peers. The IP address may be unspecified, in which case the
     /// server will try to resolve it based on its most recent connection.
+    /// The port will still be used even if you decide to use the unspecified
+    /// IP address.
     #[clap(short, long)]
     pub endpoint: Option<Endpoint>,
 
