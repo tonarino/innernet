@@ -285,6 +285,48 @@ impl HostsBuilder {
     fn write_and_swap(temp_path: &Path, hosts_path: &Path, contents: &[u8]) -> io::Result<()> {
         // Copy the file we plan on modifying so its permissions and metadata are preserved.
         std::fs::copy(hosts_path, temp_path)?;
+
+        #[cfg(feature = "selinux")]
+        if selinux::current_mode() != selinux::SELinuxMode::NotRunning {
+            log::trace!("SELinux is running; copying context");
+            use selinux::SecurityContext;
+
+            const FOLLOW_SYMBOLIC_LINKS: bool = false;
+            const RAW_FORMAT: bool = false;
+            match SecurityContext::of_path(hosts_path, FOLLOW_SYMBOLIC_LINKS, RAW_FORMAT) {
+                Ok(Some(context)) => {
+                    log::trace!(
+                        "{} context is {:?}",
+                        hosts_path.display(),
+                        context.to_c_string()
+                    );
+                    if let Err(err) =
+                        context.set_for_path(temp_path, FOLLOW_SYMBOLIC_LINKS, RAW_FORMAT)
+                    {
+                        log::warn!(
+                            "SELinux context of {} ({:?}) could not be set \
+                            ({} may become inaccessible due to permission errors): {:?}",
+                            temp_path.display(),
+                            context.to_c_string(),
+                            hosts_path.display(),
+                            err
+                        );
+                    }
+                },
+                Ok(None) => {
+                    log::trace!("Hosts file {} had no SELinux context", hosts_path.display());
+                },
+                Err(err) => {
+                    log::warn!(
+                        "SELinux context of {} could not be retrieved \
+                        (file may become inaccessible due to permission errors): {:?}",
+                        hosts_path.display(),
+                        err
+                    );
+                },
+            }
+        }
+
         Self::write_clobber(temp_path, contents)?;
         std::fs::rename(temp_path, hosts_path)?;
         Ok(())

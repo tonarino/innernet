@@ -40,6 +40,9 @@ wireguard-control = { path = "../wireguard-control" }
 once_cell = "1.17.1"
 tempfile = "3"
 
+[features]
+selinux = ["hostsfile/selinux"]
+
 [package.metadata.deb]
 assets = [
   ["target/release/innernet", "usr/bin/", "755"],
