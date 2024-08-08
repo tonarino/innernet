@@ -12,6 +12,7 @@ use std::{
 pub type Result<T> = result::Result<T, Box<dyn std::error::Error>>;
 
 /// A custom error struct for this crate.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Error(String);
 
