@@ -1,7 +1,10 @@
-use crate::*;
-use anyhow::anyhow;
+use crate::{
+    db::{self, DatabaseCidr, DatabasePeer},
+    ConfigFile, Interface, Path, ServerConfig,
+};
+use anyhow::{anyhow, Error};
 use clap::Parser;
-use db::DatabaseCidr;
+use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use ipnet::IpNet;
@@ -10,6 +13,7 @@ use rusqlite::{params, Connection};
 use shared::{
     prompts, CidrContents, Endpoint, IpNetExt, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
+use std::net::{IpAddr, SocketAddr};
 use wireguard_control::KeyPair;
 
 fn create_database<P: AsRef<Path>>(
