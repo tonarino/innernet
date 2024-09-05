@@ -279,3 +279,4 @@ Please run the release script from a Linux machine: generated shell completions 
 1. Fetch and check-out the `main` branch.
 2. Run `./release.sh [patch|major|minor|rc]`
 3. Push the `main` branch and the created tag to the repo.
+4. Publish crates that have `publish = true` to crates.io.
