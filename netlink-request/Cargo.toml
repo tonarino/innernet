@@ -1,7 +1,14 @@
 [package]
-name = "netlink-request"
-version = "1.6.1"
+authors = ["Jake McGinty <me@jakebot.org>"]
+categories = ["os::unix-apis"]
+description = "A helper to perform requests using the Linux netlink interface"
 edition = "2021"
+license = "LGPL-2.1-or-later"
+name = "netlink-request"
+readme = "README.md"
+repository = "https://github.com/tonarino/innernet"
+publish = true
+version = "1.6.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-sys = "0.8.5"
