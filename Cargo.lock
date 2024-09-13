@@ -668,6 +668,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e186cfbae8084e513daff4240b4797e342f988cecda4fb6c939150f96315fd8"
 
 [[package]]
+name = "innernet-server"
+version = "1.6.1"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "clap",
+ "clap_complete",
+ "colored",
+ "dialoguer",
+ "hyper",
+ "indoc",
+ "ipnet",
+ "libc",
+ "libsqlite3-sys",
+ "log",
+ "once_cell",
+ "parking_lot",
+ "pretty_env_logger",
+ "publicip",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "shared",
+ "socket2",
+ "subtle",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml",
+ "url",
+ "wireguard-control",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1250,41 +1285,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb3622f419d1296904700073ea6cc23ad690adbd66f13ea683df73298736f0c1"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "server"
-version = "1.6.1"
-dependencies = [
- "anyhow",
- "bytes",
- "clap",
- "clap_complete",
- "colored",
- "dialoguer",
- "hyper",
- "indoc",
- "ipnet",
- "libc",
- "libsqlite3-sys",
- "log",
- "once_cell",
- "parking_lot",
- "pretty_env_logger",
- "publicip",
- "regex",
- "rusqlite",
- "serde",
- "serde_json",
- "shared",
- "socket2",
- "subtle",
- "tempfile",
- "thiserror",
- "tokio",
- "toml",
- "url",
- "wireguard-control",
 ]
 
 [[package]]

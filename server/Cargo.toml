@@ -9,11 +9,14 @@ description = "A server to coordinate innernet networks."
 edition = "2021"
 homepage = "https://github.com/tonarino/innernet"
 license = "MIT"
-name = "server"
+name = "innernet-server"
 publish = false
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
 version = "1.6.1"
+
+[lib]
+path = "src/lib.rs"
 
 [[bin]]
 name = "innernet-server"
