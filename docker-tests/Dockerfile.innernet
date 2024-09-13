@@ -3,7 +3,6 @@
 ####################################################################################################
 FROM golang:bookworm as wireguard
 ARG wg_go_tag=0.0.20230223
-ARG wg_tools_tag=v1.0.20210914
 
 RUN mkdir /repo \
     && curl -L https://github.com/WireGuard/wireguard-go/archive/refs/tags/0.0.20230223.tar.gz \
