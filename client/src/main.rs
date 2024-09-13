@@ -290,7 +290,7 @@ fn update_hosts_file(
     for peer in peers {
         hosts_builder.add_hostname(
             peer.contents.ip,
-            &format!("{}.{}.wg", peer.contents.name, interface),
+            format!("{}.{}.wg", peer.contents.name, interface),
         );
     }
     match hosts_builder.write_to(&hosts_path).with_path(&hosts_path) {
@@ -374,7 +374,7 @@ fn install(
     if install_opts.delete_invite
         || Confirm::with_theme(&*prompts::THEME)
             .wait_for_newline(true)
-            .with_prompt(&format!(
+            .with_prompt(format!(
                 "Delete invitation file \"{}\" now? (It's no longer needed)",
                 invite.to_string_lossy().yellow()
             ))
@@ -666,7 +666,7 @@ fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Er
 
     if yes
         || Confirm::with_theme(&*prompts::THEME)
-            .with_prompt(&format!(
+            .with_prompt(format!(
                 "Permanently delete network \"{}\"?",
                 interface.as_str_lossy().yellow()
             ))

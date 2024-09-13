@@ -522,7 +522,7 @@ fn uninstall(
 ) -> Result<(), Error> {
     if yes
         || Confirm::with_theme(&*prompts::THEME)
-            .with_prompt(&format!(
+            .with_prompt(format!(
                 "Permanently delete network \"{}\"?",
                 interface.as_str_lossy().yellow()
             ))
