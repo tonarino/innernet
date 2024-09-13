@@ -37,10 +37,10 @@ done
 VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
 
 perl -pi -e "s/v$OLD_VERSION/v$VERSION/g" README.md
-perl -pi -e "s/$OLD_VERSION/$VERSION/g" wireguard-control/Cargo.toml
+perl -pi -e "s/$OLD_VERSION/$VERSION/g" wireguard-control/Cargo.toml netlink-request/Cargo.toml
 
 git add doc
 git add README.md
-git add wireguard-control/Cargo.toml
+git add wireguard-control/Cargo.toml netlink-request/Cargo.toml
 git commit -m "meta: release v$VERSION"
 git tag -f -a "v$VERSION" -m "release v$VERSION"
