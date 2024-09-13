@@ -473,7 +473,7 @@ fn redeem_invite(
         "Registering keypair with server (at {}).",
         &config.server.internal_endpoint
     );
-    Api::new(&config.server).http_form(
+    Api::new(&config.server).http_form::<_, ()>(
         "POST",
         "/user/redeem",
         RedeemContents {
@@ -742,7 +742,7 @@ fn rename_cidr(
             .ok_or_else(|| anyhow!("CIDR not found."))?
             .id;
 
-        api.http_form("PUT", &format!("/admin/cidrs/{id}"), cidr_request)?;
+        api.http_form::<_, ()>("PUT", &format!("/admin/cidrs/{id}"), cidr_request)?;
         log::info!("CIDR renamed.");
     } else {
         log::info!("Exited without renaming CIDR.");
@@ -766,7 +766,7 @@ fn delete_cidr(
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
 
     println!("Deleting CIDR...");
-    api.http("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
+    api.http::<()>("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
 
     println!("CIDR deleted.");
 
@@ -842,7 +842,7 @@ fn rename_peer(
             .next()
             .ok_or_else(|| anyhow!("Peer not found."))?;
 
-        api.http_form("PUT", &format!("/admin/peers/{id}"), peer_request)?;
+        api.http_form::<_, ()>("PUT", &format!("/admin/peers/{id}"), peer_request)?;
         log::info!("Peer renamed.");
     } else {
         log::info!("exited without renaming peer.");
@@ -867,7 +867,7 @@ fn enable_or_disable_peer(
     if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], &sub_opts, enable)? {
         let Peer { id, mut contents } = peer;
         contents.is_disabled = !enable;
-        api.http_form("PUT", &format!("/admin/peers/{id}"), contents)?;
+        api.http_form::<_, ()>("PUT", &format!("/admin/peers/{id}"), contents)?;
     } else {
         log::info!("exiting without enabling or disabling peer.");
     }
@@ -905,7 +905,7 @@ fn add_association(
         return Ok(());
     };
 
-    api.http_form(
+    api.http_form::<_, ()>(
         "POST",
         "/admin/associations",
         AssociationContents {
@@ -934,7 +934,7 @@ fn delete_association(
     if let Some(association) =
         prompts::delete_association(&associations[..], &cidrs[..], &sub_opts)?
     {
-        api.http("DELETE", &format!("/admin/associations/{}", association.id))?;
+        api.http::<()>("DELETE", &format!("/admin/associations/{}", association.id))?;
     } else {
         log::info!("exiting without adding association.");
     }
@@ -1016,7 +1016,7 @@ fn override_endpoint(
 
     if let Some(contents) = endpoint_contents {
         log::info!("requesting endpoint update...");
-        Api::new(&config.server).http_form("PUT", "/user/endpoint", contents)?;
+        Api::new(&config.server).http_form::<_, ()>("PUT", "/user/endpoint", contents)?;
         log::info!(
             "endpoint override {}",
             if sub_opts.unset { "unset" } else { "set" }
