@@ -1,7 +1,10 @@
 ####################################################################################################
 ## WireGuard
 ####################################################################################################
-FROM golang:bookworm as wireguard
+
+# Pin go 1.22 as the latest tag of wireguard-go (0.0.20230223) doesn't build with go 1.23+ due to
+# its outdated x/net dependency. We can use latest go once they release newer version.
+FROM golang:1.22-bookworm as wireguard
 ARG wg_go_tag=0.0.20230223
 
 RUN mkdir /repo \
