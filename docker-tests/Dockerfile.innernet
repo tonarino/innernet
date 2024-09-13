@@ -5,7 +5,7 @@ FROM golang:bookworm as wireguard
 ARG wg_go_tag=0.0.20230223
 
 RUN mkdir /repo \
-    && curl -L https://github.com/WireGuard/wireguard-go/archive/refs/tags/0.0.20230223.tar.gz \
+    && curl -L https://github.com/WireGuard/wireguard-go/archive/refs/tags/${wg_go_tag}.tar.gz \
     | tar -xzC /repo --strip-components=1 \
     && cd /repo \
     && CGO_ENABLED=0 make
