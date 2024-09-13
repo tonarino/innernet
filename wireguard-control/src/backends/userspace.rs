@@ -255,7 +255,8 @@ fn get_userspace_implementation() -> String {
 }
 
 fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
-    let mut command = Command::new(get_userspace_implementation());
+    let userspace_implementation = get_userspace_implementation();
+    let mut command = Command::new(&userspace_implementation);
 
     let output_res = if cfg!(target_os = "linux") {
         command.args(&[iface.to_string()]).output()
@@ -276,7 +277,7 @@ fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
         },
         Err(e) if e.kind() == io::ErrorKind::NotFound => Err(io::Error::new(
             io::ErrorKind::NotFound,
-            "Cannot find \"wireguard-go\". Specify a custom path with WG_USERSPACE_IMPLEMENTATION.",
+            format!("Cannot find \"{userspace_implementation}\". Specify a custom path with WG_USERSPACE_IMPLEMENTATION."),
         )),
         Err(e) => Err(e),
     }
