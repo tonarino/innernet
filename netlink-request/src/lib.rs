@@ -9,7 +9,7 @@ mod linux {
         ctrl::{nlas::GenlCtrlAttrs, GenlCtrl, GenlCtrlCmd},
         GenlFamily, GenlHeader, GenlMessage,
     };
-    use netlink_packet_route::RtnlMessage;
+    use netlink_packet_route::RouteNetlinkMessage;
     use netlink_packet_utils::{Emitable, ParseableParametrized};
     use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
     use nix::unistd::{sysconf, SysconfVar};
@@ -86,9 +86,9 @@ mod linux {
     }
 
     pub fn netlink_request_rtnl(
-        message: RtnlMessage,
+        message: RouteNetlinkMessage,
         flags: Option<u16>,
-    ) -> Result<Vec<NetlinkMessage<RtnlMessage>>, io::Error> {
+    ) -> Result<Vec<NetlinkMessage<RouteNetlinkMessage>>, io::Error> {
         netlink_request(message, flags, NETLINK_ROUTE)
     }
 

@@ -4,11 +4,10 @@ use netlink_packet_core::{
     NLM_F_REQUEST,
 };
 use netlink_packet_route::{
-    address,
-    constants::*,
-    link::{self, nlas::State},
-    route, AddressHeader, AddressMessage, LinkHeader, LinkMessage, RouteHeader, RouteMessage,
-    RtnlMessage, RTN_UNICAST, RT_SCOPE_LINK, RT_TABLE_MAIN,
+    address::{self, AddressHeader, AddressMessage},
+    link::{self, LinkFlags, LinkHeader, LinkMessage, State},
+    route::{self, RouteHeader, RouteMessage},
+    AddressFamily, RouteNetlinkMessage,
 };
 use netlink_request::netlink_request_rtnl;
 use std::{io, net::IpAddr};
@@ -28,13 +27,13 @@ pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
     let index = if_nametoindex(interface)?;
     let header = LinkHeader {
         index,
-        flags: IFF_UP,
+        flags: LinkFlags::Up,
         ..Default::default()
     };
     let mut message = LinkMessage::default();
     message.header = header;
-    message.nlas = vec![link::nlas::Nla::Mtu(mtu)];
-    netlink_request_rtnl(RtnlMessage::SetLink(message), None)?;
+    message.attributes = vec![link::LinkAttribute::Mtu(mtu)];
+    netlink_request_rtnl(RouteNetlinkMessage::SetLink(message), None)?;
     log::debug!("set interface {} up with mtu {}", interface, mtu);
     Ok(())
 }
@@ -43,33 +42,35 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error>
     let index = if_nametoindex(interface)?;
     let (family, nlas) = match addr {
         IpNet::V4(network) => {
-            let addr_bytes = network.addr().octets().to_vec();
+            let addr = IpAddr::V4(network.addr());
             (
-                AF_INET as u8,
+                AddressFamily::Inet,
                 vec![
-                    address::Nla::Local(addr_bytes.clone()),
-                    address::Nla::Address(addr_bytes),
+                    address::AddressAttribute::Local(addr),
+                    address::AddressAttribute::Address(addr),
                 ],
             )
         },
         IpNet::V6(network) => (
-            AF_INET6 as u8,
-            vec![address::Nla::Address(network.addr().octets().to_vec())],
+            AddressFamily::Inet6,
+            vec![address::AddressAttribute::Address(IpAddr::V6(
+                network.addr(),
+            ))],
         ),
     };
     let header = AddressHeader {
         index,
         family,
         prefix_len: addr.prefix_len(),
-        scope: RT_SCOPE_UNIVERSE,
+        scope: address::AddressScope::Universe,
         ..Default::default()
     };
 
     let mut message = AddressMessage::default();
     message.header = header;
-    message.nlas = nlas;
+    message.attributes = nlas;
     netlink_request_rtnl(
-        RtnlMessage::NewAddress(message),
+        RouteNetlinkMessage::NewAddress(message),
         Some(NLM_F_REQUEST | NLM_F_ACK | NLM_F_REPLACE | NLM_F_CREATE),
     )?;
     log::debug!("set address {} on interface {}", addr, interface);
@@ -79,23 +80,29 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error>
 pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Error> {
     let if_index = if_nametoindex(interface)?;
     let (address_family, dst) = match cidr {
-        IpNet::V4(network) => (AF_INET as u8, network.network().octets().to_vec()),
-        IpNet::V6(network) => (AF_INET6 as u8, network.network().octets().to_vec()),
+        IpNet::V4(network) => (
+            AddressFamily::Inet,
+            route::RouteAttribute::Destination(route::RouteAddress::Inet(network.network())),
+        ),
+        IpNet::V6(network) => (
+            AddressFamily::Inet6,
+            route::RouteAttribute::Destination(route::RouteAddress::Inet6(network.network())),
+        ),
     };
     let header = RouteHeader {
-        table: RT_TABLE_MAIN,
-        protocol: RTPROT_BOOT,
-        scope: RT_SCOPE_LINK,
-        kind: RTN_UNICAST,
+        table: RouteHeader::RT_TABLE_MAIN,
+        protocol: route::RouteProtocol::Boot,
+        scope: route::RouteScope::Link,
+        kind: route::RouteType::Unicast,
         destination_prefix_length: cidr.prefix_len(),
         address_family,
         ..Default::default()
     };
     let mut message = RouteMessage::default();
     message.header = header;
-    message.nlas = vec![route::Nla::Destination(dst), route::Nla::Oif(if_index)];
+    message.attributes = vec![dst, route::RouteAttribute::Oif(if_index)];
 
-    match netlink_request_rtnl(RtnlMessage::NewRoute(message), None) {
+    match netlink_request_rtnl(RouteNetlinkMessage::NewRoute(message), None) {
         Ok(_) => {
             log::debug!("added route {} to interface {}", cidr, interface);
             Ok(true)
@@ -110,7 +117,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Err
 
 fn get_links() -> Result<Vec<String>, io::Error> {
     let link_responses = netlink_request_rtnl(
-        RtnlMessage::GetLink(LinkMessage::default()),
+        RouteNetlinkMessage::GetLink(LinkMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
     )?;
     let links = link_responses
@@ -118,21 +125,21 @@ fn get_links() -> Result<Vec<String>, io::Error> {
         // Filter out non-link messages
         .filter_map(|response| match response {
             NetlinkMessage {
-                payload: NetlinkPayload::InnerMessage(RtnlMessage::NewLink(link)),
+                payload: NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewLink(link)),
                 ..
             } => Some(link),
             _ => None,
         })
         // Filter out loopback links
-        .filter_map(|link| if link.header.flags & IFF_LOOPBACK == 0 {
-                Some(link.nlas)
+        .filter_map(|link| if link.header.flags.contains(LinkFlags::Loopback) {
+                Some(link.attributes)
             } else {
                 None
             })
         // Find and filter out addresses for interfaces
-        .filter(|nlas| nlas.iter().any(|nla| nla == &link::nlas::Nla::OperState(State::Up)))
+        .filter(|nlas| nlas.iter().any(|nla| nla == &link::LinkAttribute::OperState(State::Up)))
         .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
-            link::nlas::Nla::IfName(name) => Some(name.clone()),
+            link::LinkAttribute::IfName(name) => Some(name.clone()),
             _ => None,
         }))
         .collect::<Vec<_>>();
@@ -143,7 +150,7 @@ fn get_links() -> Result<Vec<String>, io::Error> {
 pub fn get_local_addrs() -> Result<impl Iterator<Item = IpAddr>, io::Error> {
     let links = get_links()?;
     let addr_responses = netlink_request_rtnl(
-        RtnlMessage::GetAddress(AddressMessage::default()),
+        RouteNetlinkMessage::GetAddress(AddressMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
     )?;
     let addrs = addr_responses
@@ -151,33 +158,25 @@ pub fn get_local_addrs() -> Result<impl Iterator<Item = IpAddr>, io::Error> {
         // Filter out non-link messages
         .filter_map(|response| match response {
             NetlinkMessage {
-                payload: NetlinkPayload::InnerMessage(RtnlMessage::NewAddress(addr)),
+                payload: NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewAddress(addr)),
                 ..
             } => Some(addr),
             _ => None,
         })
         // Filter out non-global-scoped addresses
-        .filter_map(|link| if link.header.scope == RT_SCOPE_UNIVERSE {
-                Some(link.nlas)
+        .filter_map(|link| if link.header.scope == address::AddressScope::Universe {
+                Some(link.attributes)
             } else {
                 None
             })
         // Only select addresses for helpful links
         .filter(move |nlas| nlas.iter().any(|nla| {
-            matches!(nla, address::nlas::Nla::Label(label) if links.contains(label))
-            || matches!(nla, address::nlas::Nla::Address(name) if name.len() == 16)
+            matches!(nla, address::AddressAttribute::Label(label) if links.contains(label))
+            || matches!(nla, address::AddressAttribute::Address(IpAddr::V6(_addr)))
         }))
         .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
-            address::nlas::Nla::Address(name) if name.len() == 4 => {
-                let mut addr = [0u8; 4];
-                addr.copy_from_slice(name);
-                Some(IpAddr::V4(addr.into()))
-            },
-            address::nlas::Nla::Address(name) if name.len() == 16 => {
-                let mut addr = [0u8; 16];
-                addr.copy_from_slice(name);
-                Some(IpAddr::V6(addr.into()))
-            },
+            address::AddressAttribute::Address(IpAddr::V4(addr)) => Some(IpAddr::V4(*addr)),
+            address::AddressAttribute::Address(IpAddr::V6(addr)) => Some(IpAddr::V6(*addr)),
             _ => None,
         }));
     Ok(addrs)
