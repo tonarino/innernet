@@ -7,17 +7,16 @@ use netlink_packet_core::{
 };
 use netlink_packet_generic::GenlMessage;
 use netlink_packet_route::{
-    constants::*,
-    link::{
-        self,
-        nlas::{Info, InfoKind},
-    },
-    LinkMessage, RtnlMessage,
+    link::{self, InfoKind, LinkInfo, LinkMessage},
+    RouteNetlinkMessage,
 };
 use netlink_packet_utils::traits::Emitable;
 use netlink_packet_wireguard::{
     self,
-    constants::{WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME, WGPEER_F_REPLACE_ALLOWEDIPS},
+    constants::{
+        AF_INET, AF_INET6, WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME,
+        WGPEER_F_REPLACE_ALLOWEDIPS,
+    },
     nlas::{WgAllowedIp, WgAllowedIpAttrs, WgDeviceAttrs, WgPeer, WgPeerAttrs},
     Wireguard, WireguardCmd,
 };
@@ -166,7 +165,7 @@ impl<'a> TryFrom<&'a [WgDeviceAttrs]> for Device {
 
 pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     let link_responses = netlink_request_rtnl(
-        RtnlMessage::GetLink(LinkMessage::default()),
+        RouteNetlinkMessage::GetLink(LinkMessage::default()),
         Some(NLM_F_DUMP | NLM_F_REQUEST),
     )?;
     let links = link_responses
@@ -174,21 +173,21 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
         // Filter out non-link messages
         .filter_map(|response| match response {
             NetlinkMessage {
-                payload: NetlinkPayload::InnerMessage(RtnlMessage::NewLink(link)),
+                payload: NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewLink(link)),
                 ..
             } => Some(link),
             _ => None,
         })
         .filter(|link| {
-            for nla in link.nlas.iter() {
-                if let link::nlas::Nla::Info(infos) = nla {
-                    return infos.iter().any(|info| info == &Info::Kind(InfoKind::Wireguard))
+            for nla in link.attributes.iter() {
+                if let link::LinkAttribute::LinkInfo(infos) = nla {
+                    return infos.iter().any(|info| info == &LinkInfo::Kind(InfoKind::Wireguard))
                 }
             }
             false
         })
-        .filter_map(|link| link.nlas.iter().find_map(|nla| match nla {
-            link::nlas::Nla::IfName(name) => Some(name.clone()),
+        .filter_map(|link| link.attributes.iter().find_map(|nla| match nla {
+            link::LinkAttribute::IfName(name) => Some(name.clone()),
             _ => None,
         }))
         .filter_map(|name| name.parse().ok())
@@ -199,17 +198,19 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
 
 fn add_del(iface: &InterfaceName, add: bool) -> io::Result<()> {
     let mut message = LinkMessage::default();
+    message.attributes.push(link::LinkAttribute::IfName(
+        iface.as_str_lossy().to_string(),
+    ));
     message
-        .nlas
-        .push(link::nlas::Nla::IfName(iface.as_str_lossy().to_string()));
-    message.nlas.push(link::nlas::Nla::Info(vec![Info::Kind(
-        link::nlas::InfoKind::Wireguard,
-    )]));
+        .attributes
+        .push(link::LinkAttribute::LinkInfo(vec![LinkInfo::Kind(
+            link::InfoKind::Wireguard,
+        )]));
     let extra_flags = if add { NLM_F_CREATE | NLM_F_EXCL } else { 0 };
     let rtnl_message = if add {
-        RtnlMessage::NewLink(message)
+        RouteNetlinkMessage::NewLink(message)
     } else {
-        RtnlMessage::DelLink(message)
+        RouteNetlinkMessage::DelLink(message)
     };
     match netlink_request_rtnl(rtnl_message, Some(NLM_F_REQUEST | NLM_F_ACK | extra_flags)) {
         Err(e) if e.kind() != io::ErrorKind::AlreadyExists => Err(e),
