@@ -118,7 +118,6 @@ impl TryFrom<WgPeer> for PeerInfo {
                 endpoint,
                 persistent_keepalive_interval,
                 allowed_ips,
-                __cant_construct_me: (),
             },
             stats: PeerStats {
                 last_handshake_time,
@@ -158,7 +157,6 @@ impl<'a> TryFrom<&'a [WgDeviceAttrs]> for Device {
             peers,
             linked_name: None,
             backend: Backend::Kernel,
-            __cant_construct_me: (),
         })
     }
 }

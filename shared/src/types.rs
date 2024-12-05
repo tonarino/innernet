@@ -110,7 +110,7 @@ impl<'de> Deserialize<'de> for Endpoint {
         D: serde::Deserializer<'de>,
     {
         struct EndpointVisitor;
-        impl<'de> serde::de::Visitor<'de> for EndpointVisitor {
+        impl serde::de::Visitor<'_> for EndpointVisitor {
             type Value = Endpoint;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -238,7 +238,7 @@ pub struct CidrTree<'a> {
     contents: &'a Cidr,
 }
 
-impl<'a> std::ops::Deref for CidrTree<'a> {
+impl std::ops::Deref for CidrTree<'_> {
     type Target = Cidr;
 
     fn deref(&self) -> &Self::Target {
@@ -718,7 +718,7 @@ impl<'a> PeerDiff<'a> {
     }
 }
 
-impl<'a> From<&'a Peer> for PeerConfigBuilder {
+impl From<&Peer> for PeerConfigBuilder {
     fn from(peer: &Peer) -> Self {
         PeerDiff::new(None, Some(peer))
             .expect("No Err on explicitly set peer data")
@@ -727,7 +727,7 @@ impl<'a> From<&'a Peer> for PeerConfigBuilder {
     }
 }
 
-impl<'a> From<PeerDiff<'a>> for PeerConfigBuilder {
+impl From<PeerDiff<'_>> for PeerConfigBuilder {
     /// Turn a PeerDiff into a minimal set of instructions to update the WireGuard interface,
     /// hopefully minimizing dropped packets and other interruptions.
     fn from(diff: PeerDiff) -> Self {

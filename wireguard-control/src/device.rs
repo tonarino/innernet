@@ -46,6 +46,7 @@ impl std::str::FromStr for AllowedIp {
 ///
 /// These are the attributes that don't change over time and are part of the configuration.
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
 pub struct PeerConfig {
     /// The public key of the peer.
     pub public_key: Key,
@@ -57,7 +58,6 @@ pub struct PeerConfig {
     pub persistent_keepalive_interval: Option<u16>,
     /// The IP addresses this peer is allowed to have.
     pub allowed_ips: Vec<AllowedIp>,
-    pub(crate) __cant_construct_me: (),
 }
 
 /// Represents a single peer's current statistics (i.e. the data from the current session).
@@ -91,6 +91,7 @@ pub struct PeerInfo {
 /// The peer statistics are retrieved once at construction time,
 /// and need to be updated manually by calling [`get_by_name`](DeviceInfo::get_by_name).
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
 pub struct Device {
     /// The interface name of this device
     pub name: InterfaceName,
@@ -108,8 +109,6 @@ pub struct Device {
     pub linked_name: Option<String>,
     /// The backend the device exists on (userspace or kernel).
     pub backend: Backend,
-
-    pub(crate) __cant_construct_me: (),
 }
 
 type RawInterfaceName = [c_char; libc::IFNAMSIZ];
