@@ -69,7 +69,6 @@ impl PeerConfigBuilder {
             endpoint: self.endpoint,
             persistent_keepalive_interval: self.persistent_keepalive_interval,
             allowed_ips: self.allowed_ips,
-            __cant_construct_me: (),
         }
     }
 

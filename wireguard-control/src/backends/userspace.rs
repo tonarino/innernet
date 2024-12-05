@@ -86,7 +86,6 @@ fn new_peer_info(public_key: Key) -> PeerInfo {
             endpoint: None,
             persistent_keepalive_interval: None,
             allowed_ips: vec![],
-            __cant_construct_me: (),
         },
         stats: PeerStats {
             last_handshake_time: None,
@@ -119,7 +118,6 @@ impl ConfigParser {
             peers: vec![],
             linked_name: resolve_tun(name).ok(),
             backend: Backend::Userspace,
-            __cant_construct_me: (),
         };
 
         Self {
