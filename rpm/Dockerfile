@@ -1,5 +1,6 @@
 ARG DISTRO
 ARG VER
+ARG ARCH
 
 FROM ${DISTRO}:${VER} as builder
 LABEL stage=innernet-rpm
@@ -20,8 +21,12 @@ RUN source $HOME/.cargo/env && \
 	cd server && cargo rpm build && \
 	cd ../client && cargo rpm build
 
+# Copy RPMs to a temporary directory for better compatibility
+RUN mkdir -p /target/rpm && \
+    cp -r /workdir/target/release/rpmbuild/RPMS/${ARCH}/* /target/rpm/
+
 FROM ${DISTRO}:${VER}
 LABEL stage=innernet-rpm
 
 RUN mkdir -p /target/rpm
-COPY --from=builder /workdir/target/release/rpmbuild/RPMS/x86_64/innernet-*.rpm /target/rpm/
+COPY --from=builder /target/rpm/ /target/rpm/
