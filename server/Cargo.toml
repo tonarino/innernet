@@ -27,7 +27,7 @@ v6-test = []
 
 [dependencies]
 anyhow = "1"
-bytes = "1"
+bytes = "1.6"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 clap_complete = "4.3"
 colored = "2"

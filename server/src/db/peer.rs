@@ -87,15 +87,18 @@ impl DatabasePeer {
             ..
         } = &contents;
         log::info!("creating peer {:?}", contents);
+        println!("creating peer {:?}", contents);
 
         if !Self::is_valid_name(name) {
             log::warn!("peer name is invalid, must conform to hostname(7) requirements.");
+            println!("peer name is invalid, must conform to hostname(7) requirements.");
             return Err(ServerError::InvalidQuery);
         }
 
         let cidr = DatabaseCidr::get(conn, *cidr_id)?;
         if !cidr.cidr.contains(ip) {
             log::warn!("tried to add peer with IP outside of parent CIDR range.");
+            println!("tried to add peer with IP outside of parent CIDR range.");
             return Err(ServerError::InvalidQuery);
         }
 
@@ -114,6 +117,7 @@ impl DatabasePeer {
 
         let candidates = serde_json::to_string(candidates)?;
 
+        println!("Executing SQL insert...");
         conn.execute(
             &format!(
                 "INSERT INTO peers ({}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -132,6 +136,7 @@ impl DatabasePeer {
                 candidates,
             ],
         )?;
+        println!("Executed SQL insert...");
         let id = conn.last_insert_rowid();
         Ok(Peer { id, contents }.into())
     }

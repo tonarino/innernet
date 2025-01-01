@@ -1,4 +1,4 @@
-use crate::Error;
+use shared::Error;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};

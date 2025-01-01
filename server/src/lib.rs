@@ -28,14 +28,14 @@ use subtle::ConstantTimeEq;
 use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
 
 mod api;
-mod db;
+pub mod db;
 mod error;
 pub mod initialize;
 #[cfg(test)]
 mod test;
 mod util;
 
-use db::{DatabaseCidr, DatabasePeer};
+pub use db::{DatabaseCidr, DatabasePeer};
 pub use error::ServerError;
 use shared::{prompts, wg, CidrTree, Error, Interface};
 
@@ -151,7 +151,7 @@ impl ServerConfig {
     }
 }
 
-fn open_database_connection(
+pub fn open_database_connection(
     interface: &InterfaceName,
     conf: &ServerConfig,
 ) -> Result<rusqlite::Connection, Error> {
@@ -187,6 +187,7 @@ pub fn add_peer(
 
     if let Some(result) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
         let (peer_request, keypair, target_path, mut target_file) = result;
+        log::info!("Received results from prompts, attempting to create peer in database");
         let peer = DatabasePeer::create(&conn, peer_request)?;
         if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
@@ -195,7 +196,7 @@ pub fn add_peer(
                 .apply(interface, network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
 
-            println!("adding to WireGuard interface: {}", &*peer);
+            log::info!("adding to WireGuard interface: {}", &*peer);
         }
 
         let server_peer = DatabasePeer::get(&conn, 1)?;
@@ -209,7 +210,7 @@ pub fn add_peer(
             &SocketAddr::new(config.address, config.listen_port),
         )?;
     } else {
-        println!("exited without creating peer.");
+        log::info!("exited without creating peer.");
     }
 
     Ok(())
@@ -233,7 +234,7 @@ pub fn rename_peer(
             .ok_or_else(|| anyhow!("Peer not found."))?;
         db_peer.update(&conn, peer_request)?;
     } else {
-        println!("exited without creating peer.");
+        log::info!("exited without creating peer.");
     }
 
     Ok(())
@@ -304,7 +305,7 @@ pub fn add_cidr(
             cidr_name = cidr.name.bold()
         );
     } else {
-        println!("exited without creating CIDR.");
+        log::info!("exited without creating CIDR.");
     }
 
     Ok(())
@@ -325,7 +326,7 @@ pub fn rename_cidr(
             .ok_or_else(|| anyhow!("CIDR not found."))?;
         db::DatabaseCidr::from(db_cidr).update(&conn, cidr_request)?;
     } else {
-        println!("exited without renaming CIDR.");
+        log::info!("exited without renaming CIDR.");
     }
 
     Ok(())
@@ -336,7 +337,7 @@ pub fn delete_cidr(
     conf: &ServerConfig,
     args: DeleteCidrOpts,
 ) -> Result<(), Error> {
-    println!("Fetching eligible CIDRs");
+    log::info!("Fetching eligible CIDRs");
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
     let peers = DatabasePeer::list(&conn)?
@@ -346,10 +347,10 @@ pub fn delete_cidr(
 
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &args)?;
 
-    println!("Deleting CIDR...");
+    log::info!("Deleting CIDR...");
     DatabaseCidr::delete(&conn, cidr_id)?;
 
-    println!("CIDR deleted.");
+    log::info!("CIDR deleted.");
 
     Ok(())
 }
@@ -369,7 +370,7 @@ pub fn uninstall(
             .default(false)
             .interact()?
     {
-        println!("{} bringing down interface (if up).", "[*]".dimmed());
+        log::info!("{} bringing down interface (if up).", "[*]".dimmed());
         wg::down(interface, network.backend).ok();
         let config = conf.config_path(interface);
         let data = conf.database_path(interface);
