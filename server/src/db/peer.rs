@@ -338,6 +338,16 @@ impl DatabasePeer {
         Ok(peer_iter.collect::<Result<_, _>>()?)
     }
 
+    pub fn list_enabled(conn: &Connection) -> Result<Vec<Self>, ServerError> {
+        let mut stmt = conn.prepare_cached(&format!(
+            "SELECT {} FROM peers WHERE peers.is_redeemed = 1 AND peers.is_disabled = 0",
+            COLUMNS.join(", ")
+        ))?;
+        let peer_iter = stmt.query_map(params![], Self::from_row)?;
+
+        Ok(peer_iter.collect::<Result<_, _>>()?)
+    }
+
     pub fn delete_expired_invites(conn: &Connection) -> Result<usize, ServerError> {
         let unix_now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
