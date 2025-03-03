@@ -1,18 +1,18 @@
 use anyhow::{anyhow, bail};
-use clap::{ArgAction, Args, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
-use hostsfile::HostsBuilder;
 use indoc::eprintdoc;
 use shared::{
     get_local_addrs,
     interface_config::InterfaceConfig,
-    prompts,
+    prompts, update_hosts_file,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, InstallOpts,
-    Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer,
-    RedeemContents, RenameCidrOpts, RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpt,
+    InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
+    OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, State,
+    WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     io,
@@ -71,23 +71,6 @@ struct Opts {
 
     #[clap(flatten)]
     network: NetworkOpts,
-}
-
-#[derive(Clone, Debug, Args)]
-struct HostsOpt {
-    /// The path to write hosts to
-    #[clap(long = "hosts-path", default_value = "/etc/hosts")]
-    hosts_path: PathBuf,
-
-    /// Don't write to any hosts files
-    #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
-    no_write_hosts: bool,
-}
-
-impl From<HostsOpt> for Option<PathBuf> {
-    fn from(opt: HostsOpt) -> Self {
-        (!opt.no_write_hosts).then_some(opt.hosts_path)
-    }
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -286,32 +269,6 @@ enum Command {
         #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
-}
-
-fn update_hosts_file(
-    interface: &InterfaceName,
-    hosts_path: PathBuf,
-    peers: &[Peer],
-) -> Result<(), WrappedIoError> {
-    let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
-    for peer in peers {
-        hosts_builder.add_hostname(
-            peer.contents.ip,
-            format!("{}.{}.wg", peer.contents.name, interface),
-        );
-    }
-    match hosts_builder.write_to(&hosts_path).with_path(&hosts_path) {
-        Ok(has_written) if has_written => {
-            log::info!(
-                "updated {} with the latest peers.",
-                hosts_path.to_string_lossy().yellow()
-            )
-        },
-        Ok(_) => {},
-        Err(e) => log::warn!("failed to update hosts ({})", e),
-    };
-
-    Ok(())
 }
 
 fn install(
@@ -621,7 +578,7 @@ fn fetch(
             .with_str(interface.to_string())?;
 
         if let Some(path) = hosts_path {
-            update_hosts_file(interface, path, &peers)?;
+            update_hosts_file(interface, &path, &peers)?;
         }
 
         println!();

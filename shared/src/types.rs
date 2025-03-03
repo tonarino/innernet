@@ -12,7 +12,7 @@ use std::{
     io,
     net::{IpAddr, SocketAddr, ToSocketAddrs},
     ops::{Deref, DerefMut},
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
     time::{Duration, SystemTime},
     vec,
@@ -504,6 +504,23 @@ pub struct NetworkOpts {
     pub mtu: Option<u32>,
 }
 
+#[derive(Clone, Debug, Args)]
+pub struct HostsOpt {
+    /// The path to write hosts to
+    #[clap(long = "hosts-path", default_value = "/etc/hosts")]
+    pub hosts_path: PathBuf,
+
+    /// Don't write to any hosts files
+    #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
+    pub no_write_hosts: bool,
+}
+
+impl From<HostsOpt> for Option<PathBuf> {
+    fn from(opt: HostsOpt) -> Self {
+        (!opt.no_write_hosts).then_some(opt.hosts_path)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PeerContents {
     pub name: Hostname,
@@ -526,6 +543,12 @@ pub struct Peer {
 
     #[serde(flatten)]
     pub contents: PeerContents,
+}
+
+impl AsRef<Peer> for Peer {
+    fn as_ref(&self) -> &Peer {
+        self
+    }
 }
 
 impl Deref for Peer {

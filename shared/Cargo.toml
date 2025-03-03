@@ -17,6 +17,7 @@ atty = "0.2"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 colored = "2.0"
 dialoguer = { version = "0.10", default-features = false }
+hostsfile = { path = "../hostsfile" }
 indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
 libc = "0.2"
@@ -37,3 +38,6 @@ netlink-sys = "0.8.5"
 
 [target.'cfg(any(target_os = "macos", target_os= "openbsd"))'.dependencies]
 nix = "0.26"
+
+[features]
+selinux = ["hostsfile/selinux"]
