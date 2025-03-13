@@ -283,23 +283,6 @@ fn start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
     }
 }
 
-fn _start_userspace_wireguard(iface: &InterfaceName) -> io::Result<Output> {
-    let mut command = Command::new(get_userspace_implementation());
-    let output = if cfg!(target_os = "linux") {
-        command.args(&[iface.to_string()]).output()?
-    } else {
-        command
-            .env("WG_TUN_NAME_FILE", format!("{VAR_RUN_PATH}/{iface}.name"))
-            .args(["utun"])
-            .output()?
-    };
-    if !output.status.success() {
-        Err(io::ErrorKind::AddrNotAvailable.into())
-    } else {
-        Ok(output)
-    }
-}
-
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     // If we can't open a configuration socket to an existing interface, try starting it.
     let mut sock = match open_socket(iface) {
