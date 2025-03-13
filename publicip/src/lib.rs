@@ -22,6 +22,7 @@ const CLASS_IN: u16 = 0x0001;
 const TYPE_A: u16 = 0x0001;
 const TYPE_AAAA: u16 = 0x001C;
 
+// Reference: https://www.quad9.net/service/service-addresses-and-features
 static QNAME: &[&str] = &["whatismyip", "on", "quad9", "net"];
 const IPV4_ADDRESS: Ipv4Addr = Ipv4Addr::new(9, 9, 9, 9);
 const IPV6_ADDRESS: Ipv6Addr = Ipv6Addr::new(0x2620, 0xfe, 0, 0, 0, 0, 0, 0xfe);
