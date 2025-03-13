@@ -8,9 +8,9 @@ use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{
-    get_local_addrs, AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint,
-    IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts, RenamePeerOpts,
-    INNERNET_PUBKEY_HEADER,
+    get_local_addrs, update_hosts_file, AddCidrOpts, AddPeerOpts, DeleteCidrOpts,
+    EnableDisablePeerOpts, Endpoint, IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts,
+    RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -429,10 +429,37 @@ fn spawn_expired_invite_sweeper(db: Db) {
     });
 }
 
+fn spawn_hostfile_writer(db: Db, interface: InterfaceName, hosts_path: PathBuf) {
+    tokio::task::spawn({
+        async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+
+                match DatabasePeer::list_enabled(&db.lock()) {
+                    Ok(peers) => {
+                        if let Err(e) = update_hosts_file(
+                            &interface,
+                            &hosts_path,
+                            peers.into_iter().map(|peer| peer.inner),
+                        ) {
+                            log::error!("Failed to write hostfile: {}", e);
+                        }
+                    },
+                    Err(e) => {
+                        log::error!("Failed to list enabled peers for hostfile writing: {}", e)
+                    },
+                }
+            }
+        }
+    });
+}
+
 pub async fn serve(
     interface: InterfaceName,
     conf: &ServerConfig,
     network: NetworkOpts,
+    hosts_path: Option<PathBuf>,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
     log::debug!("opening database connection...");
@@ -486,6 +513,10 @@ pub async fn serve(
     let db = Arc::new(Mutex::new(conn));
     let endpoints = spawn_endpoint_refresher(interface, network);
     spawn_expired_invite_sweeper(db.clone());
+
+    if let Some(path) = hosts_path {
+        spawn_hostfile_writer(db.clone(), interface, path);
+    }
 
     let context = Context {
         db,
