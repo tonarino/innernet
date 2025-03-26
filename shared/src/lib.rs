@@ -1,4 +1,6 @@
 pub use anyhow::Error;
+use colored::Colorize;
+use hostsfile::HostsBuilder;
 use ipnet::IpNet;
 use std::{
     fs::{self, File, Permissions},
@@ -8,6 +10,7 @@ use std::{
     path::Path,
     time::Duration,
 };
+use wireguard_control::InterfaceName;
 
 pub mod interface_config;
 #[cfg(target_os = "linux")]
@@ -140,4 +143,31 @@ impl IpNetExt for IpNet {
                 IpNet::V6(_) => self.prefix_len() >= 127 || ip != &self.network(),
             }
     }
+}
+
+pub fn update_hosts_file(
+    interface: &InterfaceName,
+    hosts_path: &Path,
+    peers: impl IntoIterator<Item = impl AsRef<Peer>>,
+) -> Result<(), WrappedIoError> {
+    let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
+    for peer in peers {
+        let peer = peer.as_ref();
+        hosts_builder.add_hostname(
+            peer.contents.ip,
+            format!("{}.{}.wg", peer.contents.name, interface),
+        );
+    }
+    match hosts_builder.write_to(hosts_path).with_path(hosts_path) {
+        Ok(has_written) if has_written => {
+            log::info!(
+                "updated {} with the latest peers.",
+                hosts_path.to_string_lossy().yellow()
+            )
+        },
+        Ok(_) => {},
+        Err(e) => log::warn!("failed to update hosts ({})", e),
+    };
+
+    Ok(())
 }
