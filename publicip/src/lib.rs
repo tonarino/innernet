@@ -1,7 +1,7 @@
 //! Get your public IP address(es) as fast as possible, with no dependencies.
 //!
-//! Currently uses Cloudflare's DNS as it's the simplest, but that could change
-//! in the future.
+//! It uses Quad9's DNS server along with a feature specific to their resolver
+//! which returns your external IP address.
 
 use std::{
     fs::File,
