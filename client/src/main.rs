@@ -112,6 +112,10 @@ enum Command {
         #[clap(short, long)]
         tree: bool,
 
+        /// Display full public keys
+        #[clap(long, conflicts_with = "short")]
+        long: bool,
+
         interface: Option<Interface>,
     },
 
@@ -221,6 +225,14 @@ enum Command {
         /// Display CIDRs in tree format
         #[clap(short, long)]
         tree: bool,
+
+        /// Display brief output
+        #[clap(short, long)]
+        short: bool,
+
+        /// Display full peer public keys in tree view
+        #[clap(long, conflicts_with = "short")]
+        long: bool,
     },
 
     /// Disable an enabled peer
@@ -773,16 +785,21 @@ fn delete_cidr(
     Ok(())
 }
 
-fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), Error> {
+fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool, short: bool, long: bool) -> Result<(), Error> {
     let data_store = DataStore::open(&opts.data_dir, interface)?;
+
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0);
+        print_tree(&cidr_tree, &[], 0, short, long);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
-            println!("{} {}", cidr.cidr, cidr.name);
+            if short {
+                println!("{}", cidr.name);
+            } else {
+                println!("{} {}", cidr.cidr, cidr.name);
+            }
         }
     }
     Ok(())
@@ -1028,7 +1045,7 @@ fn override_endpoint(
     Ok(())
 }
 
-fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
+fn show(opts: &Opts, short: bool, tree: bool, long: bool, interface: Option<Interface>) -> Result<(), Error> {
     let interfaces = interface.map_or_else(
         || Device::list(opts.network.backend),
         |interface| Ok(vec![*interface]),
@@ -1099,17 +1116,17 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peer_states, 1);
+            print_tree(&cidr_tree, &peer_states, 1, short, long);
         } else {
             for peer_state in peer_states {
-                print_peer(&peer_state, short, 1);
+                print_peer(&peer_state, short, long, 1);
             }
         }
     }
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
+fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize, short: bool, long: bool) {
     println_pad!(
         level * 2,
         "{} {}",
@@ -1121,10 +1138,10 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     children.sort();
     children
         .iter()
-        .for_each(|child| print_tree(child, peers, level + 1));
+        .for_each(|child| print_tree(child, peers, level + 1, short, long));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level);
+        print_peer(peer, short, long, level);
     }
 }
 
@@ -1152,7 +1169,7 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_peer(peer: &PeerState, short: bool, level: usize) {
+fn print_peer(peer: &PeerState, short: bool, long: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     if short {
@@ -1176,12 +1193,17 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             &peer.public_key[..6].dimmed(),
         );
     } else {
+        let key_display = if long {
+            peer.public_key.yellow()
+        } else {
+            format!("{}...", &peer.public_key[..10]).yellow()
+        };
         println_pad!(
             pad,
-            "{}: {} ({}...)",
+            "{}: {} ({})",
             "peer".yellow().bold(),
             peer.name.yellow(),
-            &peer.public_key[..10].yellow(),
+            key_display,
         );
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
         if let Some(info) = info {
@@ -1231,6 +1253,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
     let command = opts.command.clone().unwrap_or(Command::Show {
         short: false,
         tree: false,
+        long: false,
         interface: None,
     });
 
@@ -1243,9 +1266,10 @@ fn run(opts: &Opts) -> Result<(), Error> {
         } => install(opts, &invite, hosts.into(), install_opts, &nat)?,
         Command::Show {
             short,
+            long,
             tree,
             interface,
-        } => show(opts, short, tree, interface)?,
+        } => show(opts, short, long, tree, interface)?,
         Command::Fetch {
             interface,
             hosts,
@@ -1286,7 +1310,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interface,
             sub_opts,
         } => delete_cidr(&interface, opts, sub_opts)?,
-        Command::ListCidrs { interface, tree } => list_cidrs(&interface, opts, tree)?,
+        Command::ListCidrs { interface, tree, short, long } => list_cidrs(&interface, opts, tree, short, long)?,
         Command::DisablePeer {
             interface,
             sub_opts,
