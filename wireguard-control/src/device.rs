@@ -223,6 +223,8 @@ impl Device {
         match backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::enumerate(),
+            #[cfg(target_os = "openbsd")]
+            Backend::KernelOpenBSD => backends::kernelopenbsd::enumerate(),
             Backend::Userspace => backends::userspace::enumerate(),
         }
     }
@@ -231,6 +233,8 @@ impl Device {
         match backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::get_by_name(name),
+            #[cfg(target_os = "openbsd")]
+            Backend::KernelOpenBSD => backends::kernelopenbsd::get_by_name(name),
             Backend::Userspace => backends::userspace::get_by_name(name),
         }
     }
@@ -239,6 +243,8 @@ impl Device {
         match self.backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::delete_interface(&self.name),
+            #[cfg(target_os = "openbsd")]
+            Backend::KernelOpenBSD => backends::kernelopenbsd::delete_interface(&self.name),
             Backend::Userspace => backends::userspace::delete_interface(&self.name),
         }
     }
@@ -424,6 +430,8 @@ impl DeviceUpdate {
         match backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::apply(&self, iface),
+            #[cfg(target_os = "openbsd")]
+            Backend::KernelOpenBSD => backends::kernelopenbsd::apply(&self, iface),
             Backend::Userspace => backends::userspace::apply(&self, iface),
         }
     }
