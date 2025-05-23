@@ -5,8 +5,20 @@ use crate::{
 
 use std::{convert::TryFrom, io};
 
+use nix;
+
 pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
-    todo!("enum");
+
+    let interfaces = nix::net::if_::if_nameindex()?;
+    let mut ifs = vec![];
+    for iface in &interfaces {
+        let name = iface.name().to_string_lossy().to_string();
+        if name.starts_with("wg") {
+            let interface_name = name.parse::<InterfaceName>()?;
+            ifs.push(interface_name);
+        }
+    }
+    Ok(ifs)
 }
 
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
