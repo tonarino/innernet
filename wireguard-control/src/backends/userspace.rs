@@ -78,23 +78,6 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     Ok(interfaces)
 }
 
-fn new_peer_info(public_key: Key) -> PeerInfo {
-    PeerInfo {
-        config: PeerConfig {
-            public_key,
-            preshared_key: None,
-            endpoint: None,
-            persistent_keepalive_interval: None,
-            allowed_ips: vec![],
-        },
-        stats: PeerStats {
-            last_handshake_time: None,
-            rx_bytes: 0,
-            tx_bytes: 0,
-        },
-    }
-}
-
 struct ConfigParser {
     device_info: Device,
     current_peer: Option<PeerInfo>,
@@ -153,7 +136,7 @@ impl ConfigParser {
             },
             "fwmark" => self.device_info.fwmark = Some(value.parse().map_err(|_| InvalidData)?),
             "public_key" => {
-                let new_peer = new_peer_info(Key::from_hex(value).map_err(|_| InvalidData)?);
+                let new_peer = PeerInfo::new(Key::from_hex(value).map_err(|_| InvalidData)?);
 
                 if let Some(finished_peer) = self.current_peer.replace(new_peer) {
                     self.device_info.peers.push(finished_peer);

@@ -84,6 +84,26 @@ pub struct PeerInfo {
     pub stats: PeerStats,
 }
 
+impl PeerInfo {
+
+    pub fn new(public_key: Key) -> PeerInfo {
+        PeerInfo {
+            config: PeerConfig {
+                public_key,
+                preshared_key: None,
+                endpoint: None,
+                persistent_keepalive_interval: None,
+                allowed_ips: vec![],
+            },
+            stats: PeerStats {
+                last_handshake_time: None,
+                rx_bytes: 0,
+                tx_bytes: 0,
+            },
+        }
+    }
+}
+
 /// Represents all available information about a WireGuard device (interface).
 ///
 /// This struct contains the current configuration of the device
