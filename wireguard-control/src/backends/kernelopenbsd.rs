@@ -3,9 +3,13 @@ use crate::{
     PeerConfigBuilder, PeerInfo, PeerStats,
 };
 
-use std::{convert::TryFrom, io};
+use core::str;
+use std::{
+    io, iter::Peekable, net::{IpAddr, SocketAddr},
+    process::Command, str::FromStr, time::{Duration, SystemTime}
+};
 
-use nix;
+const IFCONFIG_PARSING_ERROR: &str = "Unable to parse ifconfig output";
 
 pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
 
@@ -25,8 +29,130 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     todo!("{}" ,iface.to_string());
 }
 
+fn parse_peer_attributes(peer : &mut PeerInfo, lines : &mut Peekable<str::Lines>)
+{
+    while let Some(peer_attr) = &mut lines.next_if(|&subline| subline.starts_with("\t\t")) {
+
+        let peer_attr_clean = peer_attr.trim_start_matches("\t\t");
+        let mut peer_attr_tokens = peer_attr_clean.split_whitespace().peekable();
+
+        if let Some(key) = peer_attr_tokens.next(){
+            match key {
+                "wgdescr:" => {},
+                "wgpsk" => {},
+                "wgpka" => {},
+                "wgendpoint" => {
+                    let ip_token = peer_attr_tokens
+                        .next()
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    let ip = IpAddr::from_str(ip_token)
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    let port = peer_attr_tokens
+                        .next()
+                        .expect(IFCONFIG_PARSING_ERROR)
+                        .parse::<u16>()
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    peer.config.endpoint = Some(SocketAddr::new(ip, port));
+                },
+                "wgaip" => {
+                    let aip_token = peer_attr_tokens
+                        .next()
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    let aip = AllowedIp::from_str(aip_token)
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    peer.config.allowed_ips.push(aip);
+                },
+                "tx:" => {
+                    peer.stats.tx_bytes = peer_attr_tokens
+                        .next()
+                        .expect(IFCONFIG_PARSING_ERROR)
+                        .trim_end_matches(",")
+                        .parse()
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    peer_attr_tokens.next(); // skip "rx:" token
+
+                    peer.stats.rx_bytes = peer_attr_tokens
+                        .next()
+                        .expect(IFCONFIG_PARSING_ERROR)
+                        .parse()
+                        .expect(IFCONFIG_PARSING_ERROR);
+                },
+                "last" => {
+                    peer_attr_tokens.next(); // skip "handshake:" token
+
+                    let sec_since_last_hs = peer_attr_tokens
+                        .next()
+                        .expect(IFCONFIG_PARSING_ERROR)
+                        .parse()
+                        .expect(IFCONFIG_PARSING_ERROR);
+
+                    let now = SystemTime::now();
+                    let duration_since_last_hs = Duration::from_secs(sec_since_last_hs);
+                    peer.stats.last_handshake_time = Some(now - duration_since_last_hs);
+                },
+                _ => {}
+            }
+        }
+    }
+}
+
 pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
-    todo!("{}" ,name.to_string());
+    let output = Command::new("ifconfig")
+        .arg(name.as_str_lossy().as_ref())
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    let mut device = Device {
+        name: *name,
+        public_key: None,
+        private_key: None,
+        fwmark: None,
+        listen_port: None,
+        peers: Vec::new(),
+        linked_name: None,
+        backend: Backend::KernelOpenBSD,
+    };
+
+    let mut lines = stdout.lines().peekable();
+
+    while let Some(line) = lines.next() {
+
+        let mut tokens = line.split_whitespace();
+        if let Some(token) = tokens.next(){
+            match token {
+                "wgport" => {
+                    device.listen_port = tokens
+                        .next()
+                        .map(|port_str| port_str.parse()
+                        .expect(IFCONFIG_PARSING_ERROR)
+                    );
+                },
+                "wgpubkey" => {
+                    device.public_key = tokens
+                        .next()
+                        .map(|token|  Key::from_base64 (token))
+                        .map(|r|r.expect(IFCONFIG_PARSING_ERROR));
+                },
+                "wgpeer" => {
+                    let peer_key = Key::from_base64(tokens.next()
+                        .expect(IFCONFIG_PARSING_ERROR))
+                        .expect(IFCONFIG_PARSING_ERROR);
+                    let mut peer = PeerInfo::new(peer_key);
+                    parse_peer_attributes(&mut peer, &mut lines);
+                    device.peers.push(peer);
+                },
+                _ => {}
+            }
+        }
+    }
+    Ok(device)
 }
 
 pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
