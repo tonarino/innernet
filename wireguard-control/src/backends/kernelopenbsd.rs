@@ -25,8 +25,61 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
     Ok(ifs)
 }
 
+fn interface_exists(iface : &InterfaceName) -> Result<bool, io::Error> {
+    let devices = enumerate()?;
+    Ok(devices.contains(iface))
+}
+
 pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
-    todo!("{}" ,iface.to_string());
+
+    let mut cmd = Command::new("ifconfig");
+    cmd.arg(iface.as_str_lossy().as_ref());
+    if !interface_exists(iface)? {
+        cmd.arg("create");
+    }
+
+    if let Some(private_key) = &builder.private_key {
+        cmd.arg("wgkey");
+        cmd.arg(private_key.to_base64());
+    }
+
+    if let Some(port) = &builder.listen_port {
+        cmd.arg("wgport");
+        cmd.arg(port.to_string());
+    }
+
+    if builder.peers.len() > 0 {
+        for peer in &builder.peers {
+            cmd.arg("wgpeer");
+            cmd.arg(peer.public_key().to_base64());
+            if let Some(preshared_key) = &peer.preshared_key {
+                cmd.arg("wgpsk");
+                cmd.arg(preshared_key.to_base64());
+            }
+            if let Some(endpoint) = &peer.endpoint {
+                cmd.arg("wgendpoint");
+                cmd.arg(endpoint.ip().to_string());
+                cmd.arg(endpoint.port().to_string());
+            }
+            if let Some(keepalive) = &peer.persistent_keepalive_interval {
+                cmd.arg("wgpka");
+                cmd.arg(keepalive.to_string());
+            }
+            for aip in  &peer.allowed_ips {
+                cmd.arg("wgaip");
+                let ip_cidr_str = format!("{}/{}" , aip.address, aip.cidr.to_string());
+                cmd.arg(ip_cidr_str);
+            }
+        }
+    }
+
+    let output = cmd.output()?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        eprintln!("Failed to set interface: {}" ,stderr);
+        return Err(io::ErrorKind::Other.into());
+    }
+    Ok(())
 }
 
 fn parse_peer_attributes(peer : &mut PeerInfo, lines : &mut Peekable<str::Lines>)
