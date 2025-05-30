@@ -1,6 +1,6 @@
 use crate::{
-    device::AllowedIp, Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfig,
-    PeerConfigBuilder, PeerInfo, PeerStats,
+    device::AllowedIp, Backend, Device, DeviceUpdate,
+    InterfaceName, Key, PeerInfo
 };
 
 use core::str;
