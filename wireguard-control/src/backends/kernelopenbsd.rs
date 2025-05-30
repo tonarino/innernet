@@ -209,7 +209,16 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
 }
 
 pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
-    todo!("{}" ,iface.to_string());
+    let output = Command::new("ifconfig")
+        .arg(iface.as_str_lossy().as_ref())
+        .arg("destroy")
+        .output()?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        eprintln!("Failed to destory interface: {}" ,stderr);
+        return Err(io::ErrorKind::Other.into());
+    }
+    Ok(())
 }
 
 /*
