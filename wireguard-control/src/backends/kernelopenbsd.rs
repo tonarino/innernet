@@ -49,7 +49,19 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     }
 
     if builder.peers.len() > 0 {
+        if builder.replace_peers {
+            for peer in &builder.peers {
+                cmd.arg("-wgpeer");
+                cmd.arg(peer.public_key().to_base64());
+            }
+        }
+
         for peer in &builder.peers {
+            if peer.remove_me {
+                cmd.arg("-wgpeer");
+                cmd.arg(peer.public_key().to_base64());
+                continue;
+            }
             cmd.arg("wgpeer");
             cmd.arg(peer.public_key().to_base64());
             if let Some(preshared_key) = &peer.preshared_key {
