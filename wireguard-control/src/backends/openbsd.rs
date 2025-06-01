@@ -233,73 +233,28 @@ pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
     Ok(())
 }
 
-/*
 #[cfg(test)]
 mod tests {
+    use crate::PeerConfigBuilder;
     use super::*;
-    use netlink_packet_wireguard::nlas::WgAllowedIp;
-    use netlink_request::max_netlink_buffer_length;
-    use std::str::FromStr;
-
     #[test]
-    fn test_simple_payload() {
-        let mut payload = ApplyPayload::new(&InterfaceName::from_str("wg0").unwrap());
-        payload.push(WgDeviceAttrs::PrivateKey([1u8; 32])).unwrap();
-        payload.push(WgDeviceAttrs::Fwmark(111)).unwrap();
-        payload.push(WgDeviceAttrs::ListenPort(12345)).unwrap();
-        payload
-            .push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS))
-            .unwrap();
-        payload
-            .push_peer(WgPeer(vec![
-                WgPeerAttrs::PublicKey([2u8; 32]),
-                WgPeerAttrs::PersistentKeepalive(25),
-                WgPeerAttrs::Endpoint("1.1.1.1:51820".parse().unwrap()),
-                WgPeerAttrs::Flags(WGPEER_F_REPLACE_ALLOWEDIPS),
-                WgPeerAttrs::AllowedIps(vec![WgAllowedIp(vec![
-                    WgAllowedIpAttrs::Family(AF_INET),
-                    WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
-                    WgAllowedIpAttrs::Cidr(24),
-                ])]),
-            ]))
-            .unwrap();
-        assert_eq!(payload.finish().len(), 1);
+    fn test_add_delete() {
+        let iface = InterfaceName::from_str("wg5").unwrap();
+        let peer1 = PeerConfigBuilder::new(
+                &Key::from_base64("LdxcIAOY4EuSZpI0SRiBM7cZbhVSqmDSzgXfDikafyU=").unwrap())
+                .set_endpoint("33.22.11.0:8684".parse().unwrap())
+                .add_allowed_ip("100.0.0.1".parse().unwrap(), 8);
+
+        let config = DeviceUpdate::new()
+            .set_private_key(Key::from_base64("Y/NG0R2i1Gtvollv5o/U3YaOlewG6HeyTLIUlrTrKg4=").unwrap())
+            .set_listen_port(1233)
+            .add_peer(peer1);
+        apply(&config, &iface).unwrap();
+
+        let dev = get_by_name(&iface).unwrap();
+        assert_eq!(dev.name, iface);
+
+        delete_interface(&iface).unwrap();
     }
 
-    #[test]
-    fn test_massive_payload() {
-        let mut payload = ApplyPayload::new(&InterfaceName::from_str("wg0").unwrap());
-        payload.push(WgDeviceAttrs::PrivateKey([1u8; 32])).unwrap();
-        payload.push(WgDeviceAttrs::Fwmark(111)).unwrap();
-        payload.push(WgDeviceAttrs::ListenPort(12345)).unwrap();
-        payload
-            .push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS))
-            .unwrap();
-
-        for i in 0..10_000 {
-            payload
-                .push_peer(WgPeer(vec![
-                    WgPeerAttrs::PublicKey([2u8; 32]),
-                    WgPeerAttrs::PersistentKeepalive(25),
-                    WgPeerAttrs::Endpoint("1.1.1.1:51820".parse().unwrap()),
-                    WgPeerAttrs::Flags(WGPEER_F_REPLACE_ALLOWEDIPS),
-                    WgPeerAttrs::AllowedIps(vec![WgAllowedIp(vec![
-                        WgAllowedIpAttrs::Family(AF_INET),
-                        WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
-                        WgAllowedIpAttrs::Cidr(24),
-                    ])]),
-                    WgPeerAttrs::Unspec(vec![1u8; (i % 256) as usize]),
-                ]))
-                .unwrap();
-        }
-
-        let messages = payload.finish();
-        println!("generated {} messages", messages.len());
-        assert!(messages.len() > 1);
-        let max_buffer_len = max_netlink_buffer_length();
-        for message in messages {
-            assert!(NetlinkMessage::from(message).buffer_len() <= max_buffer_len);
-        }
-    }
 }
-*/
