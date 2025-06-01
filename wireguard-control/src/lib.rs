@@ -27,10 +27,9 @@ impl Default for Backend {
         }
         #[cfg(target_os = "openbsd")]
         {
-            Self::OpenBSD;
+            Self::OpenBSD
         }
-
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "openbsd")))]
         {
             Self::Userspace
         }

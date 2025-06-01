@@ -2,6 +2,6 @@
 pub mod kernel;
 
 #[cfg(target_os = "openbsd")]
-pub mod kernelopenbsd;
+pub mod openbsd;
 
 pub mod userspace;
