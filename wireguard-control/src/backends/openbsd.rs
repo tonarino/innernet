@@ -182,7 +182,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         listen_port: None,
         peers: Vec::new(),
         linked_name: None,
-        backend: Backend::KernelOpenBSD,
+        backend: Backend::OpenBSD,
     };
 
     let mut lines = stdout.lines().peekable();

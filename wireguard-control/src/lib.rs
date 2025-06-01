@@ -15,7 +15,7 @@ pub enum Backend {
     #[cfg(target_os = "linux")]
     Kernel,
     #[cfg(target_os = "openbsd")]
-    KernelOpenBSD,
+    OpenBSD,
     Userspace,
 }
 
@@ -27,7 +27,7 @@ impl Default for Backend {
         }
         #[cfg(target_os = "openbsd")]
         {
-            Self::KernelOpenBSD;
+            Self::OpenBSD;
         }
 
         #[cfg(not(target_os = "linux"))]
@@ -43,7 +43,7 @@ impl Display for Backend {
             #[cfg(target_os = "linux")]
             Self::Kernel => write!(f, "kernel"),
             #[cfg(target_os = "openbsd")]
-            Self::KernelOpenBSD => write!(f, "kernel"),
+            Self::OpenBSD => write!(f, "kernel"),
             Self::Userspace => write!(f, "userspace"),
         }
     }
@@ -57,7 +57,7 @@ impl FromStr for Backend {
             #[cfg(target_os = "linux")]
             "kernel" => Ok(Self::Kernel),
             #[cfg(target_os = "openbsd")]
-            "kernel" => Ok(Self::KernelOpenBSD),
+            "kernel" => Ok(Self::OpenBSD),
             "userspace" => Ok(Self::Userspace),
             _ => Err(format!("valid values: {}.", Self::variants().join(", "))),
         }
