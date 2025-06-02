@@ -1,4 +1,4 @@
-use crate::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfig, PeerInfo, PeerStats};
+use crate::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerInfo};
 
 use std::{
     fmt::Write as _,
