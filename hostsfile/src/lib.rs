@@ -132,15 +132,13 @@ impl HostsBuilder {
                 // the location depends on the environment variable %WinDir%.
                 format!(
                     "{}\\System32\\Drivers\\Etc\\hosts",
-                    std::env::var("WinDir").map_err(|_| io::Error::new(
-                        ErrorKind::Other,
+                    std::env::var("WinDir").map_err(|_| io::Error::other(
                         "WinDir environment variable missing".to_owned()
                     ))?
                 ),
             )
         } else {
-            return Err(io::Error::new(
-                ErrorKind::Other,
+            return Err(io::Error::other(
                 "unsupported operating system.".to_owned(),
             ));
         };
