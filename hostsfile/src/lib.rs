@@ -138,9 +138,7 @@ impl HostsBuilder {
                 ),
             )
         } else {
-            return Err(io::Error::other(
-                "unsupported operating system.".to_owned(),
-            ));
+            return Err(io::Error::other("unsupported operating system.".to_owned()));
         };
 
         if !hosts_file.exists() {
