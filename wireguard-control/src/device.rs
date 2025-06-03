@@ -85,7 +85,6 @@ pub struct PeerInfo {
 }
 
 impl PeerInfo {
-
     pub fn new(public_key: Key) -> PeerInfo {
         PeerInfo {
             config: PeerConfig {

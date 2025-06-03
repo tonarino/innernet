@@ -69,17 +69,17 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error>
         IpNet::V4(_) => "inet",
         IpNet::V6(_) => "inet6",
     };
-    cmd("ifconfig",
-        &[&interface.to_string(), af, &addr.to_string()])
-        .map(|_output| ())
+    cmd("ifconfig", &[&interface.to_string(), af, &addr.to_string()]).map(|_output| ())
 }
 
 #[cfg(target_os = "openbsd")]
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
-    cmd("ifconfig", &[&interface.to_string(), "mtu", &mtu.to_string()])?;
+    cmd(
+        "ifconfig",
+        &[&interface.to_string(), "mtu", &mtu.to_string()],
+    )?;
     Ok(())
 }
-
 
 #[cfg(target_os = "linux")]
 pub use super::netlink::set_addr;
