@@ -163,6 +163,12 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         .arg(name.as_str_lossy().as_ref())
         .output()?;
 
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        eprintln!("Failed to get interface: {}", stderr);
+        return Err(io::ErrorKind::Other.into());
+    }
+
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     let mut device = Device {
