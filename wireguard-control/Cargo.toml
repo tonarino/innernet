@@ -14,6 +14,7 @@ version = "1.6.1"
 base64 = "0.13.1"
 hex = "0.4.3"
 libc = "0.2"
+nix = { version = "0.30.1" , features = ["net"] }
 log = "0.4"
 rand_core = { version = "0.6", features = ["getrandom"] }
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }

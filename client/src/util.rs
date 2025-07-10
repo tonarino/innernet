@@ -237,7 +237,7 @@ pub struct Api<'a> {
 impl<'a> Api<'a> {
     pub fn new(server: &'a ServerInfo) -> Self {
         let agent = AgentBuilder::new()
-            .timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(15))
             .redirects(0)
             .build();
         Self { agent, server }
