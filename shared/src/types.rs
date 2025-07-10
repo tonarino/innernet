@@ -568,7 +568,7 @@ pub enum PeerChange {
 impl Display for PeerChange {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AllowedIPs { old, new } => write!(f, "Allowed IPs: {:?} => {:?}", old, new),
+            Self::AllowedIPs { old, new } => write!(f, "Allowed IPs: {old:?} => {new:?}"),
             Self::PersistentKeepalive { old, new } => write!(
                 f,
                 "Persistent Keepalive: {} => {}",
@@ -594,7 +594,7 @@ impl<T: std::fmt::Debug> OptionExt for Option<T> {
     fn display_string(&self) -> String {
         match self {
             Some(x) => {
-                format!("{:?}", x)
+                format!("{x:?}")
             },
             None => "[none]".to_string(),
         }
