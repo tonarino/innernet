@@ -202,7 +202,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
                 "wgpeer" => {
                     let peer_key = Key::from_base64(tokens.next().expect(IFCONFIG_PARSING_ERROR))
                         .expect(IFCONFIG_PARSING_ERROR);
-                    let mut peer = PeerInfo::new(peer_key);
+                    let mut peer = PeerInfo::from_public_key(peer_key);
                     parse_peer_attributes(&mut peer, &mut lines);
                     device.peers.push(peer);
                 },
