@@ -19,8 +19,7 @@ fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
     if output.status.success() {
         Ok(output)
     } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
+        Err(io::Error::other(
             format!(
                 "failed to run {} {} command: {}",
                 bin,
@@ -173,8 +172,7 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Err
     )?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
+        Err(io::Error::other(
             format!(
                 "failed to add route for device {} ({}): {}",
                 &interface, real_interface, stderr
