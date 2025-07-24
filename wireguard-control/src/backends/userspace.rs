@@ -136,7 +136,8 @@ impl ConfigParser {
             },
             "fwmark" => self.device_info.fwmark = Some(value.parse().map_err(|_| InvalidData)?),
             "public_key" => {
-                let new_peer = PeerInfo::from_public_key(Key::from_hex(value).map_err(|_| InvalidData)?);
+                let new_peer =
+                    PeerInfo::from_public_key(Key::from_hex(value).map_err(|_| InvalidData)?);
 
                 if let Some(finished_peer) = self.current_peer.replace(new_peer) {
                     self.device_info.peers.push(finished_peer);
