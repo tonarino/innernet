@@ -22,12 +22,14 @@ struct Opts {
     #[clap(short, long, default_value = "/etc/innernet-server")]
     config_dir: PathBuf,
 
-    #[cfg(not(target_os = "openbsd"))]
-    #[clap(short, long, default_value = "/var/lib/innernet-server")]
-    data_dir: PathBuf,
-
-    #[cfg(target_os = "openbsd")]
-    #[clap(short, long, default_value = "/var/db/innernet-server")]
+    #[cfg_attr(
+        not(target_os = "openbsd"),
+        clap(short, long, default_value = "/var/lib/innernet-server")
+    )]
+    #[cfg_attr(
+        target_os = "openbsd",
+        clap(short, long, default_value = "/var/db/innernet-server")
+    )]
     data_dir: PathBuf,
 
     #[clap(flatten)]
