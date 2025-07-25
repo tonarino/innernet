@@ -74,7 +74,7 @@ pub fn chmod(file: &File, new_mode: u32) -> Result<bool, io::Error> {
     Ok(updated)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "openbsd"))]
 pub fn _get_local_addrs() -> Result<impl Iterator<Item = std::net::IpAddr>, io::Error> {
     use std::net::Ipv4Addr;
 

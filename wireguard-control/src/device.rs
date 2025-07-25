@@ -84,6 +84,25 @@ pub struct PeerInfo {
     pub stats: PeerStats,
 }
 
+impl PeerInfo {
+    pub fn from_public_key(public_key: Key) -> PeerInfo {
+        PeerInfo {
+            config: PeerConfig {
+                public_key,
+                preshared_key: None,
+                endpoint: None,
+                persistent_keepalive_interval: None,
+                allowed_ips: vec![],
+            },
+            stats: PeerStats {
+                last_handshake_time: None,
+                rx_bytes: 0,
+                tx_bytes: 0,
+            },
+        }
+    }
+}
+
 /// Represents all available information about a WireGuard device (interface).
 ///
 /// This struct contains the current configuration of the device
@@ -223,6 +242,8 @@ impl Device {
         match backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::enumerate(),
+            #[cfg(target_os = "openbsd")]
+            Backend::OpenBSD => backends::openbsd::enumerate(),
             Backend::Userspace => backends::userspace::enumerate(),
         }
     }
@@ -231,6 +252,8 @@ impl Device {
         match backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::get_by_name(name),
+            #[cfg(target_os = "openbsd")]
+            Backend::OpenBSD => backends::openbsd::get_by_name(name),
             Backend::Userspace => backends::userspace::get_by_name(name),
         }
     }
@@ -239,6 +262,8 @@ impl Device {
         match self.backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::delete_interface(&self.name),
+            #[cfg(target_os = "openbsd")]
+            Backend::OpenBSD => backends::openbsd::delete_interface(&self.name),
             Backend::Userspace => backends::userspace::delete_interface(&self.name),
         }
     }
@@ -424,6 +449,8 @@ impl DeviceUpdate {
         match backend {
             #[cfg(target_os = "linux")]
             Backend::Kernel => backends::kernel::apply(&self, iface),
+            #[cfg(target_os = "openbsd")]
+            Backend::OpenBSD => backends::openbsd::apply(&self, iface),
             Backend::Userspace => backends::userspace::apply(&self, iface),
         }
     }
