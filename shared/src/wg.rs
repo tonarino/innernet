@@ -9,7 +9,7 @@ use wireguard_control::{
     Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo,
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "openbsd"))]
 fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
     let output = std::process::Command::new(bin).args(args).output()?;
     log::debug!("cmd: {} {}", bin, args.join(" "));
@@ -19,15 +19,12 @@ fn cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, io::Error> {
     if output.status.success() {
         Ok(output)
     } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!(
-                "failed to run {} {} command: {}",
-                bin,
-                args.join(" "),
-                String::from_utf8_lossy(&output.stderr)
-            ),
-        ))
+        Err(io::Error::other(format!(
+            "failed to run {} {} command: {}",
+            bin,
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr)
+        )))
     }
 }
 
@@ -60,6 +57,24 @@ pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error>
 pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
     let real_interface = wireguard_control::backends::userspace::resolve_tun(interface)?;
     cmd("ifconfig", &[&real_interface, "mtu", &mtu.to_string()])?;
+    Ok(())
+}
+
+#[cfg(target_os = "openbsd")]
+pub fn set_addr(interface: &InterfaceName, addr: IpNet) -> Result<(), io::Error> {
+    let af = match &addr {
+        IpNet::V4(_) => "inet",
+        IpNet::V6(_) => "inet6",
+    };
+    cmd("ifconfig", &[&interface.to_string(), af, &addr.to_string()]).map(|_output| ())
+}
+
+#[cfg(target_os = "openbsd")]
+pub fn set_up(interface: &InterfaceName, mtu: u32) -> Result<(), io::Error> {
+    cmd(
+        "ifconfig",
+        &[&interface.to_string(), "mtu", &mtu.to_string()],
+    )?;
     Ok(())
 }
 
@@ -102,6 +117,8 @@ pub fn up(
     set_addr(interface, address)?;
     set_up(interface, network.mtu.unwrap_or(1280))?;
     if !network.no_routing {
+        // On OpenBSD, `ifconfig` handles this for us
+        #[cfg(not(target_os = "openbsd"))]
         add_route(interface, address)?;
     }
     Ok(())
@@ -153,13 +170,10 @@ pub fn add_route(interface: &InterfaceName, cidr: IpNet) -> Result<bool, io::Err
     )?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!(
-                "failed to add route for device {} ({}): {}",
-                &interface, real_interface, stderr
-            ),
-        ))
+        Err(io::Error::other(format!(
+            "failed to add route for device {} ({}): {}",
+            &interface, real_interface, stderr
+        )))
     } else {
         Ok(!stderr.contains("File exists"))
     }

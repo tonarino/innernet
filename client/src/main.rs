@@ -59,7 +59,14 @@ struct Opts {
     #[clap(short, long, default_value = "/etc/innernet")]
     config_dir: PathBuf,
 
-    #[clap(short, long, default_value = "/var/lib/innernet")]
+    #[cfg_attr(
+        not(target_os = "openbsd"),
+        clap(short, long, default_value = "/var/lib/innernet")
+    )]
+    #[cfg_attr(
+        target_os = "openbsd",
+        clap(short, long, default_value = "/var/db/innernet")
+    )]
     data_dir: PathBuf,
 
     #[clap(flatten)]

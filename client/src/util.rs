@@ -237,7 +237,9 @@ pub struct Api<'a> {
 impl<'a> Api<'a> {
     pub fn new(server: &'a ServerInfo) -> Self {
         let agent = AgentBuilder::new()
-            .timeout(Duration::from_secs(5))
+            // Some platforms (e.g. OpenBSD) can take longer to complete the first WireGuard
+            // handshake, hence a lower timeout value could result in an unwarranted failure
+            .timeout(Duration::from_secs(10))
             .redirects(0)
             .build();
         Self { agent, server }

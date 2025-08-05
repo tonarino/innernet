@@ -14,6 +14,8 @@ pub use crate::{config::*, device::*, key::*};
 pub enum Backend {
     #[cfg(target_os = "linux")]
     Kernel,
+    #[cfg(target_os = "openbsd")]
+    OpenBSD,
     Userspace,
 }
 
@@ -23,8 +25,11 @@ impl Default for Backend {
         {
             Self::Kernel
         }
-
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "openbsd")]
+        {
+            Self::OpenBSD
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "openbsd")))]
         {
             Self::Userspace
         }
@@ -36,6 +41,8 @@ impl Display for Backend {
         match self {
             #[cfg(target_os = "linux")]
             Self::Kernel => write!(f, "kernel"),
+            #[cfg(target_os = "openbsd")]
+            Self::OpenBSD => write!(f, "kernel"),
             Self::Userspace => write!(f, "userspace"),
         }
     }
@@ -48,6 +55,8 @@ impl FromStr for Backend {
         match s.to_ascii_lowercase().as_str() {
             #[cfg(target_os = "linux")]
             "kernel" => Ok(Self::Kernel),
+            #[cfg(target_os = "openbsd")]
+            "kernel" => Ok(Self::OpenBSD),
             "userspace" => Ok(Self::Userspace),
             _ => Err(format!("valid values: {}.", Self::variants().join(", "))),
         }
@@ -56,12 +65,11 @@ impl FromStr for Backend {
 
 impl Backend {
     pub fn variants() -> &'static [&'static str] {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "openbsd"))]
         {
             &["kernel", "userspace"]
         }
-
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "openbsd")))]
         {
             &["userspace"]
         }
