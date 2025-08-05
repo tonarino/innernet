@@ -166,7 +166,13 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .ok_or_else(|| anyhow!("couldn't get external IP"))?;
         SocketAddr::new(ip, listen_port).into()
     } else {
-        prompts::ask_endpoint(listen_port)?
+        let external_ip = if prompts::confirm_ip_auto_detection()? {
+            publicip::get_any(Preference::Ipv4)
+        } else {
+            None
+        };
+
+        prompts::input_external_endpoint(external_ip, listen_port)?
     };
 
     let our_ip = root_cidr
