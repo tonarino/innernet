@@ -15,7 +15,7 @@ use std::{
     fmt::{Debug, Display},
     fs::{File, OpenOptions},
     io,
-    net::{IpAddr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
     time::SystemTime,
 };
@@ -561,18 +561,18 @@ pub fn set_listen_port(
 pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
     let external_ip = if Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
+        .with_prompt(
+            "Use an unspecified IP address and override just the port? (use if you do not have a fixed global IP)",
+        )
+        .interact()?
+    {
+        Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+    } else if Confirm::with_theme(&*THEME)
+        .wait_for_newline(true)
         .with_prompt("Auto-detect external endpoint IP address (via DNS query to 9.9.9.9)?")
         .interact()?
     {
         publicip::get_any(Preference::Ipv4)
-    } else if Confirm::with_theme(&*THEME)
-        .wait_for_newline(true)
-        .with_prompt(
-            "Use an unspecified IP address? (this can occur if you do not have a fixed global IP)",
-        )
-        .interact()?
-    {
-        Some(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
     } else {
         None
     };
