@@ -601,6 +601,10 @@ pub fn override_endpoint(
         Some(endpoint) => endpoint.clone(),
         None => {
             let external_ip = if confirm_unspecified_ip_usage()? {
+                log::info!(
+                    "Unspecified IPs require innernet server version at least 1.7.0 so that they \
+                     are resolved correctly."
+                );
                 Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
             } else if confirm_ip_auto_detection()? {
                 publicip::get_any(Preference::Ipv4)
