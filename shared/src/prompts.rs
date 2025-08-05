@@ -1,8 +1,8 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
-    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts,
-    OverrideEndpointOpts, Peer, PeerContents, RenameCidrOpts, RenamePeerOpts,
+    prompts, AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt,
+    ListenPortOpts, OverrideEndpointOpts, Peer, PeerContents, RenameCidrOpts, RenamePeerOpts,
     PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
@@ -558,32 +558,39 @@ pub fn set_listen_port(
     }
 }
 
-pub fn ask_endpoint(listen_port: u16) -> Result<Endpoint, Error> {
-    let external_ip = if Confirm::with_theme(&*THEME)
+pub fn confirm_ip_auto_detection() -> Result<bool, Error> {
+    let answer = Confirm::with_theme(&*THEME)
+        .wait_for_newline(true)
+        .with_prompt("Auto-detect external endpoint IP address (via a DNS query to 1.1.1.1)?")
+        .interact()?;
+
+    Ok(answer)
+}
+
+pub fn confirm_unspecified_ip_usage() -> Result<bool, Error> {
+    let answer = Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
         .with_prompt(
             "Use an unspecified IP address and override just the port? (use if you do not have a fixed global IP)",
         )
-        .interact()?
-    {
-        Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-    } else if Confirm::with_theme(&*THEME)
-        .wait_for_newline(true)
-        .with_prompt("Auto-detect external endpoint IP address (via a DNS query to 1.1.1.1)?")
-        .interact()?
-    {
-        publicip::get_any(Preference::Ipv4)
-    } else {
-        None
-    };
+        .interact()?;
 
-    Ok(input(
+    Ok(answer)
+}
+
+pub fn input_external_endpoint(
+    external_ip: Option<IpAddr>,
+    listen_port: u16,
+) -> Result<Endpoint, Error> {
+    let endpoint = input(
         "External endpoint",
         match external_ip {
             Some(ip) => Prefill::Editable(SocketAddr::new(ip, listen_port).to_string()),
             None => Prefill::None,
         },
-    )?)
+    )?;
+
+    Ok(endpoint)
 }
 
 pub fn override_endpoint(
@@ -592,7 +599,17 @@ pub fn override_endpoint(
 ) -> Result<Option<Endpoint>, Error> {
     let endpoint = match &args.endpoint {
         Some(endpoint) => endpoint.clone(),
-        None => ask_endpoint(listen_port)?,
+        None => {
+            let external_ip = if confirm_unspecified_ip_usage()? {
+                Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+            } else if confirm_ip_auto_detection()? {
+                publicip::get_any(Preference::Ipv4)
+            } else {
+                None
+            };
+
+            prompts::input_external_endpoint(external_ip, listen_port)?
+        },
     };
     if args.yes || confirm(&format!("Set external endpoint to {endpoint}?"))? {
         Ok(Some(endpoint))
