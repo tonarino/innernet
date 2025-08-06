@@ -582,7 +582,20 @@ fn fetch(
     );
     let mut store = DataStore::open_or_create(&opts.data_dir, interface)?;
     let api = Api::new(&config.server);
-    let State { peers, cidrs } = api.http("GET", "/user/state")?;
+    let (State { peers, cidrs }, server_is_reachable) = match api.http("GET", "/user/state") {
+        Ok(state) => (state, true),
+        Err(ureq::Error::Transport(_)) => {
+            log::warn!(
+                "Could not connect to the innernet server, proceeding with cached state instead."
+            );
+            let state = State {
+                peers: store.peers().to_vec(),
+                cidrs: store.cidrs().to_vec(),
+            };
+            (state, false)
+        },
+        Err(e) => bail!(e),
+    };
 
     let device = Device::get(interface, opts.network.backend)?;
     let modifications = device.diff(&peers);
@@ -615,26 +628,10 @@ fn fetch(
     store.update_peers(&peers)?;
     store.write().with_str(interface.to_string())?;
 
-    let candidates: Vec<Endpoint> = get_local_addrs()?
-        .filter(|ip| !nat.is_excluded(*ip))
-        .map(|addr| SocketAddr::from((addr, device.listen_port.unwrap_or(51820))).into())
-        .collect::<Vec<Endpoint>>();
-    log::info!(
-        "reporting {} interface address{} as NAT traversal candidates",
-        candidates.len(),
-        if candidates.len() == 1 { "" } else { "es" },
-    );
-    for candidate in &candidates {
-        log::debug!("  candidate: {}", candidate);
+    let listen_port = device.listen_port.unwrap_or(51820);
+    if server_is_reachable {
+        report_candidates(&api, nat, listen_port)?;
     }
-    match api.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
-        Err(ureq::Error::Status(404, _)) => {
-            log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
-        },
-        Err(e) => return Err(e.into()),
-        _ => {},
-    }
-    log::debug!("candidates successfully reported");
 
     if nat.no_nat_traversal {
         log::debug!("NAT traversal explicitly disabled, not attempting.");
@@ -657,6 +654,31 @@ fn fetch(
         }
     }
 
+    Ok(())
+}
+
+fn report_candidates(api: &Api, nat: &NatOpts, listen_port: u16) -> Result<(), Error> {
+    let candidates: Vec<Endpoint> = get_local_addrs()?
+        .filter(|ip| !nat.is_excluded(*ip))
+        .map(|addr| SocketAddr::from((addr, listen_port)).into())
+        .collect::<Vec<Endpoint>>();
+    log::info!(
+        "reporting {} interface address{} as NAT traversal candidates",
+        candidates.len(),
+        if candidates.len() == 1 { "" } else { "es" },
+    );
+    for candidate in &candidates {
+        log::debug!("  candidate: {}", candidate);
+    }
+    match api.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
+        Err(ureq::Error::Status(404, _)) => {
+            log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
+        },
+        Err(e) => return Err(e.into()),
+        _ => {},
+    }
+
+    log::debug!("candidates successfully reported");
     Ok(())
 }
 
