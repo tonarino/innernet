@@ -15,3 +15,6 @@ codegen-units = 1
 lto = "fat"
 opt-level = "s"
 panic = "abort"
+
+[workspace.dependencies]
+semver = { version = "1", features = ["serde"] }

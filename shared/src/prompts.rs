@@ -1,9 +1,8 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    prompts, AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt,
-    ListenPortOpts, OverrideEndpointOpts, Peer, PeerContents, RenameCidrOpts, RenamePeerOpts,
-    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
+    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts,
+    Peer, PeerContents, RenameCidrOpts, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -558,7 +557,29 @@ pub fn set_listen_port(
     }
 }
 
-pub fn confirm_ip_auto_detection() -> Result<bool, Error> {
+pub fn unspecified_ip_and_auto_detection_flow() -> Result<Option<IpAddr>, Error> {
+    let ip_addr = if confirm_unspecified_ip_usage()? {
+        Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+    } else if confirm_ip_auto_detection()? {
+        publicip::get_any(Preference::Ipv4)
+    } else {
+        None
+    };
+
+    Ok(ip_addr)
+}
+
+pub fn ip_auto_detection_flow() -> Result<Option<IpAddr>, Error> {
+    let ip_addr = if confirm_ip_auto_detection()? {
+        publicip::get_any(Preference::Ipv4)
+    } else {
+        None
+    };
+
+    Ok(ip_addr)
+}
+
+fn confirm_ip_auto_detection() -> Result<bool, Error> {
     let answer = Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
         .with_prompt("Auto-detect external endpoint IP address (via a DNS query to 1.1.1.1)?")
@@ -567,7 +588,7 @@ pub fn confirm_ip_auto_detection() -> Result<bool, Error> {
     Ok(answer)
 }
 
-pub fn confirm_unspecified_ip_usage() -> Result<bool, Error> {
+fn confirm_unspecified_ip_usage() -> Result<bool, Error> {
     let answer = Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
         .with_prompt(
@@ -591,37 +612,4 @@ pub fn input_external_endpoint(
     )?;
 
     Ok(endpoint)
-}
-
-pub fn override_endpoint(
-    args: &OverrideEndpointOpts,
-    listen_port: u16,
-) -> Result<Option<Endpoint>, Error> {
-    let endpoint = match &args.endpoint {
-        Some(endpoint) => endpoint.clone(),
-        None => {
-            let external_ip = if confirm_unspecified_ip_usage()? {
-                log::info!(
-                    "Unspecified IPs require innernet server version at least 1.7.0 so that they \
-                     are resolved correctly."
-                );
-                Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-            } else if confirm_ip_auto_detection()? {
-                publicip::get_any(Preference::Ipv4)
-            } else {
-                None
-            };
-
-            prompts::input_external_endpoint(external_ip, listen_port)?
-        },
-    };
-    if args.yes || confirm(&format!("Set external endpoint to {endpoint}?"))? {
-        Ok(Some(endpoint))
-    } else {
-        Ok(None)
-    }
-}
-
-pub fn unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, Error> {
-    Ok(args.yes || confirm("Unset external endpoint to enable automatic endpoint discovery?")?)
 }

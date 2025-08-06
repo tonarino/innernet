@@ -166,12 +166,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
             .ok_or_else(|| anyhow!("couldn't get external IP"))?;
         SocketAddr::new(ip, listen_port).into()
     } else {
-        let external_ip = if prompts::confirm_ip_auto_detection()? {
-            publicip::get_any(Preference::Ipv4)
-        } else {
-            None
-        };
-
+        let external_ip = prompts::ip_auto_detection_flow()?;
         prompts::input_external_endpoint(external_ip, listen_port)?
     };
 

@@ -765,6 +765,12 @@ pub struct State {
     pub cidrs: Vec<Cidr>,
 }
 
+/// This model is sent as a response to the /info endpoint.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Info {
+    pub version: semver::Version,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Timestring {
     timestring: String,

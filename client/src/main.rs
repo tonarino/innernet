@@ -10,7 +10,7 @@ use shared::{
     prompts,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, InstallOpts,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, Info, InstallOpts,
     Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts, Peer,
     RedeemContents, RenameCidrOpts, RenamePeerOpts, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
@@ -33,6 +33,9 @@ use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
 
 use crate::util::all_installed;
+use semver::Version;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 struct PeerState<'a> {
     peer: &'a Peer,
@@ -43,6 +46,17 @@ macro_rules! println_pad {
     ($pad:expr, $($arg:tt)*) => {
         print!("{:pad$}", "", pad = $pad);
         println!($($arg)*);
+    }
+}
+
+pub enum ApparentServerInfo {
+    Present(Info),
+    Missing,
+}
+
+impl ApparentServerInfo {
+    fn supports_unspecified_ip_resolution(&self) -> bool {
+        matches!(self, ApparentServerInfo::Present(_))
     }
 }
 
@@ -1009,15 +1023,17 @@ fn override_endpoint(
     sub_opts: OverrideEndpointOpts,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    // TODO(mbernat): Refactor command handling so that we can gather the server info in `run()`.
+    let info = get_server_info(&config)?;
 
     let endpoint_contents = if sub_opts.unset {
-        prompts::unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
+        prompt_unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
         let port = match config.interface.listen_port {
             Some(port) => port,
             None => bail!("you need to set a listen port with set-listen-port before overriding the endpoint (otherwise port randomization on the interface would make it useless).")
         };
-        let endpoint = prompts::override_endpoint(&sub_opts, port)?;
+        let endpoint = prompt_override_endpoint(&info, &sub_opts, port)?;
         endpoint.map(EndpointContents::Set)
     };
 
@@ -1033,6 +1049,75 @@ fn override_endpoint(
     }
 
     Ok(())
+}
+
+fn prompt_override_endpoint(
+    info: &ApparentServerInfo,
+    args: &OverrideEndpointOpts,
+    listen_port: u16,
+) -> Result<Option<Endpoint>, Error> {
+    let endpoint = match &args.endpoint {
+        Some(endpoint) => endpoint.clone(),
+        None => {
+            let external_ip = if info.supports_unspecified_ip_resolution() {
+                prompts::unspecified_ip_and_auto_detection_flow()?
+            } else {
+                prompts::ip_auto_detection_flow()?
+            };
+
+            prompts::input_external_endpoint(external_ip, listen_port)?
+        },
+    };
+    if args.yes || prompts::confirm(&format!("Set external endpoint to {endpoint}?"))? {
+        Ok(Some(endpoint))
+    } else {
+        Ok(None)
+    }
+}
+
+fn prompt_unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, Error> {
+    Ok(args.yes
+        || prompts::confirm("Unset external endpoint to enable automatic endpoint discovery?")?)
+}
+
+fn fetch_server_info(config: &InterfaceConfig) -> Result<ApparentServerInfo, Error> {
+    let api = Api::new(&config.server);
+    let maybe_info: Result<Info, ureq::Error> = api.http("GET", "/user/info");
+    match maybe_info {
+        Ok(info) => Ok(ApparentServerInfo::Present(info)),
+        Err(ureq::Error::Status(404, _)) => Ok(ApparentServerInfo::Missing),
+        Err(e) => {
+            bail!(e)
+        },
+    }
+}
+
+fn get_server_info(config: &InterfaceConfig) -> Result<ApparentServerInfo, Error> {
+    log::debug!("querying innernet server info");
+    match fetch_server_info(config)? {
+        ApparentServerInfo::Present(info) => {
+            let server_version = &info.version;
+            let client_version = &Version::parse(VERSION)?;
+
+            if server_version < client_version {
+                log::warn!(
+                    "innernet server version {server_version} is older than the client version \
+                    {VERSION}; the server might not support all the client features"
+                )
+            } else {
+                log::debug!("innerner server version is {server_version}");
+            }
+
+            Ok(ApparentServerInfo::Present(info))
+        },
+        ApparentServerInfo::Missing => {
+            log::warn!(
+                "could not determine the innernet server version, assuming it is older than the \
+                 client version {VERSION}; the server might not support all the client features"
+            );
+            Ok(ApparentServerInfo::Missing)
+        },
+    }
 }
 
 fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {

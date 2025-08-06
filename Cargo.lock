@@ -293,6 +293,7 @@ dependencies = [
  "log",
  "once_cell",
  "regex",
+ "semver",
  "serde",
  "serde_json",
  "shared",
@@ -826,6 +827,7 @@ dependencies = [
  "publicip",
  "regex",
  "rusqlite",
+ "semver",
  "serde",
  "serde_json",
  "shared",
@@ -1396,6 +1398,9 @@ name = "semver"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "serde"
@@ -1459,6 +1464,7 @@ dependencies = [
  "once_cell",
  "publicip",
  "regex",
+ "semver",
  "serde",
  "toml",
  "url",
