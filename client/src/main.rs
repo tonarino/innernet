@@ -9,7 +9,7 @@ use shared::{
     prompts, update_hosts_file,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpt,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpt, Info,
     InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
     OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, State,
     WrappedIoError, REDEEM_TRANSITION_WAIT,
@@ -995,15 +995,17 @@ fn override_endpoint(
     sub_opts: OverrideEndpointOpts,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    // TODO(mbernat): Refactor command handling so that we can gather the server info in `run()`.
+    let info = get_server_info(&config)?;
 
     let endpoint_contents = if sub_opts.unset {
-        prompts::unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
+        prompt_unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
         let port = match config.interface.listen_port {
             Some(port) => port,
             None => bail!("you need to set a listen port with set-listen-port before overriding the endpoint (otherwise port randomization on the interface would make it useless).")
         };
-        let endpoint = prompts::override_endpoint(&sub_opts, port)?;
+        let endpoint = prompt_override_endpoint(&info, &sub_opts, port)?;
         endpoint.map(EndpointContents::Set)
     };
 
@@ -1019,6 +1021,52 @@ fn override_endpoint(
     }
 
     Ok(())
+}
+
+fn prompt_override_endpoint(
+    info: &Info,
+    args: &OverrideEndpointOpts,
+    listen_port: u16,
+) -> Result<Option<Endpoint>, Error> {
+    let endpoint = match &args.endpoint {
+        Some(endpoint) => endpoint.clone(),
+        None => {
+            let external_ip = if info.override_endpoint_with_unspecified_ip_is_supported {
+                prompts::unspecified_ip_and_auto_detection_flow()?
+            } else {
+                prompts::ip_auto_detection_flow()?
+            };
+
+            prompts::input_external_endpoint(external_ip, listen_port)?
+        },
+    };
+    if args.yes || prompts::confirm(&format!("Set external endpoint to {endpoint}?"))? {
+        Ok(Some(endpoint))
+    } else {
+        Ok(None)
+    }
+}
+
+fn prompt_unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, Error> {
+    Ok(args.yes
+        || prompts::confirm("Unset external endpoint to enable automatic endpoint discovery?")?)
+}
+
+fn get_server_info(config: &InterfaceConfig) -> Result<Info, Error> {
+    let api = Api::new(&config.server);
+    let maybe_info: Result<Info, ureq::Error> = api.http("GET", "/user/info");
+    match maybe_info {
+        Ok(info) => Ok(info),
+        Err(ureq::Error::Status(404, _)) => {
+            log::warn!(
+                "innernet server info is missing, the server might not support all the client features"
+            );
+            Ok(Default::default())
+        },
+        Err(e) => {
+            bail!(e)
+        },
+    }
 }
 
 fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {

@@ -788,6 +788,12 @@ pub struct State {
     pub cidrs: Vec<Cidr>,
 }
 
+/// This model is sent as a response to the /info endpoint.
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+pub struct Info {
+    pub override_endpoint_with_unspecified_ip_is_supported: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Timestring {
     timestring: String,
