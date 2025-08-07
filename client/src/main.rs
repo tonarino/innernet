@@ -995,11 +995,11 @@ fn override_endpoint(
     sub_opts: OverrideEndpointOpts,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let server_capabilities = get_server_capabilities(&config)?;
 
     let endpoint_contents = if sub_opts.unset {
         prompt_unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
+        let server_capabilities = get_server_capabilities(&config)?;
         let port = match config.interface.listen_port {
             Some(port) => port,
             None => bail!("you need to set a listen port with set-listen-port before overriding the endpoint (otherwise port randomization on the interface would make it useless).")
