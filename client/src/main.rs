@@ -588,7 +588,7 @@ fn fetch(
             if store.peers().is_empty() {
                 bail!(
                     "Could not connect to the innernet server and there are no cached peers, \
-                     bailing."
+                     exiting."
                 )
             }
 
