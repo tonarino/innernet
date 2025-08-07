@@ -791,6 +791,7 @@ pub struct State {
 /// This model is sent as a response to the /capabilities endpoint.
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct ServerCapabilities {
+    #[serde(default)]
     pub unspecified_ip_in_override_endpoint_can_be_resolved: bool,
 }
 
