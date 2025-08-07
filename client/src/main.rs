@@ -1058,8 +1058,8 @@ fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilitie
     match maybe_info {
         Ok(info) => Ok(info),
         Err(ureq::Error::Status(404, _)) => {
-            log::warn!(
-                "innernet server info is missing, the server might not support all the client features"
+            log::debug!(
+                "innernet server endpoint capabilities not found, assuming default capabilities"
             );
             Ok(Default::default())
         },
