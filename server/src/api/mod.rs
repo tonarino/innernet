@@ -40,7 +40,7 @@ pub fn inject_endpoints(session: &Session, peers: &mut Vec<Peer>) {
             },
         }
 
-        if let Some(wg_endpoint) = endpoints.get(&peer.public_key) {
+        if let Some(wg_endpoint) = wg_endpoint {
             // 2b. Add the wireguard endpoint to the peer candidates, unless it's already present
             // either in the peer endpoint or in the peer candidates.
             let wg_endpoint: Endpoint = wg_endpoint.to_owned().into();
