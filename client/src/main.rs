@@ -315,7 +315,7 @@ fn install(
         log::error!("failed to start the interface: {}.", e);
         log::info!("bringing down the interface.");
         if let Err(e) = wg::down(&iface, opts.network.backend) {
-            log::warn!("failed to bring down interface: {}.", e.to_string());
+            log::warn!("failed to bring down interface: {}.", e);
         };
         log::error!("Failed to redeem invite. Now's a good time to make sure the server is started and accessible!");
         e
