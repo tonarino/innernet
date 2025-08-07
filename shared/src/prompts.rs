@@ -569,7 +569,8 @@ pub fn confirm_ip_auto_detection() -> Result<bool, Error> {
 
 pub fn confirm_unspecified_ip_usage() -> Result<bool, Error> {
     log::info!(
-        "Note: use this option if you do not have a fixed global IP but the port is forwarded; 
+        "Note: use unspecified IP address (all zeros) if you do not have a fixed global IP but the \
+         port is forwarded; 
           requires innernet server version 1.7.0 or greater."
     );
     let answer = Confirm::with_theme(&*THEME)
