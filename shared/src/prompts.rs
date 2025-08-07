@@ -570,11 +570,11 @@ pub fn confirm_ip_auto_detection() -> Result<bool, Error> {
 pub fn confirm_unspecified_ip_usage() -> Result<bool, Error> {
     log::info!(
         "Note: use this option if you do not have a fixed global IP but the port is forwarded; 
-          requires innernet server 1.7.0 or greater."
+          requires innernet server version 1.7.0 or greater."
     );
     let answer = Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
-        .with_prompt("Use an unspecified IP address and override just the port? (")
+        .with_prompt("Use an unspecified IP address and override just the port?")
         .interact()?;
 
     Ok(answer)
@@ -602,19 +602,25 @@ pub fn override_endpoint(
     let endpoint = match &args.endpoint {
         Some(endpoint) => endpoint.clone(),
         None => {
+            const UNSPECIFIED_IP: Option<IpAddr> = Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+
             let external_ip = if confirm_unspecified_ip_usage()? {
-                log::info!(
-                    "Unspecified IPs require innernet server version at least 1.7.0 so that they \
-                     are resolved correctly."
-                );
-                Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+                UNSPECIFIED_IP
             } else if confirm_ip_auto_detection()? {
                 publicip::get_any(Preference::Ipv4)
             } else {
                 None
             };
 
-            prompts::input_external_endpoint(external_ip, listen_port)?
+            let endpoint = prompts::input_external_endpoint(external_ip, listen_port)?;
+            if endpoint.is_host_unspecified() && external_ip != UNSPECIFIED_IP {
+                log::warn!(
+                    "Unspecified IP (all zeros) is only useful when resolved, which requires an \
+                     innernet server version 1.7.0 or greater."
+                );
+            }
+
+            endpoint
         },
     };
     if args.yes || confirm(&format!("Set external endpoint to {endpoint}?"))? {
