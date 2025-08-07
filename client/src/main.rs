@@ -585,6 +585,13 @@ fn fetch(
     let (State { peers, cidrs }, server_is_reachable) = match api.http("GET", "/user/state") {
         Ok(state) => (state, true),
         Err(ureq::Error::Transport(_)) => {
+            if store.peers().is_empty() {
+                bail!(
+                    "Could not connect to the innernet server and there are no cached peers, \
+                     bailing."
+                )
+            }
+
             log::warn!(
                 "Could not connect to the innernet server, proceeding with cached state instead."
             );
