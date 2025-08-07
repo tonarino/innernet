@@ -1,14 +1,12 @@
 //! Get your public IP address(es) as fast as possible, with no dependencies.
 //!
-//! Currently uses Cloudflare's DNS as it's the simplest, but that could change
-//! in the future.
+//! It uses Quad9's DNS server along with a feature specific to their resolver
+//! which returns your external IP address.
 
 use std::{
     fs::File,
     io::{Cursor, Error, ErrorKind, Read, Write},
-    marker::PhantomData,
-    net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
-    str::FromStr,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     time::Duration,
 };
 
@@ -20,12 +18,14 @@ macro_rules! ensure {
     };
 }
 
-const TYPE_TXT: u16 = 0x0010; // TXT-type requests (could also be A, AAAA, etc.)
-const CLASS_CH: u16 = 0x0003; // Because we are in the chaos realm.
+const CLASS_IN: u16 = 0x0001;
+const TYPE_A: u16 = 0x0001;
+const TYPE_AAAA: u16 = 0x001C;
 
-static CLOUDFLARE_QNAME: &[&str] = &["whoami", "cloudflare"];
-const CLOUDFLARE_IPV4: Ipv4Addr = Ipv4Addr::new(1, 1, 1, 1);
-const CLOUDFLARE_IPV6: Ipv6Addr = Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111);
+// Reference: https://www.quad9.net/service/service-addresses-and-features
+static QNAME: &[&str] = &["whatismyip", "on", "quad9", "net"];
+const IPV4_ADDRESS: Ipv4Addr = Ipv4Addr::new(9, 9, 9, 9);
+const IPV6_ADDRESS: Ipv6Addr = Ipv6Addr::new(0x2620, 0xfe, 0, 0, 0, 0, 0, 0xfe);
 
 pub enum Preference {
     Ipv4,
@@ -33,11 +33,11 @@ pub enum Preference {
 }
 
 pub fn get_both() -> (Option<Ipv4Addr>, Option<Ipv6Addr>) {
-    let ipv4 = Request::start(CLOUDFLARE_IPV4).ok();
-    let ipv6 = Request::start(CLOUDFLARE_IPV6).ok();
+    let v4 = Request::start(IPV4_ADDRESS.into());
+    let v6 = Request::start(IPV6_ADDRESS.into());
     (
-        ipv4.and_then(|req| req.read_response().ok()),
-        ipv6.and_then(|req| req.read_response().ok()),
+        v4.and_then(Request::read_response).map(Ipv4Addr::from).ok(),
+        v6.and_then(Request::read_response).map(Ipv6Addr::from).ok(),
     )
 }
 
@@ -50,24 +50,21 @@ pub fn get_any(preference: Preference) -> Option<IpAddr> {
     }
 }
 
-struct Request<T> {
+struct Request {
     socket: UdpSocket,
     id: [u8; 2],
     buf: [u8; 1500],
-    _ip_type: PhantomData<T>,
+    record_type: u16,
 }
 
-impl<T: Into<IpAddr> + FromStr<Err = AddrParseError>> Request<T> {
-    fn start(resolver: T) -> Result<Self, Error> {
-        let resolver_ip = resolver.into();
-        let socket = UdpSocket::bind(SocketAddr::new(
-            if resolver_ip.is_ipv4() {
-                Ipv4Addr::UNSPECIFIED.into()
-            } else {
-                Ipv6Addr::UNSPECIFIED.into()
-            },
-            0,
-        ))?;
+impl Request {
+    fn start(resolver_ip: IpAddr) -> Result<Self, Error> {
+        let (addr, record_type) = if resolver_ip.is_ipv4() {
+            (Ipv4Addr::UNSPECIFIED.into(), TYPE_A)
+        } else {
+            (Ipv6Addr::UNSPECIFIED.into(), TYPE_AAAA)
+        };
+        let socket = UdpSocket::bind(SocketAddr::new(addr, 0))?;
         socket.set_read_timeout(Some(Duration::from_millis(500)))?;
         let endpoint = SocketAddr::new(resolver_ip, 53);
 
@@ -80,15 +77,15 @@ impl<T: Into<IpAddr> + FromStr<Err = AddrParseError>> Request<T> {
         cursor.write_all(&0x0000u16.to_be_bytes())?; // Number of responses
         cursor.write_all(&0x0000u16.to_be_bytes())?; // Number of name server records
         cursor.write_all(&0x0000u16.to_be_bytes())?; // Number of additional records
-        for atom in CLOUDFLARE_QNAME {
+        for atom in QNAME {
             // Write the length of this atom followed by the string itself
             cursor.write_all(&[atom.len() as u8])?;
             cursor.write_all(atom.as_bytes())?;
         }
         // Finish the qname with a terminating byte (0-length atom).
         cursor.write_all(&[0x00])?;
-        cursor.write_all(&TYPE_TXT.to_be_bytes())?;
-        cursor.write_all(&CLASS_CH.to_be_bytes())?;
+        cursor.write_all(&record_type.to_be_bytes())?;
+        cursor.write_all(&CLASS_IN.to_be_bytes())?;
 
         let len = cursor.position() as usize;
         socket.connect(endpoint)?;
@@ -98,11 +95,11 @@ impl<T: Into<IpAddr> + FromStr<Err = AddrParseError>> Request<T> {
             socket,
             id,
             buf,
-            _ip_type: PhantomData,
+            record_type,
         })
     }
 
-    fn read_response(mut self) -> Result<T, Error> {
+    fn read_response<const N: usize>(mut self) -> Result<[u8; N], Error> {
         let len = self.socket.recv(&mut self.buf)?;
         ensure!(self.buf[..2] == self.id, "question/answer IDs don't match");
         let response = &self.buf[..len];
@@ -117,7 +114,7 @@ impl<T: Into<IpAddr> + FromStr<Err = AddrParseError>> Request<T> {
         ensure!(qd <= 1, "unexpected number of questions");
         ensure!(buf.read_u16()? == 1, "unexpected number of answers");
         ensure!(buf.read_u16()? == 0, "unexpected NS value");
-        ensure!(buf.read_u16()? == 0, "unexpected AR value");
+        ensure!(buf.read_u16()? == 0, "unexpected AR value"); // "Additional Records"
 
         // Skip past the query section, don't care.
         if qd != 0 {
@@ -137,24 +134,19 @@ impl<T: Into<IpAddr> + FromStr<Err = AddrParseError>> Request<T> {
         if qname_len & 0xc000 != 0xc000 {
             buf.set_position(buf.position() + qname_len as u64);
         }
-        ensure!(buf.read_u16()? == TYPE_TXT, "answer is not TXT type");
-        ensure!(buf.read_u16()? == CLASS_CH, "answer is not CH class");
+        ensure!(
+            buf.read_u16()? == self.record_type,
+            "answer is not expected type"
+        );
+        ensure!(buf.read_u16()? == CLASS_IN, "answer is not IN class");
         buf.set_position(buf.position() + 4); // Ignore TTL
 
+        let mut output = [0u8; N];
         let data_len = buf.read_u16()? as usize;
-        let txt_len = buf.read_u8()? as usize;
-        ensure!(txt_len == data_len - 1, "unexpected txt and data lengths.");
-
         let start = buf.position() as usize;
-        let end = start + txt_len;
-        ensure!(response.len() >= end, "unexpected txt answer lengths");
-
-        let txt = std::str::from_utf8(&response[start..end]).ok();
-        let answer = txt
-            .and_then(|txt| txt.parse::<T>().ok())
-            .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "TXT not IP address".to_string()))?;
-
-        Ok(answer)
+        ensure!(data_len == N, "unexpected record data length");
+        output.copy_from_slice(&response[start..(start + data_len)]);
+        Ok(output)
     }
 }
 
