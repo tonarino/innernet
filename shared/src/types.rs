@@ -788,10 +788,10 @@ pub struct State {
     pub cidrs: Vec<Cidr>,
 }
 
-/// This model is sent as a response to the /info endpoint.
+/// This model is sent as a response to the /capabilities endpoint.
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
-pub struct Info {
-    pub override_endpoint_with_unspecified_ip_is_supported: bool,
+pub struct ServerCapabilities {
+    pub unspecified_ip_in_override_endpoint_can_be_resolved: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

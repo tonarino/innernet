@@ -8,7 +8,8 @@ use crate::{
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
 use shared::{
-    Endpoint, EndpointContents, Info, PeerContents, RedeemContents, State, REDEEM_TRANSITION_WAIT,
+    Endpoint, EndpointContents, PeerContents, RedeemContents, ServerCapabilities, State,
+    REDEEM_TRANSITION_WAIT,
 };
 use wireguard_control::{DeviceUpdate, PeerConfigBuilder};
 
@@ -74,8 +75,8 @@ mod handlers {
     }
 
     pub async fn info() -> Result<Response<Body>, ServerError> {
-        let info = Info {
-            override_endpoint_with_unspecified_ip_is_supported: true,
+        let info = ServerCapabilities {
+            unspecified_ip_in_override_endpoint_can_be_resolved: true,
         };
 
         json_response(info)
