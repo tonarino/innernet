@@ -18,3 +18,6 @@ panic = "abort"
 
 [workspace.dependencies]
 dialoguer = { version = "0.11", default-features = false }
+# Constrain console below 0.15.8 because that version breaks prefilled prompts
+# See https://github.com/tonarino/innernet/issues/338
+console = { version = "0.15.0, <0.15.8" }

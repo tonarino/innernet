@@ -31,6 +31,7 @@ bytes = "1"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 clap_complete = "4.3"
 colored = "2"
+console.workspace = true
 dialoguer.workspace = true
 hyper = { version = "0.14", default-features = false, features = [
   "http1",
