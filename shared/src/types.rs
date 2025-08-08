@@ -788,6 +788,13 @@ pub struct State {
     pub cidrs: Vec<Cidr>,
 }
 
+/// This model is sent as a response to the /capabilities endpoint.
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+pub struct ServerCapabilities {
+    #[serde(default)]
+    pub unspecified_ip_in_override_endpoint: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Timestring {
     timestring: String,

@@ -11,8 +11,8 @@ use shared::{
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
     CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpt,
     InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
-    OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, State,
-    WrappedIoError, REDEEM_TRANSITION_WAIT,
+    OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, ServerCapabilities,
+    State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     io,
@@ -997,13 +997,14 @@ fn override_endpoint(
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
 
     let endpoint_contents = if sub_opts.unset {
-        prompts::unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
+        prompt_unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
+        let server_capabilities = get_server_capabilities(&config)?;
         let port = match config.interface.listen_port {
             Some(port) => port,
             None => bail!("you need to set a listen port with set-listen-port before overriding the endpoint (otherwise port randomization on the interface would make it useless).")
         };
-        let endpoint = prompts::override_endpoint(&sub_opts, port)?;
+        let endpoint = prompt_override_endpoint(&server_capabilities, &sub_opts, port)?;
         endpoint.map(EndpointContents::Set)
     };
 
@@ -1019,6 +1020,62 @@ fn override_endpoint(
     }
 
     Ok(())
+}
+
+fn prompt_override_endpoint(
+    server_capabilities: &ServerCapabilities,
+    args: &OverrideEndpointOpts,
+    listen_port: u16,
+) -> Result<Option<Endpoint>, Error> {
+    let unspecified_ip_supported = server_capabilities.unspecified_ip_in_override_endpoint;
+
+    let endpoint = match &args.endpoint {
+        Some(endpoint) => endpoint.clone(),
+        None => {
+            let external_ip = if unspecified_ip_supported {
+                prompts::unspecified_ip_and_auto_detection_flow()?
+            } else {
+                prompts::ip_auto_detection_flow()?
+            };
+
+            prompts::input_external_endpoint(external_ip, listen_port)?
+        },
+    };
+
+    if endpoint.is_host_unspecified() && !unspecified_ip_supported {
+        bail!(
+            "Attempted to use an unspecified IP (all zeros) but the innernet server does
+    not have the capability to resolve it, likely because its version is older."
+        )
+    }
+
+    if args.yes || prompts::confirm(&format!("Set external endpoint to {endpoint}?"))? {
+        Ok(Some(endpoint))
+    } else {
+        Ok(None)
+    }
+}
+
+fn prompt_unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, Error> {
+    Ok(args.yes
+        || prompts::confirm("Unset external endpoint to enable automatic endpoint discovery?")?)
+}
+
+fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilities, Error> {
+    let api = Api::new(&config.server);
+    let maybe_info: Result<ServerCapabilities, ureq::Error> = api.http("GET", "/user/capabilities");
+    match maybe_info {
+        Ok(info) => Ok(info),
+        Err(ureq::Error::Status(404, _)) => {
+            log::debug!(
+                "innernet server endpoint capabilities not found, assuming default capabilities"
+            );
+            Ok(Default::default())
+        },
+        Err(e) => {
+            bail!(e)
+        },
+    }
 }
 
 fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
