@@ -1027,28 +1027,28 @@ fn prompt_override_endpoint(
     args: &OverrideEndpointOpts,
     listen_port: u16,
 ) -> Result<Option<Endpoint>, Error> {
+    let unspecified_ip_supported = server_capabilities.unspecified_ip_in_override_endpoint;
+
     let endpoint = match &args.endpoint {
         Some(endpoint) => endpoint.clone(),
         None => {
-            let unspecified_ip_supported = server_capabilities.unspecified_ip_in_override_endpoint;
-
             let external_ip = if unspecified_ip_supported {
                 prompts::unspecified_ip_and_auto_detection_flow()?
             } else {
                 prompts::ip_auto_detection_flow()?
             };
 
-            let endpoint = prompts::input_external_endpoint(external_ip, listen_port)?;
-            if endpoint.is_host_unspecified() && !unspecified_ip_supported {
-                bail!(
-                    "Attempted to use an unspecified IP (all zeros) but the innernet server does
-    not have the capability to resolve it, likely because its version is older."
-                )
-            }
-
-            endpoint
+            prompts::input_external_endpoint(external_ip, listen_port)?
         },
     };
+
+    if endpoint.is_host_unspecified() && !unspecified_ip_supported {
+        bail!(
+            "Attempted to use an unspecified IP (all zeros) but the innernet server does
+    not have the capability to resolve it, likely because its version is older."
+        )
+    }
+
     if args.yes || prompts::confirm(&format!("Set external endpoint to {endpoint}?"))? {
         Ok(Some(endpoint))
     } else {
