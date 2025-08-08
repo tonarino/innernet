@@ -558,15 +558,11 @@ pub fn set_listen_port(
 }
 
 pub fn unspecified_ip_and_auto_detection_flow() -> Result<Option<IpAddr>, Error> {
-    let ip_addr = if confirm_unspecified_ip_usage()? {
-        Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-    } else if confirm_ip_auto_detection()? {
-        publicip::get_any(Preference::Ipv4)
+    if confirm_unspecified_ip_usage()? {
+        Ok(Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED)))
     } else {
-        None
-    };
-
-    Ok(ip_addr)
+        ip_auto_detection_flow()
+    }
 }
 
 pub fn ip_auto_detection_flow() -> Result<Option<IpAddr>, Error> {

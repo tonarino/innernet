@@ -1030,8 +1030,7 @@ fn prompt_override_endpoint(
     let endpoint = match &args.endpoint {
         Some(endpoint) => endpoint.clone(),
         None => {
-            let unspecified_ip_supported =
-                server_capabilities.unspecified_ip_in_override_endpoint_can_be_resolved;
+            let unspecified_ip_supported = server_capabilities.unspecified_ip_in_override_endpoint;
 
             let external_ip = if unspecified_ip_supported {
                 prompts::unspecified_ip_and_auto_detection_flow()?

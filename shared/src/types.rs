@@ -792,7 +792,7 @@ pub struct State {
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct ServerCapabilities {
     #[serde(default)]
-    pub unspecified_ip_in_override_endpoint_can_be_resolved: bool,
+    pub unspecified_ip_in_override_endpoint: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
