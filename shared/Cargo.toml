@@ -16,7 +16,7 @@ anyhow = "1"
 atty = "0.2"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 colored = "2.0"
-dialoguer = { version = "0.10", default-features = false }
+dialoguer.workspace = true
 hostsfile = { path = "../hostsfile" }
 indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
