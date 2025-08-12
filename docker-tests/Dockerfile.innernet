@@ -24,7 +24,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY . .
-RUN cargo build --features client/selinux \
+RUN cargo build --features innernet/selinux \
     && strip /app/target/debug/innernet /app/target/debug/innernet-server \
     && cp /app/target/debug/innernet /app/target/debug/innernet-server /usr/bin/ \
     && cargo clean

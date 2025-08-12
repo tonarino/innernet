@@ -280,28 +280,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
-name = "client"
-version = "1.6.1"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "colored",
- "dialoguer",
- "indoc",
- "ipnet",
- "log",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "shared",
- "tempfile",
- "ureq",
- "wireguard-control",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -784,6 +762,28 @@ name = "indoc"
 version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4c7245a08504955605670dbf141fceab975f15ca21570696aebe9d2e71576bd"
+
+[[package]]
+name = "innernet"
+version = "1.6.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "colored",
+ "dialoguer",
+ "indoc",
+ "ipnet",
+ "log",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "shared",
+ "tempfile",
+ "ureq",
+ "wireguard-control",
+]
 
 [[package]]
 name = "innernet-server"
