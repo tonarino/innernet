@@ -33,7 +33,7 @@ pub fn ensure_interactive(prompt: &str) -> Result<(), io::Error> {
     }
 }
 
-pub fn confirm(prompt: &str) -> Result<bool, io::Error> {
+pub fn confirm(prompt: &str) -> Result<bool, dialoguer::Error> {
     ensure_interactive(prompt)?;
     Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
@@ -42,7 +42,10 @@ pub fn confirm(prompt: &str) -> Result<bool, io::Error> {
         .interact()
 }
 
-pub fn select<'a, T: ToString>(prompt: &str, items: &'a [T]) -> Result<(usize, &'a T), io::Error> {
+pub fn select<'a, T: ToString>(
+    prompt: &str,
+    items: &'a [T],
+) -> Result<(usize, &'a T), dialoguer::Error> {
     ensure_interactive(prompt)?;
     let choice = Select::with_theme(&*THEME)
         .with_prompt(prompt)
@@ -57,17 +60,17 @@ pub enum Prefill<T> {
     None,
 }
 
-pub fn input<T>(prompt: &str, prefill: Prefill<T>) -> Result<T, io::Error>
+pub fn input<T>(prompt: &str, prefill: Prefill<T>) -> Result<T, dialoguer::Error>
 where
     T: Clone + FromStr + Display,
     T::Err: Display + Debug,
 {
     ensure_interactive(prompt)?;
-    let mut input = Input::with_theme(&*THEME);
+    let input = Input::with_theme(&*THEME);
     match prefill {
         Prefill::Default(value) => input.default(value),
         Prefill::Editable(value) => input.with_initial_text(value),
-        _ => &mut input,
+        _ => input,
     }
     .with_prompt(prompt)
     .interact()
@@ -535,8 +538,7 @@ pub fn set_listen_port(
         None
     };
 
-    let mut confirmation = Confirm::with_theme(&*THEME);
-    confirmation
+    let confirmation = Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
         .with_prompt(
             &(if let Some(port) = &listen_port {
