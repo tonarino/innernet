@@ -25,7 +25,7 @@ colored = "2.0"
 # Explicitly mention dialoguer's dependency to constrain its version in workspace `Cargo.toml`
 console.workspace = true
 dialoguer.workspace = true
-hostsfile = { path = "../hostsfile" }
+hostsfile = { version = "1.6.1", path = "../hostsfile" }
 indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
 libc = "0.2"
