@@ -24,7 +24,6 @@ anyhow = "1"
 colored = "2"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 clap_complete = "4.3"
-console.workspace = true
 dialoguer.workspace = true
 indoc = "2.0.1"
 ipnet = { version = "2.4", features = ["serde"] }
