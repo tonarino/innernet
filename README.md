@@ -215,14 +215,15 @@ brew install tonarino/innernet/innernet
 ### Cargo
 
 ```sh
-# to install innernet:
-cargo install --git https://github.com/tonarino/innernet --tag v1.6.1 client
+# to install the latest released innernet:
+cargo install --locked innernet
 
-# to install innernet-server:
-cargo install --git https://github.com/tonarino/innernet --tag v1.6.1 innernet-server
+# to install the latest released innernet-server:
+cargo install --locked innernet-server
 ```
 
-Note that you'll be responsible for updating manually.
+Note that you'll be responsible for updating manually or through tools like [`cargo-update`](https://crates.io/crates/cargo-update).
+You can omit `--locked` to use newer (but compatible) dependency versions, losing determinism and testing by our CI.
 
 ## Development
 

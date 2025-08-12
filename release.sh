@@ -41,8 +41,5 @@ done
 
 VERSION="$(cargo pkgid -p innernet-shared | cut -d '@' -f 2)"
 
-perl -pi -e "s/v$OLD_VERSION/v$VERSION/g" README.md
-
 git add doc
-git add README.md
 git commit -m "meta: release v$VERSION"
