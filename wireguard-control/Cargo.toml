@@ -26,7 +26,7 @@ netlink-packet-generic = "0.3.3"
 netlink-packet-route = "0.21"
 netlink-packet-utils = "0.5.2"
 netlink-packet-wireguard = "0.2.3"
-netlink-request = { path = "../netlink-request", version = "1.6.1" }
+netlink-request = { version = "1.6.1", path = "../netlink-request" }
 netlink-sys = "0.8"
 
 [target.'cfg(target_os = "openbsd")'.dependencies]
