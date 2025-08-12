@@ -1,13 +1,15 @@
 [package]
 authors = ["Jake McGinty <me@jakebot.org>"]
-categories = ["os::unix-apis"]
+categories = ["network-programming", "os::unix-apis"]
 description = "A helper to perform requests using the Linux netlink interface"
 edition = "2021"
+homepage = "https://github.com/tonarino/innernet"
+keywords.workspace = true
 license = "MIT"
 name = "netlink-request"
+publish = true
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-publish = true
 version = "1.6.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]

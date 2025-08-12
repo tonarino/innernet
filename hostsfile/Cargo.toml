@@ -1,10 +1,15 @@
 [package]
 authors = ["Ryo Kawaguchi <ryo@kawagu.ch>"]
-description = "A simplistic /etc/hosts file editor."
+categories = ["command-line-interface", "network-programming"]
+description = "A simplistic programmatic /etc/hosts file editor"
 edition = "2021"
+homepage = "https://github.com/tonarino/innernet"
+keywords.workspace = true
 license = "MIT"
 name = "hostsfile"
-publish = false
+publish = true
+readme = "README.md"
+repository = "https://github.com/tonarino/innernet"
 version = "1.2.0"
 
 [dependencies]

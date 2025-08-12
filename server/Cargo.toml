@@ -5,12 +5,14 @@ authors = [
   "Ryo Kawaguchi <ryo@tonari.no>",
   "Matěj Laitl <matej@tonari.no>",
 ]
+categories = ["command-line-utilities", "network-programming"]
 description = "A server to coordinate innernet networks."
 edition = "2021"
 homepage = "https://github.com/tonarino/innernet"
+keywords.workspace = true
 license = "MIT"
 name = "innernet-server"
-publish = false
+publish = true
 readme = "../README.md"
 repository = "https://github.com/tonarino/innernet"
 version = "1.6.1"

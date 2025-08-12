@@ -5,10 +5,16 @@ authors = [
   "Ryo Kawaguchi <ryo@tonari.no>",
   "Matěj Laitl <matej@tonari.no>",
 ]
+categories = ["network-programming"]
+description = "Library utilities shared between innernet (client) and innernet-server"
 edition = "2021"
+homepage = "https://github.com/tonarino/innernet"
+keywords.workspace = true
 license = "MIT"
 name = "shared"
-publish = false
+publish = true
+readme = "../README.md"
+repository = "https://github.com/tonarino/innernet"
 version = "1.6.1"
 
 [dependencies]
