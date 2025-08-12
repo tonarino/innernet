@@ -3,8 +3,8 @@
 //! A peer belongs to one parent CIDR, and can by default see all peers within that parent.
 
 use crate::ServerError;
+use innernet_shared::{Association, AssociationContents};
 use rusqlite::{params, Connection};
-use shared::{Association, AssociationContents};
 use std::ops::{Deref, DerefMut};
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE associations (
@@ -117,7 +117,7 @@ impl DatabaseAssociation {
 #[cfg(test)]
 mod tests {
     use crate::test;
-    use shared::{CidrContents, Error};
+    use innernet_shared::{CidrContents, Error};
 
     use super::*;
 

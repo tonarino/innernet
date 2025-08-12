@@ -7,7 +7,7 @@ use crate::{
     ServerError, Session,
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
-use shared::PeerContents;
+use innernet_shared::PeerContents;
 use wireguard_control::{DeviceUpdate, PeerConfigBuilder};
 
 pub async fn routes(
@@ -95,7 +95,7 @@ mod tests {
     use super::*;
     use crate::test;
     use bytes::Buf;
-    use shared::{Error, Peer};
+    use innernet_shared::{Error, Peer};
 
     #[tokio::test]
     async fn test_add_peer() -> Result<(), Error> {

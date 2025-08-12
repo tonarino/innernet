@@ -1,9 +1,9 @@
 use super::DatabaseCidr;
 use crate::ServerError;
+use innernet_shared::{IpNetExt, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use rusqlite::{params, types::Type, Connection};
-use shared::{IpNetExt, Peer, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS};
 use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},

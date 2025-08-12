@@ -773,13 +773,13 @@ dependencies = [
  "colored",
  "dialoguer",
  "indoc",
+ "innernet-shared",
  "ipnet",
  "log",
  "once_cell",
  "regex",
  "serde",
  "serde_json",
- "shared",
  "tempfile",
  "ureq",
  "wireguard-control",
@@ -802,6 +802,7 @@ dependencies = [
  "hyper",
  "indoc",
  "innernet-publicip",
+ "innernet-shared",
  "ipnet",
  "libc",
  "libsqlite3-sys",
@@ -813,12 +814,40 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "shared",
  "socket2 0.5.10",
  "subtle",
  "tempfile",
  "thiserror",
  "tokio",
+ "toml",
+ "url",
+ "wireguard-control",
+]
+
+[[package]]
+name = "innernet-shared"
+version = "1.6.1"
+dependencies = [
+ "anyhow",
+ "atty",
+ "clap",
+ "colored",
+ "console",
+ "dialoguer",
+ "hostsfile",
+ "indoc",
+ "innernet-publicip",
+ "ipnet",
+ "libc",
+ "log",
+ "netlink-packet-core",
+ "netlink-packet-route",
+ "netlink-request",
+ "netlink-sys",
+ "nix 0.26.4",
+ "once_cell",
+ "regex",
+ "serde",
  "toml",
  "url",
  "wireguard-control",
@@ -1449,35 +1478,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "shared"
-version = "1.6.1"
-dependencies = [
- "anyhow",
- "atty",
- "clap",
- "colored",
- "console",
- "dialoguer",
- "hostsfile",
- "indoc",
- "innernet-publicip",
- "ipnet",
- "libc",
- "log",
- "netlink-packet-core",
- "netlink-packet-route",
- "netlink-request",
- "netlink-sys",
- "nix 0.26.4",
- "once_cell",
- "regex",
- "serde",
- "toml",
- "url",
- "wireguard-control",
 ]
 
 [[package]]

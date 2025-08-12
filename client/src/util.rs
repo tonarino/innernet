@@ -1,18 +1,18 @@
 use crate::data_store::DataStore;
 use colored::*;
 use indoc::eprintdoc;
-use log::{Level, LevelFilter};
-use serde::{de::DeserializeOwned, Serialize};
-use shared::{
+use innernet_shared::{
     interface_config::ServerInfo, Interface, PeerChange, PeerDiff, INNERNET_PUBKEY_HEADER,
 };
+use log::{Level, LevelFilter};
+use serde::{de::DeserializeOwned, Serialize};
 use std::{ffi::OsStr, io, path::Path, time::Duration};
 use ureq::{Agent, AgentBuilder};
 
 static LOGGER: Logger = Logger;
 struct Logger;
 
-const BASE_MODULES: &[&str] = &["innernet", "shared"];
+const BASE_MODULES: &[&str] = &["innernet", "innernet_shared"];
 
 fn target_is_base(target: &str) -> bool {
     BASE_MODULES

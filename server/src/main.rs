@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use colored::*;
-use shared::{
+use innernet_shared::{
     AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, HostsOpt, NetworkOpts,
     RenameCidrOpts, RenamePeerOpts,
 };
@@ -11,7 +11,7 @@ use innernet_server::{
     initialize::{self, InitializeOpts},
     rename_cidr, rename_peer, serve, uninstall, ServerConfig,
 };
-use shared::Interface;
+use innernet_shared::Interface;
 
 #[derive(Debug, Parser)]
 #[command(name = "innernet-server", author, version, about)]

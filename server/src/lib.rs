@@ -3,15 +3,15 @@ use colored::*;
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
-use ipnet::IpNet;
-use parking_lot::{Mutex, RwLock};
-use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
-use shared::{
+use innernet_shared::{
     get_local_addrs, update_hosts_file, AddCidrOpts, AddPeerOpts, DeleteCidrOpts,
     EnableDisablePeerOpts, Endpoint, IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts,
     RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
+use ipnet::IpNet;
+use parking_lot::{Mutex, RwLock};
+use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
     convert::TryInto,
@@ -37,7 +37,7 @@ mod util;
 
 use db::{DatabaseCidr, DatabasePeer};
 pub use error::ServerError;
-use shared::{prompts, wg, CidrTree, Error, Interface};
+use innernet_shared::{prompts, wg, CidrTree, Error, Interface};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -91,7 +91,7 @@ pub struct ConfigFile {
 impl ConfigFile {
     pub fn write_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let mut invitation_file = File::create(&path).with_path(&path)?;
-        shared::chmod(&invitation_file, 0o600)?;
+        innernet_shared::chmod(&invitation_file, 0o600)?;
         invitation_file
             .write_all(toml::to_string(self).unwrap().as_bytes())
             .with_path(path)?;
@@ -101,7 +101,7 @@ impl ConfigFile {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let path = path.as_ref();
         let file = File::open(path).with_path(path)?;
-        if shared::chmod(&file, 0o600)? {
+        if innernet_shared::chmod(&file, 0o600)? {
             println!(
                 "{} updated permissions for {} to 0600.",
                 "[!]".yellow(),
@@ -185,7 +185,7 @@ pub fn add_peer(
     let cidrs = DatabaseCidr::list(&conn)?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some(result) = shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
+    if let Some(result) = innernet_shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
         let (peer_request, keypair, target_path, mut target_file) = result;
         let peer = DatabasePeer::create(&conn, peer_request)?;
         if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
@@ -226,7 +226,7 @@ pub fn rename_peer(
         .map(|dp| dp.inner)
         .collect::<Vec<_>>();
 
-    if let Some((peer_request, old_name)) = shared::prompts::rename_peer(&peers, &opts)? {
+    if let Some((peer_request, old_name)) = innernet_shared::prompts::rename_peer(&peers, &opts)? {
         let mut db_peer = DatabasePeer::list(&conn)?
             .into_iter()
             .find(|p| p.name == old_name)
@@ -290,7 +290,7 @@ pub fn add_cidr(
 ) -> Result<(), Error> {
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
-    if let Some(cidr_request) = shared::prompts::add_cidr(&cidrs, &opts)? {
+    if let Some(cidr_request) = innernet_shared::prompts::add_cidr(&cidrs, &opts)? {
         let cidr = DatabaseCidr::create(&conn, cidr_request)?;
         printdoc!(
             "
@@ -318,7 +318,7 @@ pub fn rename_cidr(
     let conn = open_database_connection(interface, conf)?;
     let cidrs = DatabaseCidr::list(&conn)?;
 
-    if let Some((cidr_request, old_name)) = shared::prompts::rename_cidr(&cidrs, &opts)? {
+    if let Some((cidr_request, old_name)) = innernet_shared::prompts::rename_cidr(&cidrs, &opts)? {
         let db_cidr = DatabaseCidr::list(&conn)?
             .into_iter()
             .find(|c| c.name == old_name)
@@ -708,7 +708,7 @@ mod tests {
         // Request from an unknown IP, trying to disguise as an admin using HTTP headers.
         let req = Request::builder()
             .uri(path)
-            .header(shared::INNERNET_PUBKEY_HEADER, key.to_base64())
+            .header(innernet_shared::INNERNET_PUBKEY_HEADER, key.to_base64())
             .body(Body::empty())
             .unwrap();
         let res = if cfg!(feature = "v6-test") {
@@ -736,7 +736,7 @@ mod tests {
         };
         let req = Request::builder()
             .uri(path)
-            .header(shared::INNERNET_PUBKEY_HEADER, "!!!")
+            .header(innernet_shared::INNERNET_PUBKEY_HEADER, "!!!")
             .body(Body::empty())
             .unwrap();
         let res = if cfg!(feature = "v6-test") {

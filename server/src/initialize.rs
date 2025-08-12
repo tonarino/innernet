@@ -8,11 +8,11 @@ use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
 use innernet_publicip::Preference;
-use ipnet::IpNet;
-use rusqlite::{params, Connection};
-use shared::{
+use innernet_shared::{
     prompts, CidrContents, Endpoint, IpNetExt, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
+use ipnet::IpNet;
+use rusqlite::{params, Connection};
 use std::net::{IpAddr, SocketAddr};
 use wireguard_control::KeyPair;
 
@@ -109,12 +109,14 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
 pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Error> {
     let theme = ColorfulTheme::default();
 
-    shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(|_| {
-        anyhow!(
-            "Failed to create config and database directories {}",
-            "(are you not running as root?)".bold()
-        )
-    })?;
+    innernet_shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(
+        |_| {
+            anyhow!(
+                "Failed to create config and database directories {}",
+                "(are you not running as root?)".bold()
+            )
+        },
+    )?;
     printdoc!(
         "\nTime to setup your innernet network.
 
