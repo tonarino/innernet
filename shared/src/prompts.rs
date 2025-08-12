@@ -73,7 +73,7 @@ where
         _ => input,
     }
     .with_prompt(prompt)
-    .interact()
+    .interact_text()
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.

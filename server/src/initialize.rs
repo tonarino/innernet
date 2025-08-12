@@ -146,7 +146,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         Input::with_theme(&theme)
             .with_prompt("Network CIDR")
             .with_initial_text("10.42.0.0/16")
-            .interact()?
+            .interact_text()?
     };
 
     let listen_port: u16 = if let Some(listen_port) = opts.listen_port {

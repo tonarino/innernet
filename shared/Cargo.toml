@@ -22,8 +22,6 @@ anyhow = "1"
 atty = "0.2"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 colored = "2.0"
-# Explicitly mention dialoguer's dependency to constrain its version in workspace `Cargo.toml`
-console.workspace = true
 dialoguer.workspace = true
 hostsfile = { version = "1.7.0", path = "../hostsfile" }
 indoc = "2.0.1"
