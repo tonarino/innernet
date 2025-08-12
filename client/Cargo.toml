@@ -11,7 +11,7 @@ homepage = "https://github.com/tonarino/innernet"
 license = "MIT"
 name = "innernet"
 publish = false
-readme = "README.md"
+readme = "../README.md"
 repository = "https://github.com/tonarino/innernet"
 version = "1.6.1"
 
