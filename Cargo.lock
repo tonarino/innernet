@@ -786,6 +786,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "innernet-publicip"
+version = "1.6.1"
+
+[[package]]
 name = "innernet-server"
 version = "1.6.1"
 dependencies = [
@@ -797,6 +801,7 @@ dependencies = [
  "dialoguer",
  "hyper",
  "indoc",
+ "innernet-publicip",
  "ipnet",
  "libc",
  "libsqlite3-sys",
@@ -804,7 +809,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pretty_env_logger",
- "publicip",
  "regex",
  "rusqlite",
  "serde",
@@ -1232,10 +1236,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "publicip"
-version = "0.1.0"
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1463,6 +1463,7 @@ dependencies = [
  "dialoguer",
  "hostsfile",
  "indoc",
+ "innernet-publicip",
  "ipnet",
  "libc",
  "log",
@@ -1472,7 +1473,6 @@ dependencies = [
  "netlink-sys",
  "nix 0.26.4",
  "once_cell",
- "publicip",
  "regex",
  "serde",
  "toml",

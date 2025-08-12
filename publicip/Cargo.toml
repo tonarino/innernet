@@ -6,10 +6,10 @@ edition = "2021"
 homepage = "https://github.com/tonarino/innernet"
 keywords.workspace = true
 license = "MIT"
-name = "publicip"
+name = "innernet-publicip"
 publish = true
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "0.1.0"
+version = "1.6.1"
 
 [dependencies]

@@ -7,8 +7,8 @@ use clap::Parser;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
+use innernet_publicip::Preference;
 use ipnet::IpNet;
-use publicip::Preference;
 use rusqlite::{params, Connection};
 use shared::{
     prompts, CidrContents, Endpoint, IpNetExt, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
@@ -162,7 +162,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
     } else if opts.auto_external_endpoint {
-        let ip = publicip::get_any(Preference::Ipv4)
+        let ip = innernet_publicip::get_any(Preference::Ipv4)
             .ok_or_else(|| anyhow!("couldn't get external IP"))?;
         SocketAddr::new(ip, listen_port).into()
     } else {

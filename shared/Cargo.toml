@@ -27,11 +27,11 @@ console.workspace = true
 dialoguer.workspace = true
 hostsfile = { version = "1.6.1", path = "../hostsfile" }
 indoc = "2.0.1"
+innernet-publicip = { version = "1.6.1", path = "../publicip" }
 ipnet = { version = "2.4", features = ["serde"] }
 libc = "0.2"
 log = "0.4"
 once_cell = "1.17.1"
-publicip = { path = "../publicip" }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8.10"
