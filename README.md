@@ -276,7 +276,9 @@ If you are developing a new feature, please consider adding a new test case to `
 
 Please run the release script from a Linux machine: generated shell completions depend on available wireguard backends and Mac doesn't support the `kernel` backend. 
 
-1. Fetch and check-out the `main` branch.
-2. Run `./release.sh [patch|major|minor|rc]`
-3. Push the `main` branch and the created tag to the repo.
-4. Publish crates that have `publish = true` to crates.io.
+1. Create a new branch of top of fresh `main`.
+1. Run `./release.sh [patch|major|minor|rc]` and submit its results as a PR.
+1. Once the PR is merged, switch to `main` that contains it.
+1. Tag the commit using `git tag -f -a v<version> -m "release v<version>`.
+3. Push the created tag to the repo using `git push origin v<version>`.
+4. Publish to crates.io using `cargo release publish` (pass `--execute` after a dry run).
