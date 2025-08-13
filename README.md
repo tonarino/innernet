@@ -277,9 +277,11 @@ If you are developing a new feature, please consider adding a new test case to `
 
 Please run the release script from a Linux machine: generated shell completions depend on available wireguard backends and Mac doesn't support the `kernel` backend. 
 
+1. Ensure you have the release script dependencies `help2man` and `cargo-release` installed.
 1. Create a new branch on top of fresh `main`.
 1. Run `./release.sh [patch|major|minor|rc]` and submit its results as a PR.
 1. Once the PR is merged, switch to `main` that contains it.
+1. Publish to crates.io using `cargo release publish` (pass `--execute` after a dry run).
 1. Tag the commit using `git tag -f -a v<version> -m "release v<version>`.
-3. Push the created tag to the repo using `git push origin v<version>`.
-4. Publish to crates.io using `cargo release publish` (pass `--execute` after a dry run).
+1. Push the created tag to the repo using `git push origin v<version>`.
+1. Create a GitHub release from the tag, generate release notes and highlight important changes.
