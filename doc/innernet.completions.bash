@@ -1,12 +1,16 @@
 _innernet() {
     local i cur prev opts cmd
     COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+        cur="$2"
+    else
+        cur="${COMP_WORDS[COMP_CWORD]}"
+    fi
+    prev="$3"
     cmd=""
     opts=""
 
-    for i in ${COMP_WORDS[@]}
+    for i in "${COMP_WORDS[@]:0:COMP_CWORD}"
     do
         case "${cmd},${i}" in
             ",$1")
@@ -56,6 +60,9 @@ _innernet() {
                 ;;
             innernet,override-endpoint)
                 cmd="innernet__override__endpoint"
+                ;;
+            innernet,rename-cidr)
+                cmd="innernet__rename__cidr"
                 ;;
             innernet,rename-peer)
                 cmd="innernet__rename__peer"
@@ -117,6 +124,9 @@ _innernet() {
             innernet__help,override-endpoint)
                 cmd="innernet__help__override__endpoint"
                 ;;
+            innernet__help,rename-cidr)
+                cmd="innernet__help__rename__cidr"
+                ;;
             innernet__help,rename-peer)
                 cmd="innernet__help__rename__peer"
                 ;;
@@ -139,7 +149,7 @@ _innernet() {
 
     case "${cmd}" in
         innernet)
-            opts="-v -c -d -h -V --verbose --config-dir --data-dir --no-routing --backend --mtu --help --version install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
+            opts="-v -c -d -h -V --verbose --config-dir --data-dir --no-routing --backend --mtu --help --version install show up fetch uninstall down add-peer rename-peer add-cidr rename-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -301,12 +311,16 @@ _innernet() {
             return 0
             ;;
         innernet__disable__peer)
-            opts="-h --help <INTERFACE>"
+            opts="-h --name --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -329,12 +343,16 @@ _innernet() {
             return 0
             ;;
         innernet__enable__peer)
-            opts="-h --help <INTERFACE>"
+            opts="-h --name --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -365,7 +383,7 @@ _innernet() {
             return 0
             ;;
         innernet__help)
-            opts="install show up fetch uninstall down add-peer rename-peer add-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
+            opts="install show up fetch uninstall down add-peer rename-peer add-cidr rename-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -588,6 +606,20 @@ _innernet() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        innernet__help__rename__cidr)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         innernet__help__rename__peer)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -734,6 +766,28 @@ _innernet() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        innernet__rename__cidr)
+            opts="-h --name --new-name --yes --help <INTERFACE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --new-name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         innernet__rename__peer)
             opts="-h --name --new-name --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -835,4 +889,8 @@ _innernet() {
     esac
 }
 
-complete -F _innernet -o bashdefault -o default innernet
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    complete -F _innernet -o nosort -o bashdefault -o default innernet
+else
+    complete -F _innernet -o bashdefault -o default innernet
+fi

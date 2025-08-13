@@ -1,12 +1,16 @@
 _innernet-server() {
     local i cur prev opts cmd
     COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+        cur="$2"
+    else
+        cur="${COMP_WORDS[COMP_CWORD]}"
+    fi
+    prev="$3"
     cmd=""
     opts=""
 
-    for i in ${COMP_WORDS[@]}
+    for i in "${COMP_WORDS[@]:0:COMP_CWORD}"
     do
         case "${cmd},${i}" in
             ",$1")
@@ -35,6 +39,9 @@ _innernet-server() {
                 ;;
             innernet__server,new)
                 cmd="innernet__server__new"
+                ;;
+            innernet__server,rename-cidr)
+                cmd="innernet__server__rename__cidr"
                 ;;
             innernet__server,rename-peer)
                 cmd="innernet__server__rename__peer"
@@ -69,6 +76,9 @@ _innernet-server() {
             innernet__server__help,new)
                 cmd="innernet__server__help__new"
                 ;;
+            innernet__server__help,rename-cidr)
+                cmd="innernet__server__help__rename__cidr"
+                ;;
             innernet__server__help,rename-peer)
                 cmd="innernet__server__help__rename__peer"
                 ;;
@@ -85,7 +95,7 @@ _innernet-server() {
 
     case "${cmd}" in
         innernet__server)
-            opts="-c -d -h -V --config-dir --data-dir --no-routing --backend --mtu --help --version new uninstall serve add-peer disable-peer enable-peer rename-peer add-cidr delete-cidr completions help"
+            opts="-c -d -h -V --config-dir --data-dir --no-routing --backend --mtu --help --version new uninstall serve add-peer disable-peer enable-peer rename-peer add-cidr rename-cidr delete-cidr completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -219,12 +229,16 @@ _innernet-server() {
             return 0
             ;;
         innernet__server__disable__peer)
-            opts="-h --help <INTERFACE>"
+            opts="-h --name --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -233,12 +247,16 @@ _innernet-server() {
             return 0
             ;;
         innernet__server__enable__peer)
-            opts="-h --help <INTERFACE>"
+            opts="-h --name --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -247,7 +265,7 @@ _innernet-server() {
             return 0
             ;;
         innernet__server__help)
-            opts="new uninstall serve add-peer disable-peer enable-peer rename-peer add-cidr delete-cidr completions help"
+            opts="new uninstall serve add-peer disable-peer enable-peer rename-peer add-cidr rename-cidr delete-cidr completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -372,6 +390,20 @@ _innernet-server() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        innernet__server__help__rename__cidr)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         innernet__server__help__rename__peer)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -444,6 +476,28 @@ _innernet-server() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        innernet__server__rename__cidr)
+            opts="-h --name --new-name --yes --help <INTERFACE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --new-name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         innernet__server__rename__peer)
             opts="-h --name --new-name --yes --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -467,7 +521,7 @@ _innernet-server() {
             return 0
             ;;
         innernet__server__serve)
-            opts="-h --no-routing --backend --mtu --help <INTERFACE>"
+            opts="-h --no-routing --backend --mtu --hosts-path --no-write-hosts --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -478,6 +532,10 @@ _innernet-server() {
                     return 0
                     ;;
                 --mtu)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --hosts-path)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -505,4 +563,8 @@ _innernet-server() {
     esac
 }
 
-complete -F _innernet-server -o bashdefault -o default innernet-server
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    complete -F _innernet-server -o nosort -o bashdefault -o default innernet-server
+else
+    complete -F _innernet-server -o bashdefault -o default innernet-server
+fi

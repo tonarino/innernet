@@ -14,13 +14,13 @@ _innernet() {
     fi
 
     local context curcontext="$curcontext" state line
-    _arguments "${_arguments_options[@]}" \
+    _arguments "${_arguments_options[@]}" : \
 '-c+[]:CONFIG_DIR:_files' \
 '--config-dir=[]:CONFIG_DIR:_files' \
 '-d+[]:DATA_DIR:_files' \
 '--data-dir=[]:DATA_DIR:_files' \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]:BACKEND:(kernel userspace)' \
-'--mtu=[Specify the desired MTU for your interface (default\: 1280)]:MTU: ' \
+'--mtu=[Specify the desired MTU for your interface (default\: 1280)]:MTU:_default' \
 '*-v[Verbose output, use -vv for even higher verbositude]' \
 '*--verbose[Verbose output, use -vv for even higher verbositude]' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
@@ -38,10 +38,10 @@ _innernet() {
         curcontext="${curcontext%:*:*}:innernet-command-$line[1]:"
         case $line[1] in
             (install)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
-'(--default-name)--name=[Set a specific interface name]:NAME: ' \
-'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES: ' \
+'(--default-name)--name=[Set a specific interface name]:NAME:_default' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES:_default' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
 '--default-name[Use the network name inside the invitation as the interface name]' \
 '-d[Delete the invitation after a successful install]' \
@@ -54,21 +54,21 @@ _arguments "${_arguments_options[@]}" \
 && ret=0
 ;;
 (show)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-s[One-line peer list]' \
 '--short[One-line peer list]' \
 '-t[Display peers in a tree based on the CIDRs]' \
 '--tree[Display peers in a tree based on the CIDRs]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::interface:' \
+'::interface:_default' \
 && ret=0
 ;;
 (up)
-_arguments "${_arguments_options[@]}" \
-'--interval=[Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode]:INTERVAL: ' \
+_arguments "${_arguments_options[@]}" : \
+'--interval=[Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode]:INTERVAL:_default' \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
-'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES: ' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES:_default' \
 '-d[Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically]' \
 '--daemon[Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically]' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
@@ -76,164 +76,178 @@ _arguments "${_arguments_options[@]}" \
 '(--exclude-nat-candidates)--no-nat-candidates[Don'\''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates '\''0.0.0.0/0'\'']' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::interface:' \
+'::interface:_default' \
 && ret=0
 ;;
 (fetch)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
-'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES: ' \
+'*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES:_default' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
 '--no-nat-traversal[Don'\''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates]' \
 '(--exclude-nat-candidates)--no-nat-candidates[Don'\''t report any candidates to coordinating server. Shorthand for --exclude-nat-candidates '\''0.0.0.0/0'\'']' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (uninstall)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (down)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (add-peer)
-_arguments "${_arguments_options[@]}" \
-'--name=[Name of new peer]:NAME: ' \
-'(--auto-ip)--ip=[Specify desired IP of new peer (within parent CIDR)]:IP: ' \
-'--cidr=[Name of CIDR to add new peer under]:CIDR: ' \
+_arguments "${_arguments_options[@]}" : \
+'--name=[Name of new peer]:NAME:_default' \
+'(--auto-ip)--ip=[Specify desired IP of new peer (within parent CIDR)]:IP:_default' \
+'--cidr=[Name of CIDR to add new peer under]:CIDR:_default' \
 '--admin=[Make new peer an admin?]:ADMIN:(true false)' \
-'--save-config=[Save the config to the given location]:SAVE_CONFIG: ' \
-'--invite-expires=[Invite expiration period (eg. '\''30d'\'', '\''7w'\'', '\''2h'\'', '\''60m'\'', '\''1000s'\'')]:INVITE_EXPIRES: ' \
+'--save-config=[Save the config to the given location]:SAVE_CONFIG:_default' \
+'--invite-expires=[Invite expiration period (eg. '\''30d'\'', '\''7w'\'', '\''2h'\'', '\''60m'\'', '\''1000s'\'')]:INVITE_EXPIRES:_default' \
 '--auto-ip[Auto-assign the peer the first available IP within the CIDR]' \
 '--yes[Bypass confirmation]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (rename-peer)
-_arguments "${_arguments_options[@]}" \
-'--name=[Name of peer to rename]:NAME: ' \
-'--new-name=[The new name of the peer]:NEW_NAME: ' \
+_arguments "${_arguments_options[@]}" : \
+'--name=[Name of peer to rename]:NAME:_default' \
+'--new-name=[The new name of the peer]:NEW_NAME:_default' \
 '--yes[Bypass confirmation]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (add-cidr)
-_arguments "${_arguments_options[@]}" \
-'--name=[The CIDR name (eg. '\''engineers'\'')]:NAME: ' \
-'--cidr=[The CIDR network (eg. '\''10.42.5.0/24'\'')]:CIDR: ' \
-'--parent=[The CIDR parent name]:PARENT: ' \
+_arguments "${_arguments_options[@]}" : \
+'--name=[The CIDR name (eg. '\''engineers'\'')]:NAME:_default' \
+'--cidr=[The CIDR network (eg. '\''10.42.5.0/24'\'')]:CIDR:_default' \
+'--parent=[The CIDR parent name]:PARENT:_default' \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
+&& ret=0
+;;
+(rename-cidr)
+_arguments "${_arguments_options[@]}" : \
+'--name=[Name of CIDR to rename]:NAME:_default' \
+'--new-name=[The new name of the CIDR]:NEW_NAME:_default' \
+'--yes[Bypass confirmation]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':interface:_default' \
 && ret=0
 ;;
 (delete-cidr)
-_arguments "${_arguments_options[@]}" \
-'--name=[The CIDR name (eg. '\''engineers'\'')]:NAME: ' \
+_arguments "${_arguments_options[@]}" : \
+'--name=[The CIDR name (eg. '\''engineers'\'')]:NAME:_default' \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (list-cidrs)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-t[Display CIDRs in tree format]' \
 '--tree[Display CIDRs in tree format]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (disable-peer)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
+'--name=[Name of peer to enable/disable]:NAME:_default' \
+'--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (enable-peer)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
+'--name=[Name of peer to enable/disable]:NAME:_default' \
+'--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (add-association)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
-'::cidr1 -- The first cidr to associate:' \
-'::cidr2 -- The second cidr to associate:' \
+':interface:_default' \
+'::cidr1 -- The first cidr to associate:_default' \
+'::cidr2 -- The second cidr to associate:_default' \
 && ret=0
 ;;
 (delete-association)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
-'::cidr1 -- The first cidr to associate:' \
-'::cidr2 -- The second cidr to associate:' \
+':interface:_default' \
+'::cidr1 -- The first cidr to associate:_default' \
+'::cidr2 -- The second cidr to associate:_default' \
 && ret=0
 ;;
 (list-associations)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (set-listen-port)
-_arguments "${_arguments_options[@]}" \
-'-l+[The listen port you'\''d like to set for the interface]:LISTEN_PORT: ' \
-'--listen-port=[The listen port you'\''d like to set for the interface]:LISTEN_PORT: ' \
+_arguments "${_arguments_options[@]}" : \
+'-l+[The listen port you'\''d like to set for the interface]:LISTEN_PORT:_default' \
+'--listen-port=[The listen port you'\''d like to set for the interface]:LISTEN_PORT:_default' \
 '(-l --listen-port)-u[Unset the local listen port to use a randomized port]' \
 '(-l --listen-port)--unset[Unset the local listen port to use a randomized port]' \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (override-endpoint)
-_arguments "${_arguments_options[@]}" \
-'-e+[The listen port you'\''d like to set for the interface]:ENDPOINT: ' \
-'--endpoint=[The listen port you'\''d like to set for the interface]:ENDPOINT: ' \
+_arguments "${_arguments_options[@]}" : \
+'-e+[The external endpoint that you'\''d like the innernet server to broadcast to other peers. The IP address may be unspecified (all zeros), in which case the server will try to resolve it based on its most recent connection. The port will still be used, even if you decide to use an unspecified IP address]:ENDPOINT:_default' \
+'--endpoint=[The external endpoint that you'\''d like the innernet server to broadcast to other peers. The IP address may be unspecified (all zeros), in which case the server will try to resolve it based on its most recent connection. The port will still be used, even if you decide to use an unspecified IP address]:ENDPOINT:_default' \
 '(-e --endpoint)-u[Unset an existing override to use the automatic endpoint discovery]' \
 '(-e --endpoint)--unset[Unset an existing override to use the automatic endpoint discovery]' \
 '--yes[Bypass confirmation]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':interface:' \
+':interface:_default' \
 && ret=0
 ;;
 (completions)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':shell:(bash elvish fish powershell zsh)' \
 && ret=0
 ;;
 (help)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 ":: :_innernet__help_commands" \
 "*::: :->help" \
 && ret=0
@@ -245,83 +259,87 @@ _arguments "${_arguments_options[@]}" \
         curcontext="${curcontext%:*:*}:innernet-help-command-$line[1]:"
         case $line[1] in
             (install)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (show)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (up)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (fetch)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (uninstall)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (down)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (add-peer)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (rename-peer)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (add-cidr)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(rename-cidr)
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (delete-cidr)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (list-cidrs)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (disable-peer)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (enable-peer)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (add-association)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (delete-association)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (list-associations)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (set-listen-port)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (override-endpoint)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (completions)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (help)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
         esac
@@ -345,6 +363,7 @@ _innernet_commands() {
 'add-peer:Add a new peer' \
 'rename-peer:Rename a peer' \
 'add-cidr:Add a new CIDR' \
+'rename-cidr:Rename a CIDR' \
 'delete-cidr:Delete a CIDR' \
 'list-cidrs:List CIDRs' \
 'disable-peer:Disable an enabled peer' \
@@ -364,100 +383,50 @@ _innernet__add-association_commands() {
     local commands; commands=()
     _describe -t commands 'innernet add-association commands' commands "$@"
 }
-(( $+functions[_innernet__help__add-association_commands] )) ||
-_innernet__help__add-association_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help add-association commands' commands "$@"
-}
 (( $+functions[_innernet__add-cidr_commands] )) ||
 _innernet__add-cidr_commands() {
     local commands; commands=()
     _describe -t commands 'innernet add-cidr commands' commands "$@"
-}
-(( $+functions[_innernet__help__add-cidr_commands] )) ||
-_innernet__help__add-cidr_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help add-cidr commands' commands "$@"
 }
 (( $+functions[_innernet__add-peer_commands] )) ||
 _innernet__add-peer_commands() {
     local commands; commands=()
     _describe -t commands 'innernet add-peer commands' commands "$@"
 }
-(( $+functions[_innernet__help__add-peer_commands] )) ||
-_innernet__help__add-peer_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help add-peer commands' commands "$@"
-}
 (( $+functions[_innernet__completions_commands] )) ||
 _innernet__completions_commands() {
     local commands; commands=()
     _describe -t commands 'innernet completions commands' commands "$@"
-}
-(( $+functions[_innernet__help__completions_commands] )) ||
-_innernet__help__completions_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help completions commands' commands "$@"
 }
 (( $+functions[_innernet__delete-association_commands] )) ||
 _innernet__delete-association_commands() {
     local commands; commands=()
     _describe -t commands 'innernet delete-association commands' commands "$@"
 }
-(( $+functions[_innernet__help__delete-association_commands] )) ||
-_innernet__help__delete-association_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help delete-association commands' commands "$@"
-}
 (( $+functions[_innernet__delete-cidr_commands] )) ||
 _innernet__delete-cidr_commands() {
     local commands; commands=()
     _describe -t commands 'innernet delete-cidr commands' commands "$@"
-}
-(( $+functions[_innernet__help__delete-cidr_commands] )) ||
-_innernet__help__delete-cidr_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help delete-cidr commands' commands "$@"
 }
 (( $+functions[_innernet__disable-peer_commands] )) ||
 _innernet__disable-peer_commands() {
     local commands; commands=()
     _describe -t commands 'innernet disable-peer commands' commands "$@"
 }
-(( $+functions[_innernet__help__disable-peer_commands] )) ||
-_innernet__help__disable-peer_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help disable-peer commands' commands "$@"
-}
 (( $+functions[_innernet__down_commands] )) ||
 _innernet__down_commands() {
     local commands; commands=()
     _describe -t commands 'innernet down commands' commands "$@"
-}
-(( $+functions[_innernet__help__down_commands] )) ||
-_innernet__help__down_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help down commands' commands "$@"
 }
 (( $+functions[_innernet__enable-peer_commands] )) ||
 _innernet__enable-peer_commands() {
     local commands; commands=()
     _describe -t commands 'innernet enable-peer commands' commands "$@"
 }
-(( $+functions[_innernet__help__enable-peer_commands] )) ||
-_innernet__help__enable-peer_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help enable-peer commands' commands "$@"
-}
 (( $+functions[_innernet__fetch_commands] )) ||
 _innernet__fetch_commands() {
     local commands; commands=()
     _describe -t commands 'innernet fetch commands' commands "$@"
-}
-(( $+functions[_innernet__help__fetch_commands] )) ||
-_innernet__help__fetch_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet help fetch commands' commands "$@"
 }
 (( $+functions[_innernet__help_commands] )) ||
 _innernet__help_commands() {
@@ -471,6 +440,7 @@ _innernet__help_commands() {
 'add-peer:Add a new peer' \
 'rename-peer:Rename a peer' \
 'add-cidr:Add a new CIDR' \
+'rename-cidr:Rename a CIDR' \
 'delete-cidr:Delete a CIDR' \
 'list-cidrs:List CIDRs' \
 'disable-peer:Disable an enabled peer' \
@@ -485,6 +455,56 @@ _innernet__help_commands() {
     )
     _describe -t commands 'innernet help commands' commands "$@"
 }
+(( $+functions[_innernet__help__add-association_commands] )) ||
+_innernet__help__add-association_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help add-association commands' commands "$@"
+}
+(( $+functions[_innernet__help__add-cidr_commands] )) ||
+_innernet__help__add-cidr_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help add-cidr commands' commands "$@"
+}
+(( $+functions[_innernet__help__add-peer_commands] )) ||
+_innernet__help__add-peer_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help add-peer commands' commands "$@"
+}
+(( $+functions[_innernet__help__completions_commands] )) ||
+_innernet__help__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help completions commands' commands "$@"
+}
+(( $+functions[_innernet__help__delete-association_commands] )) ||
+_innernet__help__delete-association_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help delete-association commands' commands "$@"
+}
+(( $+functions[_innernet__help__delete-cidr_commands] )) ||
+_innernet__help__delete-cidr_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help delete-cidr commands' commands "$@"
+}
+(( $+functions[_innernet__help__disable-peer_commands] )) ||
+_innernet__help__disable-peer_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help disable-peer commands' commands "$@"
+}
+(( $+functions[_innernet__help__down_commands] )) ||
+_innernet__help__down_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help down commands' commands "$@"
+}
+(( $+functions[_innernet__help__enable-peer_commands] )) ||
+_innernet__help__enable-peer_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help enable-peer commands' commands "$@"
+}
+(( $+functions[_innernet__help__fetch_commands] )) ||
+_innernet__help__fetch_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help fetch commands' commands "$@"
+}
 (( $+functions[_innernet__help__help_commands] )) ||
 _innernet__help__help_commands() {
     local commands; commands=()
@@ -495,85 +515,95 @@ _innernet__help__install_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help install commands' commands "$@"
 }
-(( $+functions[_innernet__install_commands] )) ||
-_innernet__install_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet install commands' commands "$@"
-}
 (( $+functions[_innernet__help__list-associations_commands] )) ||
 _innernet__help__list-associations_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help list-associations commands' commands "$@"
-}
-(( $+functions[_innernet__list-associations_commands] )) ||
-_innernet__list-associations_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet list-associations commands' commands "$@"
 }
 (( $+functions[_innernet__help__list-cidrs_commands] )) ||
 _innernet__help__list-cidrs_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help list-cidrs commands' commands "$@"
 }
-(( $+functions[_innernet__list-cidrs_commands] )) ||
-_innernet__list-cidrs_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet list-cidrs commands' commands "$@"
-}
 (( $+functions[_innernet__help__override-endpoint_commands] )) ||
 _innernet__help__override-endpoint_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help override-endpoint commands' commands "$@"
 }
-(( $+functions[_innernet__override-endpoint_commands] )) ||
-_innernet__override-endpoint_commands() {
+(( $+functions[_innernet__help__rename-cidr_commands] )) ||
+_innernet__help__rename-cidr_commands() {
     local commands; commands=()
-    _describe -t commands 'innernet override-endpoint commands' commands "$@"
+    _describe -t commands 'innernet help rename-cidr commands' commands "$@"
 }
 (( $+functions[_innernet__help__rename-peer_commands] )) ||
 _innernet__help__rename-peer_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help rename-peer commands' commands "$@"
 }
-(( $+functions[_innernet__rename-peer_commands] )) ||
-_innernet__rename-peer_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet rename-peer commands' commands "$@"
-}
 (( $+functions[_innernet__help__set-listen-port_commands] )) ||
 _innernet__help__set-listen-port_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help set-listen-port commands' commands "$@"
-}
-(( $+functions[_innernet__set-listen-port_commands] )) ||
-_innernet__set-listen-port_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet set-listen-port commands' commands "$@"
 }
 (( $+functions[_innernet__help__show_commands] )) ||
 _innernet__help__show_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help show commands' commands "$@"
 }
-(( $+functions[_innernet__show_commands] )) ||
-_innernet__show_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet show commands' commands "$@"
-}
 (( $+functions[_innernet__help__uninstall_commands] )) ||
 _innernet__help__uninstall_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help uninstall commands' commands "$@"
 }
-(( $+functions[_innernet__uninstall_commands] )) ||
-_innernet__uninstall_commands() {
-    local commands; commands=()
-    _describe -t commands 'innernet uninstall commands' commands "$@"
-}
 (( $+functions[_innernet__help__up_commands] )) ||
 _innernet__help__up_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help up commands' commands "$@"
+}
+(( $+functions[_innernet__install_commands] )) ||
+_innernet__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet install commands' commands "$@"
+}
+(( $+functions[_innernet__list-associations_commands] )) ||
+_innernet__list-associations_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet list-associations commands' commands "$@"
+}
+(( $+functions[_innernet__list-cidrs_commands] )) ||
+_innernet__list-cidrs_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet list-cidrs commands' commands "$@"
+}
+(( $+functions[_innernet__override-endpoint_commands] )) ||
+_innernet__override-endpoint_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet override-endpoint commands' commands "$@"
+}
+(( $+functions[_innernet__rename-cidr_commands] )) ||
+_innernet__rename-cidr_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet rename-cidr commands' commands "$@"
+}
+(( $+functions[_innernet__rename-peer_commands] )) ||
+_innernet__rename-peer_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet rename-peer commands' commands "$@"
+}
+(( $+functions[_innernet__set-listen-port_commands] )) ||
+_innernet__set-listen-port_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet set-listen-port commands' commands "$@"
+}
+(( $+functions[_innernet__show_commands] )) ||
+_innernet__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet show commands' commands "$@"
+}
+(( $+functions[_innernet__uninstall_commands] )) ||
+_innernet__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet uninstall commands' commands "$@"
 }
 (( $+functions[_innernet__up_commands] )) ||
 _innernet__up_commands() {
