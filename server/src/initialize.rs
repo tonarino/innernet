@@ -146,6 +146,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         Input::with_theme(&theme)
             .with_prompt("Network CIDR")
             .with_initial_text("10.42.0.0/16")
+            // TODO(mbernat): workaround for https://github.com/console-rs/dialoguer/issues/330
             .interact_text()?
     };
 

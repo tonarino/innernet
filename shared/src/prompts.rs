@@ -73,6 +73,7 @@ where
         _ => input,
     }
     .with_prompt(prompt)
+    // TODO(mbernat): workaround for https://github.com/console-rs/dialoguer/issues/330
     .interact_text()
 }
 
