@@ -7,7 +7,7 @@ use crate::{
     Context, ServerError, Session,
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
-use shared::{
+use innernet_shared::{
     Endpoint, EndpointContents, PeerContents, RedeemContents, ServerCapabilities, State,
     REDEEM_TRANSITION_WAIT,
 };
@@ -185,7 +185,7 @@ mod tests {
     use super::*;
     use crate::{db::DatabaseAssociation, test};
     use bytes::Buf;
-    use shared::{AssociationContents, CidrContents, Endpoint, EndpointContents, Error};
+    use innernet_shared::{AssociationContents, CidrContents, Endpoint, EndpointContents, Error};
 
     #[tokio::test]
     async fn test_get_state_from_developer1() -> Result<(), Error> {

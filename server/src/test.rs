@@ -6,10 +6,10 @@ use crate::{
 };
 use anyhow::anyhow;
 use hyper::{header::HeaderValue, http, Body, Request, Response};
+use innernet_shared::{Cidr, CidrContents, Error, PeerContents};
 use parking_lot::{Mutex, RwLock};
 use rusqlite::Connection;
 use serde::Serialize;
-use shared::{Cidr, CidrContents, Error, PeerContents};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 use wireguard_control::{Backend, InterfaceName, Key, KeyPair};
@@ -205,7 +205,7 @@ impl Server {
             format!("http://{WG_MANAGE_PEER_IP}{path}")
         };
         Request::builder().uri(path).method(verb).header(
-            shared::INNERNET_PUBKEY_HEADER,
+            innernet_shared::INNERNET_PUBKEY_HEADER,
             HeaderValue::from_str(&self.public_key.to_base64()).unwrap(),
         )
     }

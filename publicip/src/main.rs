@@ -1,5 +1,5 @@
 pub fn main() {
-    let (ipv4, ipv6) = publicip::get_both();
+    let (ipv4, ipv6) = innernet_publicip::get_both();
     println!(
         "ipv4: {}",
         match ipv4 {

@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use crate::Session;
-use shared::{Endpoint, Peer};
+use innernet_shared::{Endpoint, Peer};
 
 pub mod admin;
 pub mod user;

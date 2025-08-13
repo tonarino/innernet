@@ -10,7 +10,7 @@ use crate::{
     ServerError, Session,
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
-use shared::AssociationContents;
+use innernet_shared::AssociationContents;
 
 pub async fn routes(
     req: Request<Body>,

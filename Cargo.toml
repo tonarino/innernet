@@ -16,6 +16,9 @@ lto = "fat"
 opt-level = "s"
 panic = "abort"
 
+[workspace.package]
+keywords = ["innernet", "networking", "overlay", "vpn", "wireguard"]
+
 [workspace.dependencies]
 dialoguer = { version = "0.11", default-features = false }
 # Constrain console below 0.15.8 because that version breaks prefilled prompts

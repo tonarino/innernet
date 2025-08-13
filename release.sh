@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#
+# TODO(Matej): rewrite this script to be a hook for `cargo-release`. I.e. swap the driving role
+# between this script and cargo-release.
+
 set -e
 
 die () {
@@ -17,9 +21,10 @@ done
 [ "$#" -eq 1 ] || die "usage: ./release.sh [patch|major|minor|rc]"
 git diff --quiet || die 'ERROR: git repo is dirty.'
 
-OLD_VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
+# pkgid gives a string like path+file:///home/strohel/work/innernet/shared#innernet-shared@1.7.0
+OLD_VERSION="$(cargo pkgid -p innernet-shared | cut -d '@' -f 2)"
 
-cargo release "$1" --no-confirm --exclude "hostsfile" --exclude "publicip" --execute
+cargo release "$1" --no-publish --no-tag --no-push --no-confirm --execute
 
 # re-stage the manpage commit and the cargo-release commit
 git reset --soft @~1
@@ -34,13 +39,7 @@ for binary in "innernet" "innernet-server"; do
     gzip -fk "doc/$binary.8"
 done
 
-VERSION="$(cargo pkgid -p shared | cut -d '#' -f 2)"
-
-perl -pi -e "s/v$OLD_VERSION/v$VERSION/g" README.md
-perl -pi -e "s/$OLD_VERSION/$VERSION/g" wireguard-control/Cargo.toml netlink-request/Cargo.toml
+VERSION="$(cargo pkgid -p innernet-shared | cut -d '@' -f 2)"
 
 git add doc
-git add README.md
-git add wireguard-control/Cargo.toml netlink-request/Cargo.toml
 git commit -m "meta: release v$VERSION"
-git tag -f -a "v$VERSION" -m "release v$VERSION"

@@ -1,7 +1,7 @@
 use crate::ServerError;
+use innernet_shared::{Cidr, CidrContents};
 use ipnet::IpNet;
 use rusqlite::{params, Connection};
-use shared::{Cidr, CidrContents};
 use std::ops::{Deref, DerefMut};
 
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE cidrs (

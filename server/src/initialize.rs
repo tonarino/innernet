@@ -7,12 +7,12 @@ use clap::Parser;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
-use ipnet::IpNet;
-use publicip::Preference;
-use rusqlite::{params, Connection};
-use shared::{
+use innernet_publicip::Preference;
+use innernet_shared::{
     prompts, CidrContents, Endpoint, IpNetExt, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
+use ipnet::IpNet;
+use rusqlite::{params, Connection};
 use std::net::{IpAddr, SocketAddr};
 use wireguard_control::KeyPair;
 
@@ -109,12 +109,14 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
 pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Error> {
     let theme = ColorfulTheme::default();
 
-    shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(|_| {
-        anyhow!(
-            "Failed to create config and database directories {}",
-            "(are you not running as root?)".bold()
-        )
-    })?;
+    innernet_shared::ensure_dirs_exist(&[conf.config_dir(), conf.database_dir()]).map_err(
+        |_| {
+            anyhow!(
+                "Failed to create config and database directories {}",
+                "(are you not running as root?)".bold()
+            )
+        },
+    )?;
     printdoc!(
         "\nTime to setup your innernet network.
 
@@ -162,7 +164,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
     let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
         endpoint
     } else if opts.auto_external_endpoint {
-        let ip = publicip::get_any(Preference::Ipv4)
+        let ip = innernet_publicip::get_any(Preference::Ipv4)
             .ok_or_else(|| anyhow!("couldn't get external IP"))?;
         SocketAddr::new(ip, listen_port).into()
     } else {

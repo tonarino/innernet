@@ -7,9 +7,9 @@ use crate::{
 use anyhow::anyhow;
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use innernet_publicip::Preference;
 use ipnet::IpNet;
 use once_cell::sync::Lazy;
-use publicip::Preference;
 use std::{
     fmt::{Debug, Display},
     fs::{File, OpenOptions},
@@ -569,7 +569,7 @@ pub fn unspecified_ip_and_auto_detection_flow() -> Result<Option<IpAddr>, Error>
 
 pub fn ip_auto_detection_flow() -> Result<Option<IpAddr>, Error> {
     let ip_addr = if confirm_ip_auto_detection()? {
-        publicip::get_any(Preference::Ipv4)
+        innernet_publicip::get_any(Preference::Ipv4)
     } else {
         None
     };

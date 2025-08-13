@@ -567,7 +567,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hostsfile"
-version = "1.2.0"
+version = "1.6.1"
 dependencies = [
  "log",
  "selinux",
@@ -773,17 +773,21 @@ dependencies = [
  "colored",
  "dialoguer",
  "indoc",
+ "innernet-shared",
  "ipnet",
  "log",
  "once_cell",
  "regex",
  "serde",
  "serde_json",
- "shared",
  "tempfile",
  "ureq",
  "wireguard-control",
 ]
+
+[[package]]
+name = "innernet-publicip"
+version = "1.6.1"
 
 [[package]]
 name = "innernet-server"
@@ -797,6 +801,8 @@ dependencies = [
  "dialoguer",
  "hyper",
  "indoc",
+ "innernet-publicip",
+ "innernet-shared",
  "ipnet",
  "libc",
  "libsqlite3-sys",
@@ -804,17 +810,44 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pretty_env_logger",
- "publicip",
  "regex",
  "rusqlite",
  "serde",
  "serde_json",
- "shared",
  "socket2 0.5.10",
  "subtle",
  "tempfile",
  "thiserror",
  "tokio",
+ "toml",
+ "url",
+ "wireguard-control",
+]
+
+[[package]]
+name = "innernet-shared"
+version = "1.6.1"
+dependencies = [
+ "anyhow",
+ "atty",
+ "clap",
+ "colored",
+ "console",
+ "dialoguer",
+ "hostsfile",
+ "indoc",
+ "innernet-publicip",
+ "ipnet",
+ "libc",
+ "log",
+ "netlink-packet-core",
+ "netlink-packet-route",
+ "netlink-request",
+ "netlink-sys",
+ "nix 0.26.4",
+ "once_cell",
+ "regex",
+ "serde",
  "toml",
  "url",
  "wireguard-control",
@@ -1232,10 +1265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "publicip"
-version = "0.1.0"
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1449,35 +1478,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "shared"
-version = "1.6.1"
-dependencies = [
- "anyhow",
- "atty",
- "clap",
- "colored",
- "console",
- "dialoguer",
- "hostsfile",
- "indoc",
- "ipnet",
- "libc",
- "log",
- "netlink-packet-core",
- "netlink-packet-route",
- "netlink-request",
- "netlink-sys",
- "nix 0.26.4",
- "once_cell",
- "publicip",
- "regex",
- "serde",
- "toml",
- "url",
- "wireguard-control",
 ]
 
 [[package]]

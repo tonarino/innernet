@@ -6,7 +6,7 @@ use crate::{
     ServerError, Session,
 };
 use hyper::{Body, Method, Request, Response, StatusCode};
-use shared::CidrContents;
+use innernet_shared::CidrContents;
 
 pub async fn routes(
     req: Request<Body>,
@@ -81,7 +81,7 @@ mod tests {
     use crate::{test, DatabasePeer};
     use anyhow::Result;
     use bytes::Buf;
-    use shared::{Cidr, Error};
+    use innernet_shared::{Cidr, Error};
 
     #[tokio::test]
     async fn test_cidr_add() -> Result<(), Error> {

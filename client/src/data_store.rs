@@ -1,7 +1,7 @@
 use crate::Error;
 use anyhow::bail;
+use innernet_shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use serde::{Deserialize, Serialize};
-use shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Seek, Write},
@@ -38,7 +38,7 @@ impl DataStore {
             .with_path(path)?;
 
         if is_existing_file {
-            shared::warn_on_dangerous_mode(path).with_path(path)?;
+            innernet_shared::warn_on_dangerous_mode(path).with_path(path)?;
         } else {
             chmod(&file, 0o600).with_path(path)?;
         }
@@ -144,8 +144,8 @@ impl DataStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use innernet_shared::{Cidr, CidrContents, Peer, PeerContents};
     use once_cell::sync::Lazy;
-    use shared::{Cidr, CidrContents, Peer, PeerContents};
     static BASE_PEERS: Lazy<Vec<Peer>> = Lazy::new(|| {
         vec![Peer {
             id: 0,

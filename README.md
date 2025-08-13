@@ -215,14 +215,15 @@ brew install tonarino/innernet/innernet
 ### Cargo
 
 ```sh
-# to install innernet:
-cargo install --git https://github.com/tonarino/innernet --tag v1.6.1 client
+# to install the latest released innernet:
+cargo install --locked innernet
 
-# to install innernet-server:
-cargo install --git https://github.com/tonarino/innernet --tag v1.6.1 innernet-server
+# to install the latest released innernet-server:
+cargo install --locked innernet-server
 ```
 
-Note that you'll be responsible for updating manually.
+Note that you'll be responsible for updating manually or through tools like [`cargo-update`](https://crates.io/crates/cargo-update).
+You can omit `--locked` to use newer (but compatible) dependency versions, losing determinism and testing by our CI.
 
 ## Development
 
@@ -276,7 +277,9 @@ If you are developing a new feature, please consider adding a new test case to `
 
 Please run the release script from a Linux machine: generated shell completions depend on available wireguard backends and Mac doesn't support the `kernel` backend. 
 
-1. Fetch and check-out the `main` branch.
-2. Run `./release.sh [patch|major|minor|rc]`
-3. Push the `main` branch and the created tag to the repo.
-4. Publish crates that have `publish = true` to crates.io.
+1. Create a new branch on top of fresh `main`.
+1. Run `./release.sh [patch|major|minor|rc]` and submit its results as a PR.
+1. Once the PR is merged, switch to `main` that contains it.
+1. Tag the commit using `git tag -f -a v<version> -m "release v<version>`.
+3. Push the created tag to the repo using `git push origin v<version>`.
+4. Publish to crates.io using `cargo release publish` (pass `--execute` after a dry run).

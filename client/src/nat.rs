@@ -6,7 +6,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Error;
-use shared::{
+use innernet_shared::{
     wg::{DeviceExt, PeerInfoExt},
     Endpoint, Peer, PeerDiff,
 };

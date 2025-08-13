@@ -3,7 +3,7 @@ use clap::{ArgAction, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use indoc::eprintdoc;
-use shared::{
+use innernet_shared::{
     get_local_addrs,
     interface_config::InterfaceConfig,
     prompts, update_hosts_file,
@@ -28,8 +28,8 @@ mod nat;
 mod util;
 
 use data_store::DataStore;
+use innernet_shared::{wg, Error};
 use nat::NatTraverse;
-use shared::{wg, Error};
 use util::{human_duration, human_size, Api};
 
 use crate::util::all_installed;
@@ -278,7 +278,7 @@ fn install(
     install_opts: InstallOpts,
     nat: &NatOpts,
 ) -> Result<(), Error> {
-    shared::ensure_dirs_exist(&[&opts.config_dir])?;
+    innernet_shared::ensure_dirs_exist(&[&opts.config_dir])?;
     let config = InterfaceConfig::from_file(invite)?;
 
     let iface = if install_opts.default_name {
