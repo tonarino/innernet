@@ -40,6 +40,7 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand add-peer 'Add a new peer'
             cand rename-peer 'Rename a peer'
             cand add-cidr 'Add a new CIDR'
+            cand rename-cidr 'Rename a CIDR'
             cand delete-cidr 'Delete a CIDR'
             cand list-cidrs 'List CIDRs'
             cand disable-peer 'Disable an enabled peer'
@@ -130,6 +131,13 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand -h 'Print help'
             cand --help 'Print help'
         }
+        &'innernet;rename-cidr'= {
+            cand --name 'Name of CIDR to rename'
+            cand --new-name 'The new name of the CIDR'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Print help (see more with ''--help'')'
+            cand --help 'Print help (see more with ''--help'')'
+        }
         &'innernet;delete-cidr'= {
             cand --name 'The CIDR name (eg. ''engineers'')'
             cand --yes 'Bypass confirmation'
@@ -143,10 +151,14 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --help 'Print help'
         }
         &'innernet;disable-peer'= {
+            cand --name 'Name of peer to enable/disable'
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help'
             cand --help 'Print help'
         }
         &'innernet;enable-peer'= {
+            cand --name 'Name of peer to enable/disable'
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help'
             cand --help 'Print help'
         }
@@ -174,8 +186,8 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand --help 'Print help'
         }
         &'innernet;override-endpoint'= {
-            cand -e 'The listen port you''d like to set for the interface'
-            cand --endpoint 'The listen port you''d like to set for the interface'
+            cand -e 'The external endpoint that you''d like the innernet server to broadcast to other peers. The IP address may be unspecified (all zeros), in which case the server will try to resolve it based on its most recent connection. The port will still be used, even if you decide to use an unspecified IP address'
+            cand --endpoint 'The external endpoint that you''d like the innernet server to broadcast to other peers. The IP address may be unspecified (all zeros), in which case the server will try to resolve it based on its most recent connection. The port will still be used, even if you decide to use an unspecified IP address'
             cand -u 'Unset an existing override to use the automatic endpoint discovery'
             cand --unset 'Unset an existing override to use the automatic endpoint discovery'
             cand --yes 'Bypass confirmation'
@@ -196,6 +208,7 @@ set edit:completion:arg-completer[innernet] = {|@words|
             cand add-peer 'Add a new peer'
             cand rename-peer 'Rename a peer'
             cand add-cidr 'Add a new CIDR'
+            cand rename-cidr 'Rename a CIDR'
             cand delete-cidr 'Delete a CIDR'
             cand list-cidrs 'List CIDRs'
             cand disable-peer 'Disable an enabled peer'
@@ -225,6 +238,8 @@ set edit:completion:arg-completer[innernet] = {|@words|
         &'innernet;help;rename-peer'= {
         }
         &'innernet;help;add-cidr'= {
+        }
+        &'innernet;help;rename-cidr'= {
         }
         &'innernet;help;delete-cidr'= {
         }

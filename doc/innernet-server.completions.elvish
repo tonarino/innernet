@@ -37,6 +37,7 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand enable-peer 'Enable a disabled peer'
             cand rename-peer 'Rename an existing peer'
             cand add-cidr 'Add a new CIDR to an existing network'
+            cand rename-cidr 'Rename an existing CIDR'
             cand delete-cidr 'Delete a CIDR'
             cand completions 'Generate shell completion scripts'
             cand help 'Print this message or the help of the given subcommand(s)'
@@ -58,7 +59,9 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
         &'innernet-server;serve'= {
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
             cand --mtu 'Specify the desired MTU for your interface (default: 1280)'
+            cand --hosts-path 'The path to write hosts to'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
+            cand --no-write-hosts 'Don''t write to any hosts files'
             cand -h 'Print help'
             cand --help 'Print help'
         }
@@ -75,10 +78,14 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand --help 'Print help'
         }
         &'innernet-server;disable-peer'= {
+            cand --name 'Name of peer to enable/disable'
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help'
             cand --help 'Print help'
         }
         &'innernet-server;enable-peer'= {
+            cand --name 'Name of peer to enable/disable'
+            cand --yes 'Bypass confirmation'
             cand -h 'Print help'
             cand --help 'Print help'
         }
@@ -93,6 +100,13 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand --name 'The CIDR name (eg. ''engineers'')'
             cand --cidr 'The CIDR network (eg. ''10.42.5.0/24'')'
             cand --parent 'The CIDR parent name'
+            cand --yes 'Bypass confirmation'
+            cand -h 'Print help'
+            cand --help 'Print help'
+        }
+        &'innernet-server;rename-cidr'= {
+            cand --name 'Name of CIDR to rename'
+            cand --new-name 'The new name of the CIDR'
             cand --yes 'Bypass confirmation'
             cand -h 'Print help'
             cand --help 'Print help'
@@ -116,6 +130,7 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand enable-peer 'Enable a disabled peer'
             cand rename-peer 'Rename an existing peer'
             cand add-cidr 'Add a new CIDR to an existing network'
+            cand rename-cidr 'Rename an existing CIDR'
             cand delete-cidr 'Delete a CIDR'
             cand completions 'Generate shell completion scripts'
             cand help 'Print this message or the help of the given subcommand(s)'
@@ -135,6 +150,8 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
         &'innernet-server;help;rename-peer'= {
         }
         &'innernet-server;help;add-cidr'= {
+        }
+        &'innernet-server;help;rename-cidr'= {
         }
         &'innernet-server;help;delete-cidr'= {
         }

@@ -21,17 +21,17 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'innernet-server' {
-            [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'c')
-            [CompletionResult]::new('--config-dir', 'config-dir', [CompletionResultType]::ParameterName, 'config-dir')
-            [CompletionResult]::new('-d', 'd', [CompletionResultType]::ParameterName, 'd')
-            [CompletionResult]::new('--data-dir', 'data-dir', [CompletionResultType]::ParameterName, 'data-dir')
-            [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
-            [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1280)')
-            [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('-V', 'V ', [CompletionResultType]::ParameterName, 'Print version')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('-c', '-c', [CompletionResultType]::ParameterName, 'c')
+            [CompletionResult]::new('--config-dir', '--config-dir', [CompletionResultType]::ParameterName, 'config-dir')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'd')
+            [CompletionResult]::new('--data-dir', '--data-dir', [CompletionResultType]::ParameterName, 'data-dir')
+            [CompletionResult]::new('--backend', '--backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
+            [CompletionResult]::new('--mtu', '--mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1280)')
+            [CompletionResult]::new('--no-routing', '--no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('new', 'new', [CompletionResultType]::ParameterValue, 'Create a new network')
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Permanently uninstall a created network, rendering it unusable. Use with care')
             [CompletionResult]::new('serve', 'serve', [CompletionResultType]::ParameterValue, 'Serve the coordinating server for an existing network')
@@ -40,85 +40,100 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('enable-peer', 'enable-peer', [CompletionResultType]::ParameterValue, 'Enable a disabled peer')
             [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename an existing peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR to an existing network')
+            [CompletionResult]::new('rename-cidr', 'rename-cidr', [CompletionResultType]::ParameterValue, 'Rename an existing CIDR')
             [CompletionResult]::new('delete-cidr', 'delete-cidr', [CompletionResultType]::ParameterValue, 'Delete a CIDR')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'innernet-server;new' {
-            [CompletionResult]::new('--network-name', 'network-name', [CompletionResultType]::ParameterName, 'The network name (ex: evilcorp)')
-            [CompletionResult]::new('--network-cidr', 'network-cidr', [CompletionResultType]::ParameterName, 'The network CIDR (ex: 10.42.0.0/16)')
-            [CompletionResult]::new('--external-endpoint', 'external-endpoint', [CompletionResultType]::ParameterName, 'This server''s external endpoint (ex: 100.100.100.100:51820)')
-            [CompletionResult]::new('--listen-port', 'listen-port', [CompletionResultType]::ParameterName, 'Port to listen on (for the WireGuard interface)')
-            [CompletionResult]::new('--auto-external-endpoint', 'auto-external-endpoint', [CompletionResultType]::ParameterName, 'Auto-resolve external endpoint')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--network-name', '--network-name', [CompletionResultType]::ParameterName, 'The network name (ex: evilcorp)')
+            [CompletionResult]::new('--network-cidr', '--network-cidr', [CompletionResultType]::ParameterName, 'The network CIDR (ex: 10.42.0.0/16)')
+            [CompletionResult]::new('--external-endpoint', '--external-endpoint', [CompletionResultType]::ParameterName, 'This server''s external endpoint (ex: 100.100.100.100:51820)')
+            [CompletionResult]::new('--listen-port', '--listen-port', [CompletionResultType]::ParameterName, 'Port to listen on (for the WireGuard interface)')
+            [CompletionResult]::new('--auto-external-endpoint', '--auto-external-endpoint', [CompletionResultType]::ParameterName, 'Auto-resolve external endpoint')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;uninstall' {
-            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;serve' {
-            [CompletionResult]::new('--backend', 'backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
-            [CompletionResult]::new('--mtu', 'mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1280)')
-            [CompletionResult]::new('--no-routing', 'no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--backend', '--backend', [CompletionResultType]::ParameterName, 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability')
+            [CompletionResult]::new('--mtu', '--mtu', [CompletionResultType]::ParameterName, 'Specify the desired MTU for your interface (default: 1280)')
+            [CompletionResult]::new('--hosts-path', '--hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
+            [CompletionResult]::new('--no-routing', '--no-routing', [CompletionResultType]::ParameterName, 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld')
+            [CompletionResult]::new('--no-write-hosts', '--no-write-hosts', [CompletionResultType]::ParameterName, 'Don''t write to any hosts files')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;add-peer' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'Name of new peer')
-            [CompletionResult]::new('--ip', 'ip', [CompletionResultType]::ParameterName, 'Specify desired IP of new peer (within parent CIDR)')
-            [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'Name of CIDR to add new peer under')
-            [CompletionResult]::new('--admin', 'admin', [CompletionResultType]::ParameterName, 'Make new peer an admin?')
-            [CompletionResult]::new('--save-config', 'save-config', [CompletionResultType]::ParameterName, 'Save the config to the given location')
-            [CompletionResult]::new('--invite-expires', 'invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')')
-            [CompletionResult]::new('--auto-ip', 'auto-ip', [CompletionResultType]::ParameterName, 'Auto-assign the peer the first available IP within the CIDR')
-            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Name of new peer')
+            [CompletionResult]::new('--ip', '--ip', [CompletionResultType]::ParameterName, 'Specify desired IP of new peer (within parent CIDR)')
+            [CompletionResult]::new('--cidr', '--cidr', [CompletionResultType]::ParameterName, 'Name of CIDR to add new peer under')
+            [CompletionResult]::new('--admin', '--admin', [CompletionResultType]::ParameterName, 'Make new peer an admin?')
+            [CompletionResult]::new('--save-config', '--save-config', [CompletionResultType]::ParameterName, 'Save the config to the given location')
+            [CompletionResult]::new('--invite-expires', '--invite-expires', [CompletionResultType]::ParameterName, 'Invite expiration period (eg. ''30d'', ''7w'', ''2h'', ''60m'', ''1000s'')')
+            [CompletionResult]::new('--auto-ip', '--auto-ip', [CompletionResultType]::ParameterName, 'Auto-assign the peer the first available IP within the CIDR')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;disable-peer' {
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Name of peer to enable/disable')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;enable-peer' {
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Name of peer to enable/disable')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;rename-peer' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'Name of peer to rename')
-            [CompletionResult]::new('--new-name', 'new-name', [CompletionResultType]::ParameterName, 'The new name of the peer')
-            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Name of peer to rename')
+            [CompletionResult]::new('--new-name', '--new-name', [CompletionResultType]::ParameterName, 'The new name of the peer')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;add-cidr' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
-            [CompletionResult]::new('--cidr', 'cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. ''10.42.5.0/24'')')
-            [CompletionResult]::new('--parent', 'parent', [CompletionResultType]::ParameterName, 'The CIDR parent name')
-            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
+            [CompletionResult]::new('--cidr', '--cidr', [CompletionResultType]::ParameterName, 'The CIDR network (eg. ''10.42.5.0/24'')')
+            [CompletionResult]::new('--parent', '--parent', [CompletionResultType]::ParameterName, 'The CIDR parent name')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'innernet-server;rename-cidr' {
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Name of CIDR to rename')
+            [CompletionResult]::new('--new-name', '--new-name', [CompletionResultType]::ParameterName, 'The new name of the CIDR')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;delete-cidr' {
-            [CompletionResult]::new('--name', 'name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
-            [CompletionResult]::new('--yes', 'yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'The CIDR name (eg. ''engineers'')')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;completions' {
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
         'innernet-server;help' {
@@ -130,6 +145,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             [CompletionResult]::new('enable-peer', 'enable-peer', [CompletionResultType]::ParameterValue, 'Enable a disabled peer')
             [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename an existing peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR to an existing network')
+            [CompletionResult]::new('rename-cidr', 'rename-cidr', [CompletionResultType]::ParameterValue, 'Rename an existing CIDR')
             [CompletionResult]::new('delete-cidr', 'delete-cidr', [CompletionResultType]::ParameterValue, 'Delete a CIDR')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -157,6 +173,9 @@ Register-ArgumentCompleter -Native -CommandName 'innernet-server' -ScriptBlock {
             break
         }
         'innernet-server;help;add-cidr' {
+            break
+        }
+        'innernet-server;help;rename-cidr' {
             break
         }
         'innernet-server;help;delete-cidr' {

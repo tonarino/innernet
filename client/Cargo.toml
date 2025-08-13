@@ -15,7 +15,7 @@ name = "innernet"
 publish = true
 readme = "../README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.6.1"
+version = "1.7.0"
 
 [[bin]]
 name = "innernet"
@@ -28,14 +28,14 @@ clap_complete = "4.3"
 colored = "2"
 dialoguer.workspace = true
 indoc = "2.0.1"
-innernet-shared = { version = "1.6.1", path = "../shared" }
+innernet-shared = { version = "1.7.0", path = "../shared" }
 ipnet = { version = "2.4", features = ["serde"] }
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ureq = { version = "2", default-features = false, features = ["json"] }
-wireguard-control = { version = "1.6.1", path = "../wireguard-control" }
+wireguard-control = { version = "1.7.0", path = "../wireguard-control" }
 
 [dev-dependencies]
 once_cell = "1.17.1"

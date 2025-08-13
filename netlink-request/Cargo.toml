@@ -10,7 +10,7 @@ name = "netlink-request"
 publish = true
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.6.1"
+version = "1.7.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-sys = "0.8.5"
