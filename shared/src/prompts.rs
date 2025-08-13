@@ -73,7 +73,8 @@ where
         _ => input,
     }
     .with_prompt(prompt)
-    .interact()
+    // TODO(mbernat): workaround for https://github.com/console-rs/dialoguer/issues/330
+    .interact_text()
 }
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
