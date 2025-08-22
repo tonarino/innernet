@@ -184,11 +184,12 @@ It's recommended that you carefully consider this possibility before deciding th
 
 ## Installation
 
-innernet has only officially been tested on Linux and MacOS, but we hope to support as many platforms as is feasible!
+`innernet` has only been officially tested on Linux and macOS. Experimental OpenBSD support has been added recently. Feedback from early testers is most welcome. Please report any issues you may encounter.
+We hope to support more platforms in the future.
 
 ### Runtime Dependencies
 
-It's assumed that WireGuard is installed on your system, either via the kernel module in Linux 5.6 and later, or via the [`wireguard-go`](https://git.zx2c4.com/wireguard-go/about/) userspace implementation.
+It's assumed that WireGuard is present on your system, either via kernel support (`Linux 5.6` and later or `OpenBSD 6.8` and later) or by installing the [`wireguard-go`](https://git.zx2c4.com/wireguard-go/about/) userspace implementation.
 
 [WireGuard Installation Instructions](https://www.wireguard.com/install/)
 
