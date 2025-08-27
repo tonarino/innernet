@@ -362,36 +362,13 @@ mod tests {
     async fn test_cidr_disable_with_enabled_peers() -> Result<(), Error> {
         let server = test::Server::new()?;
 
-        // Create a test CIDR
-        let cidr = CidrContents {
-            name: "test-cidr".to_string(),
-            cidr: test::EXPERIMENTAL_CIDR.parse()?,
-            parent: Some(test::ROOT_CIDR_ID),
-            is_disabled: false,
-        };
-
-        let res = server
-            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &cidr)
-            .await;
-        assert!(res.status().is_success());
-        let whole_body = hyper::body::aggregate(res).await?;
-        let test_cidr: Cidr = serde_json::from_reader(whole_body.reader())?;
-
-        // Create an enabled peer in the CIDR
-        let peer = test::peer_contents(
-            "test-peer",
-            test::EXPERIMENT_SUBCIDR_PEER_IP,
-            test_cidr.id,
-            false,
-        )?;
-        DatabasePeer::create(&server.db().lock(), peer)?;
-
-        // Try to disable the CIDR (should fail)
+        // USER_CIDR already has enabled peers (USER1 and USER2)
+        // Try to disable USER_CIDR (should fail because peers are enabled)
         let res = server
             .request(
                 test::ADMIN_PEER_IP,
                 "PUT",
-                &format!("/v1/admin/cidrs/{}/disable", test_cidr.id),
+                &format!("/v1/admin/cidrs/{}/disable", test::USER_CIDR_ID),
             )
             .await;
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
@@ -403,69 +380,71 @@ mod tests {
     async fn test_cidr_disable_with_disabled_peers() -> Result<(), Error> {
         let server = test::Server::new()?;
 
-        // Create a test CIDR
-        let cidr = CidrContents {
-            name: "test-cidr2".to_string(),
-            cidr: "10.80.3.0/24".parse()?,
-            parent: Some(test::ROOT_CIDR_ID),
-            is_disabled: false,
-        };
+        // First disable USER1 and USER2 peers
+        {
+            let db = server.db();
+            let conn = db.lock();
+            DatabasePeer::disable(&conn, test::USER1_PEER_ID)?;
+            DatabasePeer::disable(&conn, test::USER2_PEER_ID)?;
+        }
 
-        let res = server
-            .form_request(test::ADMIN_PEER_IP, "POST", "/v1/admin/cidrs", &cidr)
-            .await;
-        assert!(res.status().is_success());
-        let whole_body = hyper::body::aggregate(res).await?;
-        let test_cidr: Cidr = serde_json::from_reader(whole_body.reader())?;
-
-        // Create a disabled peer in the CIDR
-        let mut peer = test::peer_contents("test-peer2", "10.80.3.1", test_cidr.id, false)?;
-        peer.is_disabled = true;
-        DatabasePeer::create(&server.db().lock(), peer)?;
-
-        // Try to disable the CIDR (should succeed)
+        // Try to disable USER_CIDR (should succeed now that all peers are disabled)
         let res = server
             .request(
                 test::ADMIN_PEER_IP,
                 "PUT",
-                &format!("/v1/admin/cidrs/{}/disable", test_cidr.id),
+                &format!("/v1/admin/cidrs/{}/disable", test::USER_CIDR_ID),
             )
             .await;
         assert_eq!(res.status(), StatusCode::NO_CONTENT);
 
         // Verify CIDR is disabled
-        let disabled_cidr = DatabaseCidr::get(&server.db().lock(), test_cidr.id)?;
+        let disabled_cidr = DatabaseCidr::get(&server.db().lock(), test::USER_CIDR_ID)?;
         assert!(disabled_cidr.is_disabled);
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_cidr_enable() -> Result<(), Error> {
+    async fn test_cidr_disable_enable() -> Result<(), Error> {
         let server = test::Server::new()?;
 
-        // Create a disabled CIDR
+        // Create EXPERIMENTAL_CIDR
         let cidr = CidrContents {
-            name: "test-cidr3".to_string(),
-            cidr: "10.80.4.0/24".parse()?,
+            name: "experimental".to_string(),
+            cidr: test::EXPERIMENTAL_CIDR.parse()?,
             parent: Some(test::ROOT_CIDR_ID),
-            is_disabled: true,
+            is_disabled: false,
         };
 
-        let test_cidr = DatabaseCidr::create(&server.db().lock(), cidr)?;
+        let experimental_cidr = DatabaseCidr::create(&server.db().lock(), cidr)?;
 
-        // Enable the CIDR
+        // Test disable operation (should succeed since no peers exist)
         let res = server
             .request(
                 test::ADMIN_PEER_IP,
                 "PUT",
-                &format!("/v1/admin/cidrs/{}/enable", test_cidr.id),
+                &format!("/v1/admin/cidrs/{}/disable", experimental_cidr.id),
+            )
+            .await;
+        assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+        // Verify CIDR is disabled
+        let disabled_cidr = DatabaseCidr::get(&server.db().lock(), experimental_cidr.id)?;
+        assert!(disabled_cidr.is_disabled);
+
+        // Test enable operation
+        let res = server
+            .request(
+                test::ADMIN_PEER_IP,
+                "PUT",
+                &format!("/v1/admin/cidrs/{}/enable", experimental_cidr.id),
             )
             .await;
         assert_eq!(res.status(), StatusCode::NO_CONTENT);
 
         // Verify CIDR is enabled
-        let enabled_cidr = DatabaseCidr::get(&server.db().lock(), test_cidr.id)?;
+        let enabled_cidr = DatabaseCidr::get(&server.db().lock(), experimental_cidr.id)?;
         assert!(!enabled_cidr.is_disabled);
 
         Ok(())
