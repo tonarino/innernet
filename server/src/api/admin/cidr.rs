@@ -452,10 +452,7 @@ mod tests {
             is_disabled: true,
         };
 
-        let db = server.db();
-        let conn = db.lock();
-        let test_cidr = DatabaseCidr::create(&conn, cidr)?;
-        drop(conn);
+        let test_cidr = DatabaseCidr::create(&server.db().lock(), cidr)?;
 
         // Enable the CIDR
         let res = server
