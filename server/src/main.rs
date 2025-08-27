@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
 use colored::*;
 use innernet_shared::{
-    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, HostsOpt, NetworkOpts,
-    RenameCidrOpts, RenamePeerOpts,
+    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisableCidrOpts, EnableDisablePeerOpts,
+    HostsOpt, NetworkOpts, RenameCidrOpts, RenamePeerOpts,
 };
 use std::{env, path::PathBuf};
 
 use innernet_server::{
-    add_cidr, add_peer, delete_cidr, enable_or_disable_peer,
+    add_cidr, add_peer, delete_cidr, enable_or_disable_cidr, enable_or_disable_peer,
     initialize::{self, InitializeOpts},
     rename_cidr, rename_peer, serve, uninstall, ServerConfig,
 };
@@ -121,6 +121,22 @@ enum Command {
         args: DeleteCidrOpts,
     },
 
+    /// Disable an enabled CIDR
+    DisableCidr {
+        interface: Interface,
+
+        #[clap(flatten)]
+        args: EnableDisableCidrOpts,
+    },
+
+    /// Enable a disabled CIDR
+    EnableCidr {
+        interface: Interface,
+
+        #[clap(flatten)]
+        args: EnableDisableCidrOpts,
+    },
+
     /// Generate shell completion scripts
     Completions {
         #[clap(value_enum)]
@@ -168,6 +184,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::RenameCidr { interface, args } => rename_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
+        Command::DisableCidr { interface, args } => {
+            enable_or_disable_cidr(&interface, &conf, false, args)?
+        },
+        Command::EnableCidr { interface, args } => {
+            enable_or_disable_cidr(&interface, &conf, true, args)?
+        },
         Command::Completions { shell } => {
             use clap::CommandFactory;
             let mut app = Opts::command();

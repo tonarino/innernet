@@ -9,10 +9,10 @@ use innernet_shared::{
     prompts, update_hosts_file,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpt,
-    InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
-    OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, ServerCapabilities,
-    State, WrappedIoError, REDEEM_TRANSITION_WAIT,
+    CidrTree, DeleteCidrOpts, EnableDisableCidrOpts, EnableDisablePeerOpts, Endpoint,
+    EndpointContents, HostsOpt, InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts,
+    NetworkOpts, OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts,
+    ServerCapabilities, State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
 use std::{
     io,
@@ -227,6 +227,22 @@ enum Command {
 
         #[clap(flatten)]
         sub_opts: EnableDisablePeerOpts,
+    },
+
+    /// Disable an enabled CIDR
+    DisableCidr {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: EnableDisableCidrOpts,
+    },
+
+    /// Enable a disabled CIDR
+    EnableCidr {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: EnableDisableCidrOpts,
     },
 
     /// Add an association between CIDRs
@@ -935,6 +951,31 @@ fn delete_association(
     Ok(())
 }
 
+fn enable_or_disable_cidr(
+    interface: &InterfaceName,
+    opts: &Opts,
+    enable: bool,
+    sub_opts: EnableDisableCidrOpts,
+) -> Result<(), Error> {
+    let InterfaceConfig { server, .. } =
+        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let api = Api::new(&server);
+    log::info!("Fetching CIDRs.");
+    let cidrs: Vec<Cidr> = api.http("GET", "/admin/cidrs")?;
+    if let Some(cidr) = prompts::enable_or_disable_cidr(&cidrs[..], &sub_opts, enable)? {
+        let endpoint = if enable { "enable" } else { "disable" };
+        let _: () = api.http("PUT", &format!("/admin/cidrs/{}/{}", cidr.id, endpoint))?;
+        log::info!(
+            "CIDR '{}' has been {}.",
+            cidr.name,
+            if enable { "enabled" } else { "disabled" }
+        );
+    } else {
+        log::info!("exiting without enabling or disabling CIDR.");
+    }
+    Ok(())
+}
+
 fn list_associations(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
     let InterfaceConfig { server, .. } =
         InterfaceConfig::from_interface(&opts.config_dir, interface)?;
@@ -1345,6 +1386,14 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interface,
             sub_opts,
         } => enable_or_disable_peer(&interface, opts, sub_opts, true)?,
+        Command::DisableCidr {
+            interface,
+            sub_opts,
+        } => enable_or_disable_cidr(&interface, opts, false, sub_opts)?,
+        Command::EnableCidr {
+            interface,
+            sub_opts,
+        } => enable_or_disable_cidr(&interface, opts, true, sub_opts)?,
         Command::AddAssociation {
             interface,
             sub_opts,
