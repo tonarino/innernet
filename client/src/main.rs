@@ -84,6 +84,10 @@ enum Command {
         #[clap(flatten)]
         hosts: HostsOpt,
 
+        /// The listen port you'd like to set for the interface
+        #[clap(short, long)]
+        listen_port: Option<u16>,
+
         #[clap(flatten)]
         install_opts: InstallOpts,
 
@@ -276,10 +280,14 @@ fn install(
     invite: &Path,
     hosts_file: Option<PathBuf>,
     install_opts: InstallOpts,
+    listen_port: Option<u16>,
     nat: &NatOpts,
 ) -> Result<(), Error> {
     innernet_shared::ensure_dirs_exist(&[&opts.config_dir])?;
-    let config = InterfaceConfig::from_file(invite)?;
+    let config = InterfaceConfig::from_file(invite).map(|mut config| {
+        config.interface.listen_port = listen_port;
+        config
+    })?;
 
     let iface = if install_opts.default_name {
         config.interface.network_name.clone()
@@ -420,7 +428,7 @@ fn redeem_invite(
         iface,
         &config.interface.private_key,
         config.interface.address,
-        None,
+        config.interface.listen_port,
         Some((
             &config.server.public_key,
             config.server.internal_endpoint.ip(),
@@ -1289,8 +1297,9 @@ fn run(opts: &Opts) -> Result<(), Error> {
             invite,
             hosts,
             install_opts,
+            listen_port,
             nat,
-        } => install(opts, &invite, hosts.into(), install_opts, &nat)?,
+        } => install(opts, &invite, hosts.into(), install_opts, listen_port, &nat)?,
         Command::Show {
             short,
             tree,
