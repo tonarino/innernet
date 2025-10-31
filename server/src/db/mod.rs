@@ -9,8 +9,9 @@ use rusqlite::params;
 
 const INVITE_EXPIRATION_VERSION: usize = 1;
 const ENDPOINT_CANDIDATES_VERSION: usize = 2;
+const CIDR_DISABLED_VERSION: usize = 3;
 
-pub const CURRENT_VERSION: usize = ENDPOINT_CANDIDATES_VERSION;
+pub const CURRENT_VERSION: usize = CIDR_DISABLED_VERSION;
 
 pub fn auto_migrate(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     let old_version: usize = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
@@ -25,6 +26,13 @@ pub fn auto_migrate(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> 
 
     if old_version < ENDPOINT_CANDIDATES_VERSION {
         conn.execute("ALTER TABLE peers ADD COLUMN candidates TEXT", params![])?;
+    }
+
+    if old_version < CIDR_DISABLED_VERSION {
+        conn.execute(
+            "ALTER TABLE cidrs ADD COLUMN is_disabled INTEGER DEFAULT 0 NOT NULL",
+            params![],
+        )?;
     }
 
     if old_version != CURRENT_VERSION {

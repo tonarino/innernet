@@ -71,6 +71,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             name: db_init_data.network_name.clone(),
             cidr: db_init_data.network_cidr,
             parent: None,
+            is_disabled: false,
         },
     )
     .map_err(|_| anyhow!("failed to create root CIDR"))?;
@@ -81,6 +82,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             name: SERVER_NAME.into(),
             cidr: db_init_data.server_cidr,
             parent: Some(root_cidr.id),
+            is_disabled: false,
         },
     )
     .map_err(|_| anyhow!("failed to create innernet-server CIDR"))?;
