@@ -269,6 +269,11 @@ enum Command {
         #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
+
+    ListCandidates {
+        #[clap(flatten)]
+        nat: NatOpts,
+    },
 }
 
 fn install(
@@ -1260,6 +1265,16 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
     }
 }
 
+fn list_candidates(nat: NatOpts) -> Result<(), Error> {
+    let candidates = get_local_addrs()?.filter(|ip| !nat.is_excluded(*ip));
+
+    for candidate in candidates {
+        println!("{}", candidate);
+    }
+
+    Ok(())
+}
+
 fn main() {
     let opts = Opts::parse();
     util::init_logger(opts.verbose);
@@ -1372,6 +1387,9 @@ fn run(opts: &Opts) -> Result<(), Error> {
             let app_name = app.get_name().to_string();
             clap_complete::generate(shell, &mut app, app_name, &mut std::io::stdout());
             std::process::exit(0);
+        },
+        Command::ListCandidates { nat } => {
+            list_candidates(nat)?;
         },
     }
 
