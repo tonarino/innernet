@@ -131,7 +131,7 @@ fn get_links() -> Result<Vec<String>, io::Error> {
             _ => None,
         })
         // Filter out loopback links
-        .filter_map(|link| if link.header.flags.contains(LinkFlags::Loopback) {
+        .filter_map(|link| if !link.header.flags.contains(LinkFlags::Loopback) {
                 Some(link.attributes)
             } else {
                 None

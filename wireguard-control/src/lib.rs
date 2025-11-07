@@ -19,6 +19,7 @@ pub enum Backend {
     Userspace,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for Backend {
     fn default() -> Self {
         #[cfg(target_os = "linux")]
