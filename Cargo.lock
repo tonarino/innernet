@@ -567,7 +567,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hostsfile"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "log",
  "selinux",
@@ -765,7 +765,7 @@ checksum = "f4c7245a08504955605670dbf141fceab975f15ca21570696aebe9d2e71576bd"
 
 [[package]]
 name = "innernet"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -787,11 +787,11 @@ dependencies = [
 
 [[package]]
 name = "innernet-publicip"
-version = "1.7.0"
+version = "1.7.1"
 
 [[package]]
 name = "innernet-server"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -826,7 +826,7 @@ dependencies = [
 
 [[package]]
 name = "innernet-shared"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "anyhow",
  "atty",
@@ -1079,7 +1079,7 @@ dependencies = [
 
 [[package]]
 name = "netlink-request"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "netlink-packet-core",
  "netlink-packet-generic",
@@ -2024,7 +2024,7 @@ dependencies = [
 
 [[package]]
 name = "wireguard-control"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "base64 0.13.1",
  "hex",

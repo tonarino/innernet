@@ -10,7 +10,7 @@ name = "wireguard-control"
 publish = true
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.7.0"
+version = "1.7.1"
 
 [dependencies]
 base64 = "0.13.1"
@@ -28,7 +28,7 @@ netlink-packet-utils = "0.5.2"
 # Pin the version to "0.2.3" because "0.2.4" bumps its `netlink-packet-generic` dependency to
 # "0.4.0", which is incompatible with our "0.3.3" version above.
 netlink-packet-wireguard = "=0.2.3"
-netlink-request = { version = "1.7.0", path = "../netlink-request" }
+netlink-request = { version = "1.7.1", path = "../netlink-request" }
 netlink-sys = "0.8"
 
 [target.'cfg(target_os = "openbsd")'.dependencies]

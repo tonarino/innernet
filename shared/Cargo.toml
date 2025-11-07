@@ -15,7 +15,7 @@ name = "innernet-shared"
 publish = true
 readme = "../README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.7.0"
+version = "1.7.1"
 
 [dependencies]
 anyhow = "1"
@@ -23,9 +23,9 @@ atty = "0.2"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 colored = "2.0"
 dialoguer.workspace = true
-hostsfile = { version = "1.7.0", path = "../hostsfile" }
+hostsfile = { version = "1.7.1", path = "../hostsfile" }
 indoc = "2.0.1"
-innernet-publicip = { version = "1.7.0", path = "../publicip" }
+innernet-publicip = { version = "1.7.1", path = "../publicip" }
 ipnet = { version = "2.4", features = ["serde"] }
 libc = "0.2"
 log = "0.4"
@@ -34,12 +34,12 @@ regex = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8.10"
 url = "2"
-wireguard-control = { version = "1.7.0", path = "../wireguard-control" }
+wireguard-control = { version = "1.7.1", path = "../wireguard-control" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 netlink-packet-core = "0.7"
 netlink-packet-route = "0.21"
-netlink-request = { version = "1.7.0", path = "../netlink-request" }
+netlink-request = { version = "1.7.1", path = "../netlink-request" }
 netlink-sys = "0.8.5"
 
 [target.'cfg(any(target_os = "macos", target_os= "openbsd"))'.dependencies]
