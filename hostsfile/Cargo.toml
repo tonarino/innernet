@@ -10,7 +10,7 @@ name = "hostsfile"
 publish = true
 readme = "README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.7.0"
+version = "1.7.1"
 
 [dependencies]
 log = "0.4"
