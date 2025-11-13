@@ -5,8 +5,8 @@ use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use innernet_shared::{
     get_local_addrs, update_hosts_file, AddCidrOpts, AddPeerOpts, DeleteCidrOpts,
-    EnableDisablePeerOpts, Endpoint, IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts,
-    RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    EnableDisablePeerOpts, Endpoint, HostsOpts, IoErrorContext, NetworkOpts, PeerContents,
+    RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
@@ -429,7 +429,7 @@ fn spawn_expired_invite_sweeper(db: Db) {
     });
 }
 
-fn spawn_hostfile_writer(db: Db, interface: InterfaceName, hosts_path: PathBuf) {
+fn spawn_hostfile_writer(db: Db, interface: InterfaceName, hosts_opts: HostsOpts) {
     tokio::task::spawn({
         async move {
             let mut interval = tokio::time::interval(Duration::from_secs(10));
@@ -440,7 +440,7 @@ fn spawn_hostfile_writer(db: Db, interface: InterfaceName, hosts_path: PathBuf) 
                     Ok(peers) => {
                         if let Err(e) = update_hosts_file(
                             &interface,
-                            &hosts_path,
+                            &hosts_opts,
                             peers.into_iter().map(|peer| peer.inner),
                         ) {
                             log::error!("Failed to write hostfile: {}", e);
@@ -459,7 +459,7 @@ pub async fn serve(
     interface: InterfaceName,
     conf: &ServerConfig,
     network: NetworkOpts,
-    hosts_path: Option<PathBuf>,
+    hosts_opts: HostsOpts,
 ) -> Result<(), Error> {
     let config = ConfigFile::from_file(conf.config_path(&interface))?;
     log::debug!("opening database connection...");
@@ -514,8 +514,8 @@ pub async fn serve(
     let endpoints = spawn_endpoint_refresher(interface, network);
     spawn_expired_invite_sweeper(db.clone());
 
-    if let Some(path) = hosts_path {
-        spawn_hostfile_writer(db.clone(), interface, path);
+    if !hosts_opts.no_write_hosts {
+        spawn_hostfile_writer(db.clone(), interface, hosts_opts);
     }
 
     let context = Context {

@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use colored::*;
 use innernet_shared::{
-    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, HostsOpt, NetworkOpts,
+    AddCidrOpts, AddPeerOpts, DeleteCidrOpts, EnableDisablePeerOpts, HostsOpts, NetworkOpts,
     RenameCidrOpts, RenamePeerOpts,
 };
 use std::{env, path::PathBuf};
@@ -62,7 +62,7 @@ enum Command {
         network: NetworkOpts,
 
         #[clap(flatten)]
-        hosts: HostsOpt,
+        hosts: HostsOpts,
     },
 
     /// Add a peer to an existing network.
@@ -156,7 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interface,
             network: routing,
             hosts,
-        } => serve(*interface, &conf, routing, hosts.into()).await?,
+        } => serve(*interface, &conf, routing, hosts).await?,
         Command::AddPeer { interface, args } => add_peer(&interface, &conf, args, opts.network)?,
         Command::RenamePeer { interface, args } => rename_peer(&interface, &conf, args)?,
         Command::DisablePeer { interface, args } => {

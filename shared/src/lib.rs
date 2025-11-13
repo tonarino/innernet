@@ -147,22 +147,34 @@ impl IpNetExt for IpNet {
 
 pub fn update_hosts_file(
     interface: &InterfaceName,
-    hosts_path: &Path,
+    opts: &HostsOpts,
     peers: impl IntoIterator<Item = impl AsRef<Peer>>,
 ) -> Result<(), WrappedIoError> {
+    if opts.no_write_hosts {
+        return Ok(());
+    }
     let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
     for peer in peers {
         let peer = peer.as_ref();
-        hosts_builder.add_hostname(
-            peer.contents.ip,
-            format!("{}.{}.wg", peer.contents.name, interface),
-        );
+        let peer_hostname = if let Some(ref suffix) = opts.host_suffix {
+            if suffix.is_empty() {
+                peer.contents.name.to_string()
+            } else {
+                format!("{}.{}", peer.contents.name, suffix)
+            }
+        } else {
+            format!("{}.{}.wg", peer.contents.name, interface)
+        };
+        hosts_builder.add_hostname(peer.contents.ip, peer_hostname);
     }
-    match hosts_builder.write_to(hosts_path).with_path(hosts_path) {
+    match hosts_builder
+        .write_to(opts.hosts_path.as_path())
+        .with_path(opts.hosts_path.as_path())
+    {
         Ok(has_written) if has_written => {
             log::info!(
                 "updated {} with the latest peers.",
-                hosts_path.to_string_lossy().yellow()
+                opts.hosts_path.to_string_lossy().yellow()
             )
         },
         Ok(_) => {},
