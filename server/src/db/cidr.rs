@@ -10,6 +10,7 @@ pub static CREATE_TABLE_SQL: &str = "CREATE TABLE cidrs (
       ip               TEXT NOT NULL,
       prefix           INTEGER NOT NULL,
       parent           INTEGER REFERENCES cidrs,
+      is_disabled      INTEGER DEFAULT 0 NOT NULL,
       UNIQUE(ip, prefix),
       FOREIGN KEY (parent)
          REFERENCES cidrs (id)
@@ -43,7 +44,9 @@ impl DerefMut for DatabaseCidr {
 
 impl DatabaseCidr {
     pub fn create(conn: &Connection, contents: CidrContents) -> Result<Cidr, ServerError> {
-        let CidrContents { name, cidr, parent } = &contents;
+        let CidrContents {
+            name, cidr, parent, ..
+        } = &contents;
 
         log::debug!("creating {:?}", contents);
 
@@ -99,13 +102,14 @@ impl DatabaseCidr {
         }
 
         conn.execute(
-            "INSERT INTO cidrs (name, ip, prefix, parent)
-              VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO cidrs (name, ip, prefix, parent, is_disabled)
+              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
                 name,
                 cidr.addr().to_string(),
                 cidr.prefix_len() as i32,
-                parent
+                parent,
+                contents.is_disabled as i32
             ],
         )?;
         let id = conn.last_insert_rowid();
@@ -113,16 +117,21 @@ impl DatabaseCidr {
     }
 
     /// Update self with new contents, validating them and updating the backend in the process.
-    /// Currently this only supports updating the name and ignores changes to any other field.
+    /// Currently this supports updating the name and is_disabled fields.
     pub fn update(&mut self, conn: &Connection, contents: CidrContents) -> Result<(), ServerError> {
         let new_contents = CidrContents {
             name: contents.name,
+            is_disabled: contents.is_disabled,
             ..self.contents.clone()
         };
 
         conn.execute(
-            "UPDATE cidrs SET name = ?2 WHERE id = ?1",
-            params![self.id, &*new_contents.name,],
+            "UPDATE cidrs SET name = ?2, is_disabled = ?3 WHERE id = ?1",
+            params![
+                self.id,
+                &*new_contents.name,
+                new_contents.is_disabled as i32
+            ],
         )?;
 
         self.contents = new_contents;
@@ -144,22 +153,29 @@ impl DatabaseCidr {
             .map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
         let cidr = IpNet::new(ip, prefix).map_err(|_| rusqlite::Error::ExecuteReturnedResults)?;
         let parent = row.get(4)?;
+        let is_disabled: i32 = row.get(5).unwrap_or(0);
         Ok(Cidr {
             id,
-            contents: CidrContents { name, cidr, parent },
+            contents: CidrContents {
+                name,
+                cidr,
+                parent,
+                is_disabled: is_disabled != 0,
+            },
         })
     }
 
     pub fn get(conn: &Connection, id: i64) -> Result<Cidr, ServerError> {
         Ok(conn.query_row(
-            "SELECT id, name, ip, prefix, parent FROM cidrs WHERE id = ?1",
+            "SELECT id, name, ip, prefix, parent, is_disabled FROM cidrs WHERE id = ?1",
             params![id],
             Self::from_row,
         )?)
     }
 
     pub fn list(conn: &Connection) -> Result<Vec<Cidr>, ServerError> {
-        let mut stmt = conn.prepare_cached("SELECT id, name, ip, prefix, parent FROM cidrs")?;
+        let mut stmt =
+            conn.prepare_cached("SELECT id, name, ip, prefix, parent, is_disabled FROM cidrs")?;
         let cidr_iter = stmt.query_map(params![], Self::from_row)?;
 
         Ok(cidr_iter.collect::<Result<Vec<_>, rusqlite::Error>>()?)

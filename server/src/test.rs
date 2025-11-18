@@ -243,6 +243,7 @@ pub fn create_cidr(db: &Connection, name: &str, cidr_str: &str) -> Result<Cidr, 
             name: name.to_string(),
             cidr: cidr_str.parse()?,
             parent: Some(ROOT_CIDR_ID),
+            is_disabled: false,
         },
     )?;
 

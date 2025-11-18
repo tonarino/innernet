@@ -278,6 +278,7 @@ mod tests {
                     name: "experiment cidr".to_string(),
                     cidr: test::EXPERIMENTAL_CIDR.parse()?,
                     parent: Some(test::ROOT_CIDR_ID),
+                    is_disabled: false,
                 },
             )?;
             let subcidr = DatabaseCidr::create(
@@ -286,6 +287,7 @@ mod tests {
                     name: "experiment subcidr".to_string(),
                     cidr: test::EXPERIMENTAL_SUBCIDR.parse()?,
                     parent: Some(cidr.id),
+                    is_disabled: false,
                 },
             )?;
             DatabasePeer::create(
@@ -347,6 +349,7 @@ mod tests {
                 name: "experimental".to_string(),
                 cidr: test::EXPERIMENTAL_CIDR.parse()?,
                 parent: Some(test::ROOT_CIDR_ID),
+                is_disabled: false,
             },
         )?;
 
@@ -409,6 +412,7 @@ mod tests {
                 name: "experimental".to_string(),
                 cidr: test::EXPERIMENTAL_CIDR.parse()?,
                 parent: Some(test::ROOT_CIDR_ID),
+                is_disabled: false,
             },
         )?;
 

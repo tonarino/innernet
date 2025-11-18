@@ -1,8 +1,9 @@
 use crate::{
     interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
-    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts,
-    Peer, PeerContents, RenameCidrOpts, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    DeleteCidrOpts, EnableDisableCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname,
+    IpNetExt, ListenPortOpts, Peer, PeerContents, RenameCidrOpts, RenamePeerOpts,
+    PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -104,6 +105,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
         name: name.to_string(),
         cidr,
         parent: Some(parent_cidr.id),
+        is_disabled: false,
     };
 
     Ok(
@@ -441,6 +443,46 @@ pub fn rename_peer(
 
 /// Presents a selection and confirmation of eligible peers for either disabling or enabling,
 /// and returns back the ID of the selected peer.
+pub fn enable_or_disable_cidr(
+    cidrs: &[Cidr],
+    args: &EnableDisableCidrOpts,
+    enable: bool,
+) -> Result<Option<Cidr>, Error> {
+    let eligible_cidrs: Vec<_> = cidrs
+        .iter()
+        .filter(|cidr| enable && cidr.is_disabled || !enable && !cidr.is_disabled)
+        .collect();
+    let cidr = if let Some(ref name) = args.name {
+        eligible_cidrs
+            .into_iter()
+            .find(|c| &c.name == name)
+            .ok_or_else(|| anyhow!("CIDR '{}' does not exist", name))?
+    } else {
+        let cidr_selection: Vec<_> = eligible_cidrs
+            .iter()
+            .map(|cidr| format!("{} ({})", &cidr.name, &cidr.cidr))
+            .collect();
+        let (index, _) = select(
+            &format!("CIDR to {}able", if enable { "en" } else { "dis" }),
+            &cidr_selection,
+        )?;
+        eligible_cidrs[index]
+    };
+    Ok(
+        if args.yes
+            || confirm(&format!(
+                "{}able CIDR {}?",
+                if enable { "En" } else { "Dis" },
+                cidr.name
+            ))?
+        {
+            Some(cidr.clone())
+        } else {
+            None
+        },
+    )
+}
+
 pub fn enable_or_disable_peer(
     peers: &[Peer],
     args: &EnableDisablePeerOpts,

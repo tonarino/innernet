@@ -193,6 +193,7 @@ mod tests {
             name: "experimental".to_string(),
             cidr: test::EXPERIMENTAL_CIDR.parse()?,
             parent: Some(test::ROOT_CIDR_ID),
+            is_disabled: false,
         };
 
         let res = server
