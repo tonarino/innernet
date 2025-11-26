@@ -533,7 +533,7 @@ pub struct HostsOpts {
     /// Use a different suffix for hosts, than '<interface>.wg' , ex.
     /// --host-suffix 'evilnet' names peers: <peer>.evilnet, and
     /// --host-suffix '' gives peers no suffix, just: <peer>
-    #[clap(long = "host_suffix")]
+    #[clap(long = "host-suffix")]
     pub host_suffix: Option<String>,
 }
 
