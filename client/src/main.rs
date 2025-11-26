@@ -466,7 +466,7 @@ fn up(
     interface: Option<Interface>,
     opts: &Opts,
     loop_interval: Option<Duration>,
-    hosts_opt: HostsOpts,
+    hosts_opts: HostsOpts,
     nat: &NatOpts,
 ) -> Result<(), Error> {
     loop {
@@ -476,7 +476,7 @@ fn up(
         };
 
         for iface in interfaces {
-            fetch(&iface, opts, true, &hosts_opt, nat)?;
+            fetch(&iface, opts, true, &hosts_opts, nat)?;
         }
 
         match loop_interval {

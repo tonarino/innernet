@@ -153,10 +153,11 @@ pub fn update_hosts_file(
     if opts.no_write_hosts {
         return Ok(());
     }
+
     let mut hosts_builder = HostsBuilder::new(format!("innernet {interface}"));
     for peer in peers {
         let peer = peer.as_ref();
-        let peer_hostname = if let Some(ref suffix) = opts.host_suffix {
+        let peer_hostname = if let Some(suffix) = &opts.host_suffix {
             if suffix.is_empty() {
                 peer.contents.name.to_string()
             } else {
