@@ -76,8 +76,8 @@ pub struct PeerStats {
 
 /// Represents the complete status of a peer.
 ///
-/// This struct simply combines [`PeerInfo`](PeerInfo) and [`PeerStats`](PeerStats)
-/// to represent all available information about a peer.
+/// This struct simply combines [`PeerConfig`] and [`PeerStats`] to represent all available
+/// information about a peer.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PeerInfo {
     pub config: PeerConfig,
