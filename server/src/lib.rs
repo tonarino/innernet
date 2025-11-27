@@ -4,9 +4,9 @@ use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use innernet_shared::{
-    get_local_addrs, update_hosts_file, AddCidrOpts, AddPeerOpts, DeleteCidrOpts,
-    EnableDisablePeerOpts, Endpoint, IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts,
-    RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, update_hosts_file, AddCidrOpts, AddPeerOpts, CidrContents, DeleteCidrOpts,
+    EnableDisableCidrOpts, EnableDisablePeerOpts, Endpoint, IoErrorContext, NetworkOpts,
+    PeerContents, RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
@@ -350,6 +350,56 @@ pub fn delete_cidr(
     DatabaseCidr::delete(&conn, cidr_id)?;
 
     println!("CIDR deleted.");
+
+    Ok(())
+}
+
+pub fn enable_or_disable_cidr(
+    interface: &InterfaceName,
+    conf: &ServerConfig,
+    enable: bool,
+    opts: EnableDisableCidrOpts,
+) -> Result<(), Error> {
+    let conn = open_database_connection(interface, conf)?;
+    let cidrs = DatabaseCidr::list(&conn)?;
+
+    if let Some(cidr) = prompts::enable_or_disable_cidr(&cidrs[..], &opts, enable)? {
+        // If disabling, check that all peers in the CIDR are disabled
+        if !enable {
+            let peers = DatabasePeer::list(&conn)?;
+            let enabled_peers: Vec<_> = peers
+                .iter()
+                .filter(|p| p.cidr_id == cidr.id && !p.is_disabled)
+                .collect();
+
+            if !enabled_peers.is_empty() {
+                eprintln!(
+                    "Cannot disable CIDR '{}': {} peer(s) are still enabled.",
+                    cidr.name,
+                    enabled_peers.len()
+                );
+                eprintln!("Please disable all peers in this CIDR first.");
+                return Ok(());
+            }
+        }
+
+        let db_cidr = DatabaseCidr::get(&conn, cidr.id)?;
+        DatabaseCidr::from(db_cidr.clone()).update(
+            &conn,
+            CidrContents {
+                is_disabled: !enable,
+                ..cidr.contents.clone()
+            },
+        )?;
+
+        println!(
+            "CIDR '{}' has been {}.",
+            cidr.name,
+            if enable { "enabled" } else { "disabled" }
+        );
+    } else {
+        log::info!("exiting without enabling or disabling CIDR.");
+    }
 
     Ok(())
 }

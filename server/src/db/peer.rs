@@ -99,6 +99,11 @@ impl DatabasePeer {
             return Err(ServerError::InvalidQuery);
         }
 
+        if cidr.is_disabled {
+            log::warn!("tried to add peer to disabled CIDR.");
+            return Err(ServerError::InvalidQuery);
+        }
+
         if !cidr.cidr.is_assignable(ip) {
             println!(
                 "Peer IP {} is not unicast assignable in CIDR {}",
@@ -145,6 +150,15 @@ impl DatabasePeer {
         if !Self::is_valid_name(&contents.name) {
             log::warn!("peer name is invalid, must conform to hostname(7) requirements.");
             return Err(ServerError::InvalidQuery);
+        }
+
+        // If trying to enable a peer, check if the CIDR is disabled
+        if !contents.is_disabled && self.contents.is_disabled {
+            let cidr = DatabaseCidr::get(conn, self.cidr_id)?;
+            if cidr.is_disabled {
+                log::warn!("tried to enable peer in disabled CIDR.");
+                return Err(ServerError::InvalidQuery);
+            }
         }
 
         // We will only allow updates of certain fields at this point, disregarding any requests

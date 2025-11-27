@@ -179,6 +179,48 @@ test_short_lived_invitation() {
         --yes
 }
 
+test_cidr_disable_enable() {
+    info "Testing CIDR disable/enable functionality."
+    
+    # First, disable all peers in the robots CIDR
+    info "Disabling peer2 in robots CIDR."
+    cmd docker exec "$PEER1_CONTAINER" innernet \
+        disable-peer evilcorp \
+        --name "peer2" \
+        --yes
+    
+    # Now disable the robots CIDR
+    info "Disabling robots CIDR."
+    cmd docker exec "$PEER1_CONTAINER" innernet \
+        disable-cidr evilcorp \
+        --name "robots" \
+        --yes
+    
+    # Try to enable peer2 (should fail)
+    info "Trying to enable peer2 while CIDR is disabled (should fail)."
+    if docker exec "$PEER1_CONTAINER" innernet \
+        enable-peer evilcorp \
+        --name "peer2" \
+        --yes 2>/dev/null; then
+        echo -e "\033[0;31mERROR: Enabling peer in disabled CIDR should have failed!\033[0m" 1>&2
+        exit 1
+    fi
+    
+    # Re-enable the CIDR
+    info "Re-enabling robots CIDR."
+    cmd docker exec "$PEER1_CONTAINER" innernet \
+        enable-cidr evilcorp \
+        --name "robots" \
+        --yes
+    
+    # Now enable peer2 (should succeed)
+    info "Enabling peer2 after CIDR is enabled."
+    cmd docker exec "$PEER1_CONTAINER" innernet \
+        enable-peer evilcorp \
+        --name "peer2" \
+        --yes
+}
+
 test_simultaneous_redemption() {
     info "Creating invitation for fourth and fifth peer from first peer."
     cmd docker exec "$PEER1_CONTAINER" innernet \

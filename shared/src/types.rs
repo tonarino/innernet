@@ -213,6 +213,8 @@ pub struct CidrContents {
     pub name: String,
     pub cidr: IpNet,
     pub parent: Option<i64>,
+    #[serde(default)]
+    pub is_disabled: bool,
 }
 
 impl Deref for CidrContents {
@@ -427,6 +429,17 @@ pub struct AddDeleteAssociationOpts {
 
     /// The second cidr to associate
     pub cidr2: Option<String>,
+
+    /// Bypass confirmation
+    #[clap(long)]
+    pub yes: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct EnableDisableCidrOpts {
+    /// The CIDR name (eg. 'engineers')
+    #[clap(long)]
+    pub name: Option<String>,
 
     /// Bypass confirmation
     #[clap(long)]

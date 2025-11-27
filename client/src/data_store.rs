@@ -171,6 +171,7 @@ mod tests {
                 name: "cidr".to_string(),
                 cidr: "10.0.0.0/24".parse().unwrap(),
                 parent: None,
+                is_disabled: false,
             },
         }]
     });
