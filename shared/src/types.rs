@@ -521,7 +521,7 @@ pub struct NetworkOpts {
 }
 
 #[derive(Clone, Debug, Args)]
-pub struct HostsOpt {
+pub struct HostsOpts {
     /// The path to write hosts to
     #[clap(long = "hosts-path", default_value = "/etc/hosts")]
     pub hosts_path: PathBuf,
@@ -529,12 +529,12 @@ pub struct HostsOpt {
     /// Don't write to any hosts files
     #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
     pub no_write_hosts: bool,
-}
 
-impl From<HostsOpt> for Option<PathBuf> {
-    fn from(opt: HostsOpt) -> Self {
-        (!opt.no_write_hosts).then_some(opt.hosts_path)
-    }
+    /// Use a different suffix for hosts, than '<interface>.wg' , ex.
+    /// --host-suffix 'evilnet' names peers: <peer>.evilnet, and
+    /// --host-suffix '' gives peers no suffix, just: <peer>
+    #[clap(long = "host-suffix")]
+    pub host_suffix: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

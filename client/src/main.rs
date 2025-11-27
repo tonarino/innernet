@@ -9,7 +9,7 @@ use innernet_shared::{
     prompts, update_hosts_file,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpt,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpts,
     InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
     OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, ServerCapabilities,
     State, WrappedIoError, REDEEM_TRANSITION_WAIT,
@@ -82,7 +82,7 @@ enum Command {
         invite: PathBuf,
 
         #[clap(flatten)]
-        hosts: HostsOpt,
+        hosts: HostsOpts,
 
         #[clap(flatten)]
         install_opts: InstallOpts,
@@ -118,7 +118,7 @@ enum Command {
         interval: u64,
 
         #[clap(flatten)]
-        hosts: HostsOpt,
+        hosts: HostsOpts,
 
         #[clap(flatten)]
         nat: NatOpts,
@@ -131,7 +131,7 @@ enum Command {
         interface: Interface,
 
         #[clap(flatten)]
-        hosts: HostsOpt,
+        hosts: HostsOpts,
 
         #[clap(flatten)]
         nat: NatOpts,
@@ -274,7 +274,7 @@ enum Command {
 fn install(
     opts: &Opts,
     invite: &Path,
-    hosts_file: Option<PathBuf>,
+    hosts_opts: HostsOpts,
     install_opts: InstallOpts,
     nat: &NatOpts,
 ) -> Result<(), Error> {
@@ -323,7 +323,7 @@ fn install(
 
     let mut fetch_success = false;
     for _ in 0..3 {
-        if fetch(&iface, opts, true, hosts_file.clone(), nat).is_ok() {
+        if fetch(&iface, opts, true, &hosts_opts, nat).is_ok() {
             fetch_success = true;
             break;
         }
@@ -466,7 +466,7 @@ fn up(
     interface: Option<Interface>,
     opts: &Opts,
     loop_interval: Option<Duration>,
-    hosts_path: Option<PathBuf>,
+    hosts_opts: HostsOpts,
     nat: &NatOpts,
 ) -> Result<(), Error> {
     loop {
@@ -476,7 +476,7 @@ fn up(
         };
 
         for iface in interfaces {
-            fetch(&iface, opts, true, hosts_path.clone(), nat)?;
+            fetch(&iface, opts, true, &hosts_opts, nat)?;
         }
 
         match loop_interval {
@@ -492,7 +492,7 @@ fn fetch(
     interface: &InterfaceName,
     opts: &Opts,
     bring_up_interface: bool,
-    hosts_path: Option<PathBuf>,
+    hosts_opts: &HostsOpts,
     nat: &NatOpts,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
@@ -577,8 +577,8 @@ fn fetch(
             .apply(interface, opts.network.backend)
             .with_str(interface.to_string())?;
 
-        if let Some(path) = hosts_path {
-            update_hosts_file(interface, &path, &peers)?;
+        if !hosts_opts.no_write_hosts {
+            update_hosts_file(interface, hosts_opts, &peers)?;
         }
 
         println!();
@@ -1290,7 +1290,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             hosts,
             install_opts,
             nat,
-        } => install(opts, &invite, hosts.into(), install_opts, &nat)?,
+        } => install(opts, &invite, hosts, install_opts, &nat)?,
         Command::Show {
             short,
             tree,
@@ -1300,7 +1300,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interface,
             hosts,
             nat,
-        } => fetch(&interface, opts, false, hosts.into(), &nat)?,
+        } => fetch(&interface, opts, false, &hosts, &nat)?,
         Command::Up {
             interface,
             daemon,
@@ -1311,7 +1311,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
             interface,
             opts,
             daemon.then(|| Duration::from_secs(interval)),
-            hosts.into(),
+            hosts,
             &nat,
         )?,
         Command::Down { interface } => wg::down(&interface, opts.network.backend)?,
