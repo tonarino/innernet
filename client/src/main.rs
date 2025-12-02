@@ -85,7 +85,7 @@ enum Command {
         hosts: HostsOpt,
 
         /// The listen port you'd like to set for the interface
-        #[clap(short, long)]
+        #[clap(long)]
         listen_port: Option<u16>,
 
         #[clap(flatten)]
