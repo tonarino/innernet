@@ -286,3 +286,4 @@ Please run the release script from a Linux machine: generated shell completions 
 1. Tag the commit using `git tag -f -a v<version> -m "release v<version>`.
 1. Push the created tag to the repo using `git push origin v<version>`.
 1. Create a GitHub release from the tag, generate release notes and highlight important changes.
+1. Bump the [homebrew-innernet](https://github.com/tonarino/homebrew-innernet) formula version.
