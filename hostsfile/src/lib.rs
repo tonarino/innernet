@@ -166,7 +166,7 @@ impl HostsBuilder {
             })?
             .to_os_string();
         temp_filename.push(format!(".tmp{}", since_the_epoch.as_millis()));
-        Ok(hosts_dir.with_file_name(temp_filename))
+        Ok(hosts_dir.join(temp_filename))
     }
 
     /// Inserts a new section to the specified hosts file.  If there is a section with the same tag
@@ -351,12 +351,21 @@ mod tests {
         let hosts_path = Path::new("/etc/hosts");
         let temp_path = HostsBuilder::get_temp_path(hosts_path).unwrap();
         println!("{temp_path:?}");
+
+        // Verify filename starts with the original filename plus ".tmp"
         assert!(temp_path
             .file_name()
             .unwrap()
             .to_str()
             .unwrap()
             .starts_with("hosts.tmp"));
+
+        // Verify temp file is in the same directory as the hosts file
+        assert_eq!(
+            temp_path.parent().unwrap(),
+            hosts_path.parent().unwrap(),
+            "temp file should be in the same directory as the hosts file"
+        );
     }
 
     #[test]
@@ -379,5 +388,91 @@ mod tests {
         assert!(contents.starts_with("preexisting\ncontent"));
         assert!(contents.contains("# DO NOT EDIT foo BEGIN"));
         assert!(contents.contains("1.1.1.1 whatever"));
+    }
+
+    #[test]
+    fn test_write_and_swap_basic() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let hosts_path = temp_dir.path().join("hosts");
+
+        // Create initial file with some content
+        std::fs::write(&hosts_path, b"initial content\n").unwrap();
+
+        // Use write_and_swap via write_to
+        let mut builder = HostsBuilder::new("test");
+        builder.add_hostname([192, 168, 1, 1].into(), "myhost");
+        let changed = builder.write_to(&hosts_path).unwrap();
+
+        assert!(changed, "file should have changed");
+
+        let contents = std::fs::read_to_string(&hosts_path).unwrap();
+        assert!(contents.contains("initial content"));
+        assert!(contents.contains("# DO NOT EDIT test BEGIN"));
+        assert!(contents.contains("192.168.1.1 myhost"));
+        assert!(contents.contains("# DO NOT EDIT test END"));
+
+        // Verify no temp file was left behind
+        let temp_files: Vec<_> = std::fs::read_dir(temp_dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp"))
+            .collect();
+        assert!(
+            temp_files.is_empty(),
+            "temp file should be cleaned up, found: {:?}",
+            temp_files
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "selinux")]
+    fn test_write_preserves_selinux_context() {
+        use selinux::{SELinuxMode, SecurityContext};
+
+        // Skip test if SELinux is not running
+        if selinux::current_mode() == SELinuxMode::NotRunning {
+            println!("SELinux not running, skipping test");
+            return;
+        }
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let hosts_path = temp_dir.path().join("hosts");
+
+        // Create initial file
+        std::fs::write(&hosts_path, b"initial content\n").unwrap();
+
+        // Get the initial SELinux context
+        const FOLLOW_SYMLINKS: bool = false;
+        const RAW_FORMAT: bool = false;
+        let initial_context =
+            SecurityContext::of_path(&hosts_path, FOLLOW_SYMLINKS, RAW_FORMAT).unwrap();
+
+        let initial_context_str = initial_context
+            .as_ref()
+            .map(|c| c.to_c_string().ok().flatten().map(|s| s.to_string_lossy().into_owned()));
+        println!("Initial SELinux context: {:?}", initial_context_str);
+
+        // Use write_to which internally uses write_and_swap
+        let mut builder = HostsBuilder::new("test");
+        builder.add_hostname([192, 168, 1, 1].into(), "myhost");
+        builder.write_to(&hosts_path).unwrap();
+
+        // Verify the SELinux context is preserved
+        let final_context =
+            SecurityContext::of_path(&hosts_path, FOLLOW_SYMLINKS, RAW_FORMAT).unwrap();
+
+        let final_context_str = final_context
+            .as_ref()
+            .map(|c| c.to_c_string().ok().flatten().map(|s| s.to_string_lossy().into_owned()));
+        println!("Final SELinux context: {:?}", final_context_str);
+
+        assert_eq!(
+            initial_context_str, final_context_str,
+            "SELinux context should be preserved after write"
+        );
+
+        // Also verify the content is correct
+        let contents = std::fs::read_to_string(&hosts_path).unwrap();
+        assert!(contents.contains("192.168.1.1 myhost"));
     }
 }
