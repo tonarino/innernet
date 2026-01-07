@@ -447,9 +447,12 @@ mod tests {
         let initial_context =
             SecurityContext::of_path(&hosts_path, FOLLOW_SYMLINKS, RAW_FORMAT).unwrap();
 
-        let initial_context_str = initial_context
-            .as_ref()
-            .map(|c| c.to_c_string().ok().flatten().map(|s| s.to_string_lossy().into_owned()));
+        let initial_context_str = initial_context.as_ref().map(|c| {
+            c.to_c_string()
+                .ok()
+                .flatten()
+                .map(|s| s.to_string_lossy().into_owned())
+        });
         println!("Initial SELinux context: {:?}", initial_context_str);
 
         // Use write_to which internally uses write_and_swap
@@ -461,9 +464,12 @@ mod tests {
         let final_context =
             SecurityContext::of_path(&hosts_path, FOLLOW_SYMLINKS, RAW_FORMAT).unwrap();
 
-        let final_context_str = final_context
-            .as_ref()
-            .map(|c| c.to_c_string().ok().flatten().map(|s| s.to_string_lossy().into_owned()));
+        let final_context_str = final_context.as_ref().map(|c| {
+            c.to_c_string()
+                .ok()
+                .flatten()
+                .map(|s| s.to_string_lossy().into_owned())
+        });
         println!("Final SELinux context: {:?}", final_context_str);
 
         assert_eq!(
