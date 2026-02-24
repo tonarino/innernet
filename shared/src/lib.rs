@@ -15,6 +15,7 @@ use wireguard_control::InterfaceName;
 pub mod interface_config;
 #[cfg(target_os = "linux")]
 mod netlink;
+pub mod peer;
 pub mod prompts;
 pub mod types;
 pub mod wg;

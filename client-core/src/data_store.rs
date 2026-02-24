@@ -1,5 +1,4 @@
-use crate::Error;
-use anyhow::bail;
+use anyhow::{bail, Error};
 use innernet_shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use serde::{Deserialize, Serialize};
 use std::{
