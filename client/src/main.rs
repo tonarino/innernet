@@ -146,7 +146,7 @@ enum Command {
         yes: bool,
     },
 
-    /// Bring down the interface (equivalent to 'wg-quick down <interface>')
+    /// Bring down the interface (equivalent to 'wg-quick down INTERFACE')
     Down { interface: Interface },
 
     /// Add a new peer
