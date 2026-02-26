@@ -3,12 +3,16 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::{io, time::Duration};
 use ureq::{Agent, AgentBuilder};
 
+/// A REST client that can be used to communicate with an innernet REST server.
+///
+/// It is recommended to use [`crate::rest_api::RestApi`] when possible.
 pub struct RestClient<'a> {
     agent: Agent,
     server: &'a ServerInfo,
 }
 
 impl<'a> RestClient<'a> {
+    /// Create a [`Self`] to communicate with an innernet server described by [`ServerInfo`].
     pub fn new(server: &'a ServerInfo) -> Self {
         let agent = AgentBuilder::new()
             // Some platforms (e.g. OpenBSD) can take longer to complete the first WireGuard
@@ -20,10 +24,16 @@ impl<'a> RestClient<'a> {
     }
 
     #[allow(clippy::result_large_err)]
+    /// Perform a `verb` HTTP request at the given `endpoint`.
+    ///
+    /// Example: `rest_client.http("GET", "/admin/peers")?;`.
     pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, ureq::Error> {
         self.request::<(), _>(verb, endpoint, None)
     }
 
+    /// Send serializable data using a `verb` HTTP request at the given `endpoint`
+    ///
+    /// Example: `rest_client.http_form("POST", "/admin/peers", PeerContents { .. })?;`.
     #[allow(clippy::result_large_err)]
     pub fn http_form<S: Serialize, T: DeserializeOwned>(
         &self,
