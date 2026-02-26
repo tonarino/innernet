@@ -1,19 +1,25 @@
+use crate::util::all_installed;
 use anyhow::{anyhow, bail, Context as _};
 use clap::{ArgAction, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
 use indoc::eprintdoc;
+use innernet_client_core::{
+    data_store::DataStore, peer::create_peer_and_invitation, rest_api::RestApi,
+    rest_client::RestClient,
+};
 use innernet_shared::{
     get_local_addrs,
     interface_config::InterfaceConfig,
-    prompts, update_hosts_file,
+    prompts, update_hosts_file, wg,
     wg::{DeviceExt, PeerInfoExt},
     AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr,
-    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpts,
+    CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, Error, HostsOpts,
     InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
     OverrideEndpointOpts, Peer, RedeemContents, RenameCidrOpts, RenamePeerOpts, ServerCapabilities,
     State, WrappedIoError, REDEEM_TRANSITION_WAIT,
 };
+use nat::NatTraverse;
 use std::{
     io,
     net::SocketAddr,
@@ -21,20 +27,11 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use util::{human_duration, human_size};
 use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod nat;
 mod util;
-
-use innernet_shared::{wg, Error};
-use nat::NatTraverse;
-use util::{human_duration, human_size};
-
-use crate::util::all_installed;
-use innernet_client_core::{
-    data_store::DataStore, peer::create_peer_and_invitation, rest_api::RestApi,
-    rest_client::RestClient,
-};
 
 struct PeerState<'a> {
     peer: &'a Peer,

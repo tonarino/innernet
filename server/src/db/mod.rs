@@ -1,3 +1,5 @@
+use rusqlite::params;
+
 pub mod association;
 pub mod cidr;
 pub mod peer;
@@ -5,7 +7,6 @@ pub mod peer;
 pub use association::DatabaseAssociation;
 pub use cidr::DatabaseCidr;
 pub use peer::DatabasePeer;
-use rusqlite::params;
 
 const INVITE_EXPIRATION_VERSION: usize = 1;
 const ENDPOINT_CANDIDATES_VERSION: usize = 2;

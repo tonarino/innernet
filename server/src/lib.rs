@@ -1,12 +1,13 @@
 use anyhow::{anyhow, bail};
 use colored::*;
+use db::{DatabaseCidr, DatabasePeer};
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use innernet_shared::{
-    get_local_addrs, peer, update_hosts_file, AddCidrOpts, AddPeerOpts, DeleteCidrOpts,
-    EnableDisablePeerOpts, Endpoint, HostsOpts, IoErrorContext, NetworkOpts, PeerContents,
-    RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, peer, prompts, update_hosts_file, wg, AddCidrOpts, AddPeerOpts, CidrTree,
+    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, HostsOpts, Interface, IoErrorContext,
+    NetworkOpts, PeerContents, RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
@@ -35,9 +36,7 @@ pub mod initialize;
 mod test;
 mod util;
 
-use db::{DatabaseCidr, DatabasePeer};
 pub use error::ServerError;
-use innernet_shared::{prompts, wg, CidrTree, Error, Interface};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
