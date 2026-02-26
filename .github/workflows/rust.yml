@@ -89,4 +89,10 @@ jobs:
       - uses: dtolnay/install@cargo-docs-rs
       - name: Install System Dependencies
         run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-19-dev
-      - run: cargo docs-rs
+      - name: Run cargo docs-rs on all workspace members
+        run: |
+          for pkg in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+            echo "::group::Building docs for $pkg"
+            cargo docs-rs -p "$pkg"
+            echo "::endgroup::"
+          done
