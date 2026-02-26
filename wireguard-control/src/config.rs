@@ -11,10 +11,11 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 /// the settings specified here will be applied _on top_ of the existing settings,
 /// similarly to interface-wide settings.
 ///
-/// If this is not what you want, use [`DeviceConfigBuilder::replace_peers`](DeviceConfigBuilder::replace_peers)
-/// to replace all peer settings on the interface, or use
-/// [`DeviceConfigBuilder::remove_peer_by_key`](DeviceConfigBuilder::remove_peer_by_key) first
-/// to remove the peer from the interface, and then apply a second configuration to re-add it.
+/// If this is not what you want, use
+/// [`DeviceUpdate::replace_peers()`](crate::device::DeviceUpdate::replace_peers) to replace all
+/// peer settings on the interface, or use
+/// [`DeviceUpdate::remove_peer_by_key()`](crate::device::DeviceUpdate::remove_peer_by_key) first
+/// to remove the peer from the interface and then apply a second configuration to re-add it.
 ///
 /// # Example
 /// ```rust

@@ -108,7 +108,7 @@ impl PeerInfo {
 /// This struct contains the current configuration of the device
 /// and the current configuration _and_ state of all of its peers.
 /// The peer statistics are retrieved once at construction time,
-/// and need to be updated manually by calling [`get_by_name`](DeviceInfo::get_by_name).
+/// and need to be updated manually by calling [`Self::get()`].
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub struct Device {
@@ -236,7 +236,7 @@ impl Device {
     /// Enumerates all WireGuard interfaces currently present in the system,
     /// both with kernel and userspace backends.
     ///
-    /// You can use [`get_by_name`](DeviceInfo::get_by_name) to retrieve more
+    /// You can use [`Self::get()`] to retrieve more
     /// detailed information on each interface.
     pub fn list(backend: Backend) -> Result<Vec<InterfaceName>, std::io::Error> {
         match backend {
@@ -276,8 +276,8 @@ impl Device {
 /// Note that if an interface exists, the configuration is applied _on top_ of the existing
 /// settings, and missing parts are not overwritten or set to defaults.
 ///
-/// If this is not what you want, use [`delete_interface`](delete_interface)
-/// to remove the interface entirely before applying the new configuration.
+/// If this is not what you want, use [`Device::delete()`] to remove the interface entirely before
+/// applying the new configuration.
 ///
 /// # Example
 /// ```rust
@@ -314,7 +314,7 @@ pub struct DeviceUpdate {
 }
 
 impl DeviceUpdate {
-    /// Creates a new `DeviceConfigBuilder` that does nothing when applied.
+    /// Creates a new [`Self`] that does nothing when applied.
     #[must_use]
     pub fn new() -> Self {
         DeviceUpdate {
@@ -329,9 +329,8 @@ impl DeviceUpdate {
 
     /// Sets a new keypair to be applied to the interface.
     ///
-    /// This is a convenience method that simply wraps
-    /// [`set_public_key`](DeviceConfigBuilder::set_public_key)
-    /// and [`set_private_key`](DeviceConfigBuilder::set_private_key).
+    /// This is a convenience method that simply wraps [`Self::set_public_key()`] and
+    /// [`Self::set_private_key()`].
     #[must_use]
     pub fn set_keypair(self, keypair: KeyPair) -> Self {
         self.set_public_key(keypair.public)
@@ -426,7 +425,7 @@ impl DeviceUpdate {
         self
     }
 
-    /// Specifies that the peer configurations in this `DeviceConfigBuilder` should
+    /// Specifies that the peer configurations in this [`Self`] should
     /// replace the existing configurations on the interface, not modify or append to them.
     #[must_use]
     pub fn replace_peers(mut self) -> Self {

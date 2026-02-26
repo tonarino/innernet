@@ -530,9 +530,9 @@ pub struct HostsOpts {
     #[clap(long = "no-write-hosts", conflicts_with = "hosts_path")]
     pub no_write_hosts: bool,
 
-    /// Use a different suffix for hosts, than '<interface>.wg' , ex.
-    /// --host-suffix 'evilnet' names peers: <peer>.evilnet, and
-    /// --host-suffix '' gives peers no suffix, just: <peer>
+    /// Use a different suffix for hosts, than 'INTERFACE.wg' , ex.
+    /// --host-suffix 'evilnet' names peers: PEER.evilnet, and
+    /// --host-suffix '' gives peers no suffix, just: PEER
     #[clap(long = "host-suffix")]
     pub host_suffix: Option<String>,
 }
