@@ -78,3 +78,15 @@ jobs:
         with:
           command: clippy
           args: --workspace --locked --all-targets -- -D warnings
+
+  doc:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/install@cargo-docs-rs
+      - name: Install System Dependencies
+        run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-19-dev
+      - run: cargo docs-rs
