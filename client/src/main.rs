@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context as _};
 use clap::{ArgAction, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
@@ -590,9 +590,9 @@ fn fetch(
     }
     let interface_updated_time = Instant::now();
 
-    store.set_cidrs(cidrs);
-    store.update_peers(&peers)?;
-    store.write().with_str(interface.to_string())?;
+    store
+        .update_peers_and_set_cidrs(&peers, cidrs)
+        .context(interface.to_string())?;
 
     let listen_port = device.listen_port.unwrap_or(51820);
     if server_is_reachable {
