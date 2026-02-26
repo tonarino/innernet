@@ -91,7 +91,9 @@ jobs:
         run: sudo apt-get -y update && sudo apt-get install -f && sudo apt-get -y install libsqlite3-dev libclang-19-dev
       - name: Run cargo docs-rs on all workspace members
         run: |
-          for pkg in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+          # cargo metadata lists workspace members, jq filters them to ones that are libraries (as
+          # cargo docs-rs fails on bin/only crates) and extracts their names.
+          for pkg in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select([.targets[].kind[]] | join(" ") | test("lib|proc-macro")) | .name'); do
             echo "::group::Building docs for $pkg"
             cargo docs-rs -p "$pkg"
             echo "::endgroup::"
