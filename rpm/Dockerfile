@@ -6,7 +6,7 @@ FROM ${DISTRO}:${VER} as builder
 LABEL stage=innernet-rpm
 
 RUN yum -y update && \
-	yum -y install gcc clang-devel sqlite-devel glibc-devel rpm-build && \
+	yum -y install gcc clang-devel sqlite-devel glibc-devel rpm-build libselinux-devel && \
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 
 WORKDIR /workdir
@@ -15,7 +15,7 @@ RUN rm -rf target
 
 RUN source $HOME/.cargo/env && \
 	cargo install cargo-rpm && \
-	cargo build --release --verbose && \
+	cargo build --release --verbose --features innernet/selinux && \
 	# device::tests::test_add_peers will fail due to restricted docker env
 	cargo test --release --verbose -- --skip test_add_peers && \
 	cd server && cargo rpm build && \
