@@ -1,13 +1,14 @@
 use crate::rest_client::RestClient;
 use anyhow::Error;
 use innernet_shared::{
-    peer::{make_peer_contents_and_key_pair, write_peer_invitation, NewPeerInfo},
+    interface_config::PeerInvitation,
+    peer::{make_peer_contents_and_key_pair, NewPeerInfo},
     CidrTree, Peer,
 };
 use std::net::SocketAddr;
 use wireguard_control::InterfaceName;
 
-/// Create a new innernet [`Peer`] and an invitation file for them saved at `target_path`.
+/// Create a new innernet [`Peer`] and a [`PeerInvitation`] they can use to join the network.
 //
 //  TODO(mbernat): The shape of this API is only provisional, it reflects the client-side `add-peer`
 //                 CLI, where it was pulled from.
@@ -18,13 +19,11 @@ pub fn create_peer_and_invitation(
     cidr_tree: &CidrTree,
     server_peer: &Peer,
     new_peer_info: NewPeerInfo,
-    target_path: &str,
     server_api_addr: &SocketAddr,
-) -> Result<Peer, Error> {
+) -> Result<(Peer, PeerInvitation), Error> {
     let (peer_contents, keypair) = make_peer_contents_and_key_pair(new_peer_info);
     let peer = rest_client.create_peer(&peer_contents)?;
-    write_peer_invitation(
-        target_path,
+    let invitation = PeerInvitation::new(
         interface,
         &peer,
         server_peer,
@@ -33,5 +32,5 @@ pub fn create_peer_and_invitation(
         server_api_addr,
     )?;
 
-    Ok(peer)
+    Ok((peer, invitation))
 }

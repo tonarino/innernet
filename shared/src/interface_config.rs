@@ -1,4 +1,6 @@
-use crate::{chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, WrappedIoError};
+use crate::{
+    chmod, ensure_dirs_exist, Cidr, Endpoint, Error, IoErrorContext, Peer, WrappedIoError,
+};
 use indoc::writedoc;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
@@ -8,8 +10,10 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
 };
-use wireguard_control::InterfaceName;
+use wireguard_control::{InterfaceName, KeyPair};
 
+/// This struct contains everything necessary to establish an innernet connection: information about
+/// a local innernet interface and a remote innernet server.
 #[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct InterfaceConfig {
@@ -51,64 +55,34 @@ pub struct ServerInfo {
 }
 
 impl InterfaceConfig {
-    pub fn write_to(
-        &self,
-        target_file: &mut File,
-        comments: bool,
-        mode: Option<u32>,
-    ) -> Result<(), io::Error> {
-        if let Some(val) = mode {
-            chmod(target_file, val)?;
-        }
-
-        if comments {
-            writedoc!(
-                target_file,
-                r"
-                    # This is an invitation file to an innernet network.
-                    #
-                    # To join, you must install innernet.
-                    # See https://github.com/tonarino/innernet for instructions.
-                    #
-                    # If you have innernet, just run:
-                    #
-                    #   innernet install <this file>
-                    #
-                    # Don't edit the contents below unless you love chaos and dysfunction.
-                "
-            )?;
-        }
-        target_file.write_all(toml::to_string(self).unwrap().as_bytes())?;
-        Ok(())
-    }
-
-    pub fn write_to_path<P: AsRef<Path>>(
-        &self,
-        path: P,
-        comments: bool,
-        mode: Option<u32>,
-    ) -> Result<(), WrappedIoError> {
+    /// Save a new config file, failing if it already exists.
+    pub fn save_new(&self, path: impl AsRef<Path>, mode: u32) -> Result<(), WrappedIoError> {
         let path = path.as_ref();
-        let mut target_file = OpenOptions::new()
+        let mut file = OpenOptions::new()
             .create_new(true)
             .write(true)
             .open(path)
             .with_path(path)?;
-        self.write_to(&mut target_file, comments, mode)
-            .with_path(path)
+
+        chmod(&file, mode).with_path(path)?;
+
+        file.write_all(self.contents().as_bytes()).with_path(path)?;
+
+        Ok(())
     }
 
     /// Overwrites the config file if it already exists.
-    pub fn write_to_interface(
-        &self,
-        config_dir: &Path,
-        interface: &InterfaceName,
-    ) -> Result<PathBuf, Error> {
+    pub fn save(&self, config_dir: &Path, interface: &InterfaceName) -> Result<PathBuf, Error> {
         let path = Self::build_config_file_path(config_dir, interface)?;
         File::create(&path)
             .with_path(&path)?
-            .write_all(toml::to_string(self).unwrap().as_bytes())?;
+            .write_all(self.contents().as_bytes())?;
+
         Ok(path)
+    }
+
+    fn contents(&self) -> String {
+        toml::to_string(self).unwrap()
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
@@ -136,6 +110,34 @@ impl InterfaceConfig {
         ensure_dirs_exist(&[config_dir])?;
         Ok(Self::get_path(config_dir, interface))
     }
+
+    fn new(
+        network_name: &InterfaceName,
+        peer: &Peer,
+        server_peer: &Peer,
+        root_cidr: &Cidr,
+        keypair: KeyPair,
+        server_api_addr: &SocketAddr,
+    ) -> Result<InterfaceConfig, Error> {
+        let invitation = InterfaceConfig {
+            interface: InterfaceInfo {
+                network_name: network_name.to_string(),
+                private_key: keypair.private.to_base64(),
+                address: IpNet::new(peer.ip, root_cidr.prefix_len())?,
+                listen_port: None,
+            },
+            server: ServerInfo {
+                external_endpoint: server_peer
+                    .endpoint
+                    .clone()
+                    .expect("The innernet server should have a WireGuard endpoint"),
+                internal_endpoint: *server_api_addr,
+                public_key: server_peer.public_key.clone(),
+            },
+        };
+
+        Ok(invitation)
+    }
 }
 
 impl InterfaceInfo {
@@ -143,5 +145,61 @@ impl InterfaceInfo {
         Ok(wireguard_control::Key::from_base64(&self.private_key)?
             .get_public()
             .to_base64())
+    }
+}
+
+#[must_use]
+pub struct PeerInvitation {
+    interface_config: InterfaceConfig,
+}
+
+impl PeerInvitation {
+    pub fn new(
+        network_name: &InterfaceName,
+        peer: &Peer,
+        server_peer: &Peer,
+        root_cidr: &Cidr,
+        keypair: KeyPair,
+        server_api_addr: &SocketAddr,
+    ) -> Result<Self, Error> {
+        let interface_config = InterfaceConfig::new(
+            network_name,
+            peer,
+            server_peer,
+            root_cidr,
+            keypair,
+            server_api_addr,
+        )?;
+
+        Ok(Self { interface_config })
+    }
+
+    /// Save a new invitation file, failing if it already exists.
+    pub fn save_new(&self, path: impl AsRef<Path>) -> Result<(), io::Error> {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path)?;
+
+        writedoc!(
+            file,
+            r"
+                    # This is an invitation file to an innernet network.
+                    #
+                    # To join, you must install innernet.
+                    # See https://github.com/tonarino/innernet for instructions.
+                    #
+                    # If you have innernet, just run:
+                    #
+                    #   innernet install <this file>
+                    #
+                    # Don't edit the contents below unless you love chaos and dysfunction.
+                "
+        )?;
+
+        file.write_all(self.interface_config.contents().as_bytes())?;
+
+        Ok(())
     }
 }
