@@ -13,25 +13,22 @@ use innernet_shared::{
     Endpoint, HostsOpts, NatOpts, NetworkOpts, PeerChange, PeerDiff, RedeemContents, State,
     REDEEM_TRANSITION_WAIT,
 };
-use std::{
-    net::SocketAddr,
-    path::Path,
-    thread,
-    time::{Duration, Instant},
-};
+use std::{net::SocketAddr, path::Path, thread, time::Instant};
 use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
 
-pub fn install(
+/// Redeem an invitation to join an innernet network.
+///
+/// - Bails if either a wireguard or an innernet `interface` of the same name already exists.
+/// - Brings the wireguard interface up (and leaves it up even if the process does not complete).
+/// - Generates a fresh key pair and uses the public part to redeem the invite and the private part
+///   to update the wireguard interface.
+pub fn redeem_invite(
     config_dir: &Path,
-    data_dir: &Path,
     network_opts: &NetworkOpts,
-    hosts_opts: &HostsOpts,
-    nat_opts: &NatOpts,
-    interface: &str,
-    config: InterfaceConfig,
+    interface: &InterfaceName,
+    mut config: InterfaceConfig,
 ) -> Result<(), Error> {
-    let interface = interface.parse()?;
-    let config_path = InterfaceConfig::build_config_file_path(config_dir, &interface)?;
+    let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)?;
     if config_path.exists() {
         bail!(
             "An existing innernet network with the name \"{}\" already exists.",
@@ -42,7 +39,7 @@ pub fn install(
     if Device::list(network_opts.backend)
         .iter()
         .flatten()
-        .any(|name| name == &interface)
+        .any(|name| name == interface)
     {
         bail!(
             "An existing WireGuard interface with the name \"{}\" already exists.",
@@ -50,42 +47,61 @@ pub fn install(
         );
     }
 
-    redeem_invite(network_opts, &interface, &config_path, config).map_err(|e| {
-        log::error!("failed to start the interface: {}.", e);
-        log::info!("bringing down the interface.");
-        if let Err(e) = wg::down(&interface, network_opts.backend) {
-            log::warn!("failed to bring down interface: {}.", e);
-        };
-        log::error!("Failed to redeem invite. Now's a good time to make sure the server is started and accessible!");
-        e
-    })?;
+    log::info!(
+        "bringing up interface {}.",
+        interface.as_str_lossy().yellow()
+    );
+    let resolved_endpoint = config
+        .server
+        .external_endpoint
+        .resolve()
+        .context(config.server.external_endpoint.to_string())?;
+    wg::up(
+        interface,
+        &config.interface.private_key,
+        config.interface.address,
+        None,
+        Some((
+            &config.server.public_key,
+            config.server.internal_endpoint.ip(),
+            resolved_endpoint,
+        )),
+        network_opts,
+    )
+    .context(interface.to_string())?;
 
-    let mut fetch_success = false;
-    for _ in 0..3 {
-        if fetch(
-            config_dir,
-            data_dir,
-            network_opts,
-            hosts_opts,
-            nat_opts,
-            &interface,
-            true,
-        )
-        .is_ok()
-        {
-            fetch_success = true;
-            break;
-        }
-        thread::sleep(Duration::from_secs(1));
-    }
-    if !fetch_success {
-        log::warn!(
-            "Failed to fetch peers from server, you will need to manually run the 'up' command.",
-        );
-    }
+    log::info!("Generating new keypair.");
+    let keypair = wireguard_control::KeyPair::generate();
+
+    log::info!(
+        "Registering keypair with server (at {}).",
+        &config.server.internal_endpoint
+    );
+    RestClient::new(&config.server).http_form::<_, ()>(
+        "POST",
+        "/user/redeem",
+        RedeemContents {
+            public_key: keypair.public.to_base64(),
+        },
+    )?;
+
+    config.interface.private_key = keypair.private.to_base64();
+    config.write_to_path(&config_path, false, Some(0o600))?;
+    log::info!(
+        "New keypair registered. Copied config to {}.\n",
+        config_path.to_string_lossy().yellow()
+    );
+
+    log::info!("Changing keys and waiting 5s for server's WireGuard interface to transition.",);
+    DeviceUpdate::new()
+        .set_private_key(keypair.private)
+        .apply(interface, network_opts.backend)
+        .context(interface.to_string())?;
+    thread::sleep(REDEEM_TRANSITION_WAIT);
 
     Ok(())
 }
+
 pub fn fetch(
     config_dir: &Path,
     data_dir: &Path,
@@ -218,64 +234,6 @@ pub fn fetch(
             nat_traverse.step()?;
         }
     }
-
-    Ok(())
-}
-
-fn redeem_invite(
-    network_opts: &NetworkOpts,
-    iface: &InterfaceName,
-    config_path: &Path,
-    mut config: InterfaceConfig,
-) -> Result<(), Error> {
-    log::info!("bringing up interface {}.", iface.as_str_lossy().yellow());
-    let resolved_endpoint = config
-        .server
-        .external_endpoint
-        .resolve()
-        .context(config.server.external_endpoint.to_string())?;
-    wg::up(
-        iface,
-        &config.interface.private_key,
-        config.interface.address,
-        None,
-        Some((
-            &config.server.public_key,
-            config.server.internal_endpoint.ip(),
-            resolved_endpoint,
-        )),
-        network_opts,
-    )
-    .context(iface.to_string())?;
-
-    log::info!("Generating new keypair.");
-    let keypair = wireguard_control::KeyPair::generate();
-
-    log::info!(
-        "Registering keypair with server (at {}).",
-        &config.server.internal_endpoint
-    );
-    RestClient::new(&config.server).http_form::<_, ()>(
-        "POST",
-        "/user/redeem",
-        RedeemContents {
-            public_key: keypair.public.to_base64(),
-        },
-    )?;
-
-    config.interface.private_key = keypair.private.to_base64();
-    config.write_to_path(config_path, false, Some(0o600))?;
-    log::info!(
-        "New keypair registered. Copied config to {}.\n",
-        config_path.to_string_lossy().yellow()
-    );
-
-    log::info!("Changing keys and waiting 5s for server's WireGuard interface to transition.",);
-    DeviceUpdate::new()
-        .set_private_key(keypair.private)
-        .apply(iface, network_opts.backend)
-        .context(iface.to_string())?;
-    thread::sleep(REDEEM_TRANSITION_WAIT);
 
     Ok(())
 }

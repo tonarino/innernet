@@ -5,7 +5,10 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use indoc::eprintdoc;
 use innernet_client_core::{
-    self as core, data_store::DataStore, interface::fetch, peer::create_peer_and_invitation,
+    self as core,
+    data_store::DataStore,
+    interface::{fetch, redeem_invite},
+    peer::create_peer_and_invitation,
     rest_client::RestClient,
 };
 use innernet_shared::{
@@ -283,15 +286,40 @@ fn install(
             .interact()?
     };
 
-    core::interface::install(
-        &opts.config_dir,
-        &opts.data_dir,
-        &opts.network,
-        hosts_opts,
-        nat_opts,
-        &interface_name,
-        config,
-    )?;
+    let interface_name = interface_name.parse()?;
+    redeem_invite(&opts.config_dir, &opts.network, &interface_name, config).map_err(|e| {
+        log::error!("failed to start the interface: {}.", e);
+        log::info!("bringing down the interface.");
+        if let Err(e) = wg::down(&interface_name, opts.network.backend) {
+            log::warn!("failed to bring down interface: {}.", e);
+        };
+        log::error!("Failed to redeem invite. Now's a good time to make sure the server is started and accessible!");
+        e
+    })?;
+
+    let mut fetch_success = false;
+    for _ in 0..3 {
+        if fetch(
+            &opts.config_dir,
+            &opts.data_dir,
+            &opts.network,
+            hosts_opts,
+            nat_opts,
+            &interface_name,
+            true,
+        )
+        .is_ok()
+        {
+            fetch_success = true;
+            break;
+        }
+        thread::sleep(Duration::from_secs(1));
+    }
+    if !fetch_success {
+        log::warn!(
+            "Failed to fetch peers from server, you will need to manually run the 'up' command.",
+        );
+    }
 
     if install_opts.delete_invite
         || Confirm::with_theme(&*prompts::THEME)
