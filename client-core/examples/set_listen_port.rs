@@ -1,4 +1,5 @@
 use anyhow::{Context as _, Error};
+use env_logger::Env;
 use innernet_client_core::set_listen_port;
 use innernet_shared::interface_config::InterfaceConfig;
 use log::info;
@@ -6,10 +7,7 @@ use std::{env, path::Path};
 use wireguard_control::InterfaceName;
 
 fn main() -> Result<(), Error> {
-    if env::var_os("RUST_LOG").is_none() {
-        env::set_var("RUST_LOG", "info");
-    }
-    pretty_env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let interface = env::args()
         .nth(1)

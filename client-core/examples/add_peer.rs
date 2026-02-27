@@ -1,4 +1,5 @@
 use anyhow::{Context, Error};
+use env_logger::Env;
 use innernet_client_core::{peer, rest_client::RestClient};
 use innernet_shared::{interface_config::InterfaceConfig, peer::NewPeerInfo, CidrTree};
 use std::{
@@ -9,10 +10,7 @@ use std::{
 use wireguard_control::InterfaceName;
 
 fn main() -> Result<(), Error> {
-    if env::var_os("RUST_LOG").is_none() {
-        env::set_var("RUST_LOG", "info");
-    }
-    pretty_env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config_dir = Path::new("/etc/innernet");
     let interface = env::args().nth(1).context("Usage: add_peer <interface>")?;
