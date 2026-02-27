@@ -25,7 +25,7 @@ path = "src/main.rs"
 anyhow = "1"
 clap = { version = "4.3", features = ["derive", "wrap_help"] }
 clap_complete = "4.3"
-colored = "2"
+colored.workspace = true
 dialoguer.workspace = true
 indoc = "2.0.1"
 innernet-shared = { version = "1.7.1", path = "../shared" }

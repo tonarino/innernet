@@ -20,6 +20,7 @@ version = "1.7.1"
 
 [dependencies]
 anyhow = "1"
+colored.workspace = true
 innernet-shared = { version = "1.7.1", path = "../shared" }
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }

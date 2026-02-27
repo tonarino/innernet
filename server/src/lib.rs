@@ -483,7 +483,7 @@ pub async fn serve(
         IpNet::new(config.address, config.network_cidr_prefix)?,
         Some(config.listen_port),
         None,
-        network,
+        &network,
     )?;
 
     DeviceUpdate::new()
