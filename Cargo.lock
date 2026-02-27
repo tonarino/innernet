@@ -773,8 +773,20 @@ dependencies = [
  "colored",
  "dialoguer",
  "indoc",
+ "innernet-client-core",
  "innernet-shared",
- "ipnet",
+ "log",
+ "regex",
+ "ureq",
+ "wireguard-control",
+]
+
+[[package]]
+name = "innernet-client-core"
+version = "1.7.1"
+dependencies = [
+ "anyhow",
+ "innernet-shared",
  "log",
  "once_cell",
  "regex",

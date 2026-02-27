@@ -1,12 +1,12 @@
-pub mod backends;
-mod config;
-mod device;
-mod key;
-
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
+
+pub mod backends;
+mod config;
+mod device;
+mod key;
 
 pub use crate::{config::*, device::*, key::*};
 

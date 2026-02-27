@@ -1,24 +1,20 @@
 use crate::{
-    interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
-    AddCidrOpts, AddDeleteAssociationOpts, AddPeerOpts, Association, Cidr, CidrContents, CidrTree,
-    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, Hostname, IpNetExt, ListenPortOpts,
-    Peer, PeerContents, RenameCidrOpts, RenamePeerOpts, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
+    interface_config::InterfaceInfo, peer::NewPeerInfo, AddCidrOpts, AddDeleteAssociationOpts,
+    AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, EnableDisablePeerOpts,
+    Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, Peer, PeerContents, RenameCidrOpts,
+    RenamePeerOpts,
 };
 use anyhow::anyhow;
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use innernet_publicip::Preference;
-use ipnet::IpNet;
 use once_cell::sync::Lazy;
 use std::{
     fmt::{Debug, Display},
-    fs::{File, OpenOptions},
     io,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
-    time::SystemTime,
 };
-use wireguard_control::{InterfaceName, KeyPair};
 
 pub static THEME: Lazy<ColorfulTheme> = Lazy::new(ColorfulTheme::default);
 
@@ -278,6 +274,17 @@ pub fn add_association<'a>(
     )
 }
 
+pub fn print_invitation_info(peer: &Peer, target_file_name: &str) {
+    println!(
+        "\nPeer \"{}\" added\n\
+         Peer invitation file written to {}\n\
+         Please send it to them securely (eg. via magic-wormhole) \
+         to bootstrap them onto the network.",
+        peer.name.bold(),
+        target_file_name.bold()
+    );
+}
+
 pub fn delete_association<'a>(
     associations: &'a [Association],
     cidrs: &'a [Cidr],
@@ -294,12 +301,13 @@ pub fn delete_association<'a>(
     )
 }
 
-/// Bring up a prompt to create a new peer. Returns the peer request.
-pub fn add_peer(
+/// Bring up a prompt to gather information about a new peer. Returns [`NewPeerInfo`] and a path
+/// where the invite file should be saved.
+pub fn gather_new_peer_info(
     peers: &[Peer],
     cidr_tree: &CidrTree,
     args: &AddPeerOpts,
-) -> Result<Option<(PeerContents, KeyPair, String, File)>, Error> {
+) -> Result<Option<(NewPeerInfo, String)>, Error> {
     let leaves = cidr_tree.leaves();
 
     let cidr = if let Some(ref parent_name) = args.cidr {
@@ -360,33 +368,19 @@ pub fn add_peer(
         )?
     };
 
-    let default_keypair = KeyPair::generate();
-    let peer_request = PeerContents {
-        name,
-        ip,
-        cidr_id: cidr.id,
-        public_key: default_keypair.public.to_base64(),
-        endpoint: None,
-        is_admin,
-        is_disabled: false,
-        is_redeemed: false,
-        persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
-        invite_expires: Some(SystemTime::now() + invite_expires.into()),
-        candidates: vec![],
-    };
+    if args.yes || confirm(&format!("Create peer {}?", name.yellow()))? {
+        let input = NewPeerInfo {
+            name,
+            ip,
+            cidr_id: cidr.id,
+            is_admin,
+            invite_expires,
+        };
 
-    Ok(
-        if args.yes || confirm(&format!("Create peer {}?", peer_request.name.yellow()))? {
-            let invite_file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create_new(true)
-                .open(&invite_save_path)?;
-            Some((peer_request, default_keypair, invite_save_path, invite_file))
-        } else {
-            None
-        },
-    )
+        Ok(Some((input, invite_save_path)))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Bring up a prompt to rename an existing peer. Returns the peer request.
@@ -481,47 +475,6 @@ pub fn enable_or_disable_peer(
             None
         },
     )
-}
-
-/// Confirm and write a innernet invitation file after a peer has been created.
-pub fn write_peer_invitation(
-    target_file: (&mut File, &str),
-    network_name: &InterfaceName,
-    peer: &Peer,
-    server_peer: &Peer,
-    root_cidr: &Cidr,
-    keypair: KeyPair,
-    server_api_addr: &SocketAddr,
-) -> Result<(), Error> {
-    let peer_invitation = InterfaceConfig {
-        interface: InterfaceInfo {
-            network_name: network_name.to_string(),
-            private_key: keypair.private.to_base64(),
-            address: IpNet::new(peer.ip, root_cidr.prefix_len())?,
-            listen_port: None,
-        },
-        server: ServerInfo {
-            external_endpoint: server_peer
-                .endpoint
-                .clone()
-                .expect("The innernet server should have a WireGuard endpoint"),
-            internal_endpoint: *server_api_addr,
-            public_key: server_peer.public_key.clone(),
-        },
-    };
-
-    peer_invitation.write_to(target_file.0, true, None)?;
-
-    println!(
-        "\nPeer \"{}\" added\n\
-         Peer invitation file written to {}\n\
-         Please send it to them securely (eg. via magic-wormhole) \
-         to bootstrap them onto the network.",
-        peer.name.bold(),
-        target_file.1.bold()
-    );
-
-    Ok(())
 }
 
 pub fn set_listen_port(

@@ -1,5 +1,4 @@
-use crate::Error;
-use anyhow::bail;
+use anyhow::{bail, Error};
 use innernet_shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -9,6 +8,9 @@ use std::{
 };
 use wireguard_control::InterfaceName;
 
+/// File-backed storage of [`Peer`]s and [`Cidr`]s.
+///
+/// The file is stored at [`Self::get_path()`].
 #[derive(Debug)]
 pub struct DataStore {
     file: File,
@@ -17,16 +19,13 @@ pub struct DataStore {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "version")]
-pub enum Contents {
+enum Contents {
     #[serde(rename = "1")]
     V1 { peers: Vec<Peer>, cidrs: Vec<Cidr> },
 }
 
 impl DataStore {
-    pub(self) fn open_with_path<P: AsRef<Path>>(
-        path: P,
-        create: bool,
-    ) -> Result<Self, WrappedIoError> {
+    fn open_with_path<P: AsRef<Path>>(path: P, create: bool) -> Result<Self, WrappedIoError> {
         let path = path.as_ref();
         let is_existing_file = path.exists();
 
@@ -53,6 +52,7 @@ impl DataStore {
         Ok(Self { file, contents })
     }
 
+    /// Produce the path "`data_dir`/`interface`.json".
     pub fn get_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
         data_dir.join(interface.to_string()).with_extension("json")
     }
@@ -66,10 +66,12 @@ impl DataStore {
         Self::open_with_path(Self::get_path(data_dir, interface), create)
     }
 
+    /// Open the data store residing at "`data_dir`/`interface`.json".
     pub fn open(data_dir: &Path, interface: &InterfaceName) -> Result<Self, WrappedIoError> {
         Self::_open(data_dir, interface, false)
     }
 
+    /// Open or create the data store residing at "`data_dir`/`interface`.json".
     pub fn open_or_create(
         data_dir: &Path,
         interface: &InterfaceName,
@@ -77,13 +79,7 @@ impl DataStore {
         Self::_open(data_dir, interface, true)
     }
 
-    pub fn peers(&self) -> &[Peer] {
-        match &self.contents {
-            Contents::V1 { peers, .. } => peers,
-        }
-    }
-
-    /// Add new peers to the PeerStore, never deleting old ones.
+    /// Add new peers to the PeerStore, never deleting old ones; overwrite CIDRs; persist to disk.
     ///
     /// This is done as a protective measure, validating that the (IP, PublicKey) tuple
     /// of the interface's peers never change, i.e. "pinning" them. This prevents a compromised
@@ -91,12 +87,24 @@ impl DataStore {
     ///
     /// Note, however, that this does not prevent a compromised server from adding a new
     /// peer under its control, of course.
-    pub fn update_peers(&mut self, current_peers: &[Peer]) -> Result<(), Error> {
+    pub fn update_peers_and_set_cidrs(
+        &mut self,
+        new_peers: &[Peer],
+        new_cidrs: Vec<Cidr>,
+    ) -> Result<(), Error> {
+        self.update_peers(new_peers)?;
+        self.set_cidrs(new_cidrs);
+        self.write()?;
+
+        Ok(())
+    }
+
+    fn update_peers(&mut self, new_peers: &[Peer]) -> Result<(), Error> {
         let peers = match &mut self.contents {
             Contents::V1 { ref mut peers, .. } => peers,
         };
 
-        for new_peer in current_peers.iter() {
+        for new_peer in new_peers.iter() {
             if let Some(existing_peer) = peers.iter_mut().find(|p| p.ip == new_peer.ip) {
                 if existing_peer.public_key != new_peer.public_key {
                     bail!("PINNING ERROR: New peer has same IP but different public key.");
@@ -109,7 +117,7 @@ impl DataStore {
         }
 
         for existing_peer in peers.iter_mut() {
-            if !current_peers
+            if !new_peers
                 .iter()
                 .any(|p| p.public_key == existing_peer.public_key)
             {
@@ -120,19 +128,25 @@ impl DataStore {
         Ok(())
     }
 
+    pub fn peers(&self) -> &[Peer] {
+        match &self.contents {
+            Contents::V1 { peers, .. } => peers,
+        }
+    }
+
     pub fn cidrs(&self) -> &[Cidr] {
         match &self.contents {
             Contents::V1 { cidrs, .. } => cidrs,
         }
     }
 
-    pub fn set_cidrs(&mut self, new_cidrs: Vec<Cidr>) {
+    fn set_cidrs(&mut self, new_cidrs: Vec<Cidr>) {
         match &mut self.contents {
             Contents::V1 { ref mut cidrs, .. } => *cidrs = new_cidrs,
         }
     }
 
-    pub fn write(&mut self) -> Result<(), io::Error> {
+    fn write(&mut self) -> Result<(), io::Error> {
         self.file.rewind()?;
         self.file.set_len(0)?;
         self.file
@@ -182,9 +196,9 @@ mod tests {
         assert_eq!(0, store.peers().len());
         assert_eq!(0, store.cidrs().len());
 
-        store.update_peers(&BASE_PEERS).unwrap();
-        store.set_cidrs(BASE_CIDRS.to_owned());
-        store.write().unwrap();
+        store
+            .update_peers_and_set_cidrs(&BASE_PEERS, BASE_CIDRS.to_owned())
+            .unwrap();
     }
 
     #[test]

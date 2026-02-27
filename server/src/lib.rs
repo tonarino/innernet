@@ -1,12 +1,13 @@
 use anyhow::{anyhow, bail};
 use colored::*;
+use db::{DatabaseCidr, DatabasePeer};
 use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use innernet_shared::{
-    get_local_addrs, update_hosts_file, AddCidrOpts, AddPeerOpts, DeleteCidrOpts,
-    EnableDisablePeerOpts, Endpoint, HostsOpts, IoErrorContext, NetworkOpts, PeerContents,
-    RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, peer, prompts, update_hosts_file, wg, AddCidrOpts, AddPeerOpts, CidrTree,
+    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, HostsOpts, Interface, IoErrorContext,
+    NetworkOpts, PeerContents, RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
@@ -35,9 +36,7 @@ pub mod initialize;
 mod test;
 mod util;
 
-use db::{DatabaseCidr, DatabasePeer};
 pub use error::ServerError;
-use innernet_shared::{prompts, wg, CidrTree, Error, Interface};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -185,9 +184,11 @@ pub fn add_peer(
     let cidrs = DatabaseCidr::list(&conn)?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
-    if let Some(result) = innernet_shared::prompts::add_peer(&peers, &cidr_tree, &opts)? {
-        let (peer_request, keypair, target_path, mut target_file) = result;
-        let peer = DatabasePeer::create(&conn, peer_request)?;
+    if let Some((new_peer_info, target_path)) =
+        innernet_shared::prompts::gather_new_peer_info(&peers, &cidr_tree, &opts)?
+    {
+        let (peer_contents, keypair) = peer::make_peer_contents_and_key_pair(new_peer_info);
+        let peer = DatabasePeer::create(&conn, peer_contents)?;
         if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
             DeviceUpdate::new()
@@ -199,8 +200,8 @@ pub fn add_peer(
         }
 
         let server_peer = DatabasePeer::get(&conn, 1)?;
-        prompts::write_peer_invitation(
-            (&mut target_file, &target_path),
+        peer::write_peer_invitation(
+            &target_path,
             interface,
             &peer,
             &server_peer,

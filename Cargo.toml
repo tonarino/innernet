@@ -4,6 +4,7 @@ resolver = "2"
 members = [
   "server",
   "client",
+  "client-core",
   "hostsfile",
   "shared",
   "publicip",

@@ -1,4 +1,3 @@
-pub use anyhow::Error;
 use colored::Colorize;
 use hostsfile::HostsBuilder;
 use ipnet::IpNet;
@@ -15,10 +14,12 @@ use wireguard_control::InterfaceName;
 pub mod interface_config;
 #[cfg(target_os = "linux")]
 mod netlink;
+pub mod peer;
 pub mod prompts;
 pub mod types;
 pub mod wg;
 
+pub use anyhow::Error;
 pub use types::*;
 
 pub const REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
