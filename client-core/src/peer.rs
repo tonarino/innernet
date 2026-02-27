@@ -1,4 +1,4 @@
-use crate::rest_api::RestApi;
+use crate::rest_client::RestClient;
 use anyhow::Error;
 use innernet_shared::{
     peer::{make_peer_contents_and_key_pair, write_peer_invitation, NewPeerInfo},
@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 use wireguard_control::InterfaceName;
 
 pub fn create_peer_and_invitation(
-    rest_api: RestApi,
+    rest_client: &RestClient,
     interface: &InterfaceName,
     cidr_tree: &CidrTree,
     server_peer: &Peer,
@@ -17,7 +17,7 @@ pub fn create_peer_and_invitation(
     server_api_addr: &SocketAddr,
 ) -> Result<Peer, Error> {
     let (peer_contents, keypair) = make_peer_contents_and_key_pair(new_peer_info);
-    let peer = rest_api.create_peer(&peer_contents)?;
+    let peer = rest_client.create_peer(&peer_contents)?;
     write_peer_invitation(
         target_path,
         interface,

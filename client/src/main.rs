@@ -5,8 +5,7 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use indoc::eprintdoc;
 use innernet_client_core::{
-    data_store::DataStore, peer::create_peer_and_invitation, rest_api::RestApi,
-    rest_client::RestClient,
+    data_store::DataStore, peer::create_peer_and_invitation, rest_client::RestClient,
 };
 use innernet_shared::{
     get_local_addrs,
@@ -789,12 +788,11 @@ fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Re
     let InterfaceConfig { server, .. } =
         InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     let rest_client = RestClient::new(&server);
-    let rest_api = RestApi::new(rest_client);
 
     log::info!("Fetching CIDRs");
-    let cidrs = rest_api.get_cidrs()?;
+    let cidrs = rest_client.get_cidrs()?;
     log::info!("Fetching peers");
-    let peers = rest_api.get_peers()?;
+    let peers = rest_client.get_peers()?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
     if let Some((new_peer_info, target_path)) =
@@ -804,7 +802,7 @@ fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Re
         let server_api_addr = &server.internal_endpoint;
         log::info!("Creating peer...");
         let peer = create_peer_and_invitation(
-            rest_api,
+            &rest_client,
             interface,
             &cidr_tree,
             server_peer,

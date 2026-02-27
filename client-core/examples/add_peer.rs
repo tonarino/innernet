@@ -1,5 +1,5 @@
 use anyhow::{Context, Error};
-use innernet_client_core::{peer, rest_api::RestApi, rest_client::RestClient};
+use innernet_client_core::{peer, rest_client::RestClient};
 use innernet_shared::{interface_config::InterfaceConfig, peer::NewPeerInfo, CidrTree};
 use std::{
     net::{IpAddr, Ipv4Addr},
@@ -16,12 +16,11 @@ fn main() -> Result<(), Error> {
     let interface: InterfaceName = interface.parse()?;
     let interface_config = InterfaceConfig::from_interface(config_dir, &interface)?;
     let rest_client = RestClient::new(&interface_config.server);
-    let rest_api = RestApi::new(rest_client);
 
-    let peers = rest_api.get_peers()?;
+    let peers = rest_client.get_peers()?;
     let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
 
-    let cidrs = rest_api.get_cidrs()?;
+    let cidrs = rest_client.get_cidrs()?;
     let cidr_tree = CidrTree::new(&cidrs);
 
     let new_peer_info = NewPeerInfo {
@@ -36,7 +35,7 @@ fn main() -> Result<(), Error> {
     let server_api_addr = &interface_config.server.internal_endpoint;
 
     peer::create_peer_and_invitation(
-        rest_api,
+        &rest_client,
         &interface,
         &cidr_tree,
         server_peer,
