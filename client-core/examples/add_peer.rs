@@ -1,6 +1,6 @@
 use anyhow::{Context, Error};
 use innernet_client_core::{peer, rest_client::RestClient};
-use innernet_shared::{interface_config::InterfaceConfig, peer::NewPeerInfo, CidrTree};
+use innernet_shared::{interface_config::InterfaceConfig, peer::NewPeerInfo, prompts, CidrTree};
 use std::{
     net::{IpAddr, Ipv4Addr},
     path::Path,
@@ -34,15 +34,17 @@ fn main() -> Result<(), Error> {
     let target_path = "invitation.toml";
     let server_api_addr = &interface_config.server.internal_endpoint;
 
-    peer::create_peer_and_invitation(
+    let (peer, invitation) = peer::create_peer_and_invitation(
         &rest_client,
         &interface,
         &cidr_tree,
         server_peer,
         new_peer_info,
-        target_path,
         server_api_addr,
     )?;
+
+    invitation.save_new(target_path)?;
+    prompts::print_invitation_info(&peer, target_path);
 
     Ok(())
 }

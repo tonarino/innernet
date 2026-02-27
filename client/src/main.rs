@@ -444,7 +444,7 @@ fn redeem_invite(
     )?;
 
     config.interface.private_key = keypair.private.to_base64();
-    config.write_to_path(&target_conf, false, Some(0o600))?;
+    config.save_new(&target_conf, 0o600)?;
     log::info!(
         "New keypair registered. Copied config to {}.\n",
         target_conf.to_string_lossy().yellow()
@@ -801,16 +801,16 @@ fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Re
         let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
         let server_api_addr = &server.internal_endpoint;
         log::info!("Creating peer...");
-        let peer = create_peer_and_invitation(
+        let (peer, invitation) = create_peer_and_invitation(
             &rest_client,
             interface,
             &cidr_tree,
             server_peer,
             new_peer_info,
-            &target_path,
             server_api_addr,
         )?;
 
+        invitation.save_new(&target_path)?;
         prompts::print_invitation_info(&peer, &target_path);
     } else {
         log::info!("Exited without creating peer.");
@@ -986,7 +986,7 @@ fn set_listen_port(
         log::info!("the interface is updated");
 
         config.interface.listen_port = listen_port;
-        config.write_to_interface(&opts.config_dir, interface)?;
+        config.save(&opts.config_dir, interface)?;
         log::info!("the config file is updated");
     } else {
         log::info!("exiting without updating the listen port.");

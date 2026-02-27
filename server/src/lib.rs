@@ -5,9 +5,10 @@ use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use innernet_shared::{
-    get_local_addrs, peer, prompts, update_hosts_file, wg, AddCidrOpts, AddPeerOpts, CidrTree,
-    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error, HostsOpts, Interface, IoErrorContext,
-    NetworkOpts, PeerContents, RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs, interface_config::PeerInvitation, peer, prompts, update_hosts_file, wg,
+    AddCidrOpts, AddPeerOpts, CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error,
+    HostsOpts, Interface, IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts,
+    RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
@@ -200,8 +201,7 @@ pub fn add_peer(
         }
 
         let server_peer = DatabasePeer::get(&conn, 1)?;
-        peer::write_peer_invitation(
-            &target_path,
+        let invitation = PeerInvitation::new(
             interface,
             &peer,
             &server_peer,
@@ -209,6 +209,8 @@ pub fn add_peer(
             keypair,
             &SocketAddr::new(config.address, config.listen_port),
         )?;
+
+        invitation.save_new(target_path)?;
     } else {
         println!("exited without creating peer.");
     }
