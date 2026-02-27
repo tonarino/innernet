@@ -129,7 +129,7 @@ impl InterfaceConfig {
             .with_extension("conf")
     }
 
-    fn build_config_file_path(
+    pub fn build_config_file_path(
         config_dir: &Path,
         interface: &InterfaceName,
     ) -> Result<PathBuf, WrappedIoError> {

@@ -25,10 +25,10 @@ fn main() -> Result<(), Error> {
     info!("Current listen port: {:?}", config.interface.listen_port);
 
     set_listen_port(
-        &mut config,
+        network_backend,
         config_dir,
         &interface,
-        network_backend,
+        &mut config,
         listen_port,
     )?;
 

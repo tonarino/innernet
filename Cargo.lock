@@ -786,6 +786,7 @@ name = "innernet-client-core"
 version = "1.7.1"
 dependencies = [
  "anyhow",
+ "colored",
  "innernet-shared",
  "log",
  "once_cell",
