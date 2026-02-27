@@ -7,6 +7,11 @@ use innernet_shared::{
 use std::net::SocketAddr;
 use wireguard_control::InterfaceName;
 
+/// Create a new innernet [`Peer`] and an invitation file for them saved at `target_path`.
+//
+//  TODO(mbernat): The shape of this API is only provisional, it reflects the client-side `add-peer`
+//                 CLI, where it was pulled from.
+//                 See https://github.com/tonarino/innernet/pull/382#discussion_r2859409122
 pub fn create_peer_and_invitation(
     rest_client: &RestClient,
     interface: &InterfaceName,
