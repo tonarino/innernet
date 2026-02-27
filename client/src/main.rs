@@ -5,7 +5,7 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use indoc::eprintdoc;
 use innernet_client_core::{
-    data_store::DataStore, peer::create_peer_and_invitation, rest_client::RestClient,
+    self as core, data_store::DataStore, peer::create_peer_and_invitation, rest_client::RestClient,
 };
 use innernet_shared::{
     get_local_addrs,
@@ -977,22 +977,23 @@ fn set_listen_port(
     interface: &InterfaceName,
     opts: &Opts,
     sub_opts: ListenPortOpts,
-) -> Result<Option<u16>, Error> {
+) -> Result<(), Error> {
     let mut config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
 
     let listen_port = prompts::set_listen_port(&config.interface, sub_opts)?;
     if let Some(listen_port) = listen_port {
-        wg::set_listen_port(interface, listen_port, opts.network.backend)?;
-        log::info!("the interface is updated");
-
-        config.interface.listen_port = listen_port;
-        config.write_to_interface(&opts.config_dir, interface)?;
-        log::info!("the config file is updated");
+        core::set_listen_port(
+            &mut config,
+            &opts.config_dir,
+            interface,
+            opts.network.backend,
+            listen_port,
+        )?;
     } else {
         log::info!("exiting without updating the listen port.");
     }
 
-    Ok(listen_port.flatten())
+    Ok(())
 }
 
 fn override_endpoint(
