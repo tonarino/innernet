@@ -1,7 +1,6 @@
 use colored::*;
 use indoc::eprintdoc;
-use innernet_client_core::data_store::DataStore;
-use innernet_shared::{Interface, PeerChange, PeerDiff};
+use innernet_shared::Interface;
 use log::{Level, LevelFilter};
 use std::{ffi::OsStr, io, path::Path, time::Duration};
 
@@ -132,71 +131,6 @@ pub fn permissions_helptext(config_dir: &Path, data_dir: &Path, e: &io::Error) {
             config = config_dir.to_string_lossy(),
             data = data_dir.to_string_lossy(),
         );
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum ChangeAction {
-    Added,
-    Modified,
-    Removed,
-}
-
-impl ChangeAction {
-    fn colored_output(&self) -> ColoredString {
-        match self {
-            Self::Added => "added".green(),
-            Self::Modified => "modified".yellow(),
-            Self::Removed => "removed".red(),
-        }
-    }
-}
-
-pub fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
-    let public_key = diff.public_key().to_base64();
-
-    let change_action = match (diff.old, diff.new) {
-        (None, Some(_)) => ChangeAction::Added,
-        (Some(_), Some(_)) => ChangeAction::Modified,
-        (Some(_), None) => ChangeAction::Removed,
-        _ => unreachable!("PeerDiff can't be None -> None"),
-    };
-
-    // Grab the peer name from either the new data, or the historical data (if the peer is removed).
-    let peer_hostname = match diff.new {
-        Some(peer) => Some(peer.name.clone()),
-        None => store
-            .peers()
-            .iter()
-            .find(|p| p.public_key == public_key)
-            .map(|p| p.name.clone()),
-    };
-    let peer_name = peer_hostname.as_deref().unwrap_or("[unknown]");
-
-    if change_action == ChangeAction::Modified
-        && diff
-            .changes()
-            .iter()
-            .all(|c| *c == PeerChange::NatTraverseReattempt)
-    {
-        // If this peer was "modified" but the only change is a NAT Traversal Reattempt,
-        // don't bother printing this peer.
-        return;
-    }
-
-    log::info!(
-        "  peer {} ({}...) was {}.",
-        peer_name.yellow(),
-        &public_key[..10].dimmed(),
-        change_action.colored_output(),
-    );
-
-    for change in diff.changes() {
-        if let PeerChange::Endpoint { .. } = change {
-            log::info!("    {}", change);
-        } else {
-            log::debug!("    {}", change);
-        }
     }
 }
 

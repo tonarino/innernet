@@ -90,7 +90,7 @@ pub fn up(
     address: IpNet,
     listen_port: Option<u16>,
     peer: Option<(&str, IpAddr, SocketAddr)>,
-    network: NetworkOpts,
+    network: &NetworkOpts,
 ) -> Result<(), io::Error> {
     let mut device = DeviceUpdate::new();
     if let Some((public_key, address, endpoint)) = peer {

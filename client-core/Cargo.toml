@@ -20,6 +20,7 @@ version = "1.7.1"
 
 [dependencies]
 anyhow = "1"
+colored.workspace = true
 innernet-shared = { version = "1.7.1", path = "../shared" }
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
@@ -31,6 +32,7 @@ wireguard-control = { version = "1.7.1", path = "../wireguard-control" }
 [dev-dependencies]
 once_cell = "1.17.1"
 tempfile = "3"
+env_logger = "0.7"
 
 [features]
 selinux = ["innernet-shared/selinux"]
