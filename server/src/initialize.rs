@@ -21,6 +21,7 @@ fn create_database<P: AsRef<Path>>(
 ) -> Result<Connection, Box<dyn std::error::Error>> {
     let conn = Connection::open(&database_path)?;
     conn.pragma_update(None, "foreign_keys", 1)?;
+    // TODO(strohel): set stricter permissions on the db file?
     conn.execute(db::peer::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::association::CREATE_TABLE_SQL, params![])?;
     conn.execute(db::cidr::CREATE_TABLE_SQL, params![])?;
