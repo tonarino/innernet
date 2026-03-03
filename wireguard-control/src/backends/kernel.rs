@@ -360,7 +360,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         nlas: vec![WgDeviceAttrs::IfName(name.as_str_lossy().to_string())],
     });
     let responses = netlink_request_genl(genlmsg, Some(NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK))?;
-    log::debug!(
+    log::trace!(
         "get_by_name: got {} response message(s) from netlink request",
         responses.len()
     );
@@ -382,7 +382,7 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
         Ok(nlas)
     })?;
     let device = Device::try_from(&nlas[..])?;
-    log::debug!(
+    log::trace!(
         "get_by_name: parsed wireguard device {} with {} peer(s)",
         device.name,
         device.peers.len(),
