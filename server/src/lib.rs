@@ -162,6 +162,7 @@ fn open_database_connection(
         );
     }
 
+    // TODO(strohel): warn about too open permissions on the db file?
     let conn = Connection::open(&database_path)?;
     // Foreign key constraints aren't on in SQLite by default. Enable.
     conn.pragma_update(None, "foreign_keys", 1)?;

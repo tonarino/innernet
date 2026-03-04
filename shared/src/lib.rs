@@ -34,7 +34,7 @@ pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
                 std::fs::set_permissions(dir, Permissions::from_mode(0o700)).with_path(dir)?;
             },
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
-                warn_on_dangerous_mode(dir).with_path(dir)?;
+                // Directory already exists, good.
             },
             Err(e) => {
                 return Err(e);
