@@ -2,13 +2,12 @@
 //!
 //! This is a work in progress but the final goal is to match the `innernet` CLI API surface.
 
+pub use innernet_shared::{CidrTree, HostsOpts, NatOpts, NetworkOpts};
+pub use wireguard_control::Backend;
+
 use anyhow::Error;
-use innernet_shared::{
-    interface_config::InterfaceConfig,
-    wg::{self},
-};
+use innernet_shared::wg;
 use std::path::Path;
-use wireguard_control::{Backend, InterfaceName};
 
 pub mod data_store;
 pub mod interface;
@@ -20,8 +19,8 @@ pub mod rest_client;
 pub fn set_listen_port(
     network_backend: Backend,
     config_dir: &Path,
-    interface: &InterfaceName,
-    config: &mut InterfaceConfig,
+    interface: &interface::InterfaceName,
+    config: &mut interface::InterfaceConfig,
     listen_port: Option<u16>,
 ) -> Result<(), Error> {
     wg::set_listen_port(interface, listen_port, network_backend)?;

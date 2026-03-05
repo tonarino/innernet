@@ -1,9 +1,9 @@
+pub use innernet_shared::peer::NewPeerInfo;
+
 use crate::rest_client::RestClient;
 use anyhow::Error;
 use innernet_shared::{
-    interface_config::PeerInvitation,
-    peer::{make_peer_contents_and_key_pair, NewPeerInfo},
-    CidrTree, Peer,
+    interface_config::PeerInvitation, peer::make_peer_contents_and_key_pair, CidrTree, Peer,
 };
 use std::net::SocketAddr;
 use wireguard_control::InterfaceName;

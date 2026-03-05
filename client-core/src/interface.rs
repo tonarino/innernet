@@ -1,20 +1,21 @@
+pub use innernet_shared::interface_config::InterfaceConfig;
+pub use wireguard_control::InterfaceName;
+
 use crate::{
     data_store::DataStore,
     nat::{self, NatTraverse},
     rest_client::RestClient,
+    HostsOpts, NatOpts, NetworkOpts,
 };
 use anyhow::{bail, Context as _, Error};
 use colored::{ColoredString, Colorize};
 use innernet_shared::{
-    get_local_addrs,
-    interface_config::InterfaceConfig,
-    update_hosts_file,
+    get_local_addrs, update_hosts_file,
     wg::{self, DeviceExt as _},
-    Endpoint, HostsOpts, NatOpts, NetworkOpts, PeerChange, PeerDiff, RedeemContents, State,
-    REDEEM_TRANSITION_WAIT,
+    Endpoint, PeerChange, PeerDiff, RedeemContents, State, REDEEM_TRANSITION_WAIT,
 };
 use std::{net::SocketAddr, path::Path, thread, time::Instant};
-use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder};
+use wireguard_control::{Device, DeviceUpdate, PeerConfigBuilder};
 
 /// Redeem an invitation to join an innernet network.
 ///

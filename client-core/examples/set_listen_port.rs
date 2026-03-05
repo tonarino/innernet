@@ -1,10 +1,11 @@
 use anyhow::{Context as _, Error};
 use env_logger::Env;
-use innernet_client_core::set_listen_port;
-use innernet_shared::interface_config::InterfaceConfig;
+use innernet_client_core::{
+    interface::{InterfaceConfig, InterfaceName},
+    set_listen_port,
+};
 use log::info;
 use std::{env, path::Path};
-use wireguard_control::InterfaceName;
 
 fn main() -> Result<(), Error> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();

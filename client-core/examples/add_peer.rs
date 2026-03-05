@@ -1,13 +1,18 @@
 use anyhow::{Context, Error};
 use env_logger::Env;
-use innernet_client_core::{peer, rest_client::RestClient};
-use innernet_shared::{interface_config::InterfaceConfig, peer::NewPeerInfo, prompts, CidrTree};
+use innernet_client_core::{
+    interface::{InterfaceConfig, InterfaceName},
+    peer,
+    peer::NewPeerInfo,
+    rest_client::RestClient,
+    CidrTree,
+};
+use innernet_shared::prompts;
 use std::{
     env,
     net::{IpAddr, Ipv4Addr},
     path::Path,
 };
-use wireguard_control::InterfaceName;
 
 fn main() -> Result<(), Error> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
