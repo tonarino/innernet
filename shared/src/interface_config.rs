@@ -66,7 +66,7 @@ impl InterfaceConfig {
 
         chmod(&file, mode).with_path(path)?;
 
-        file.write_all(self.contents().as_bytes()).with_path(path)?;
+        file.write_all(self.as_toml().as_bytes()).with_path(path)?;
 
         Ok(())
     }
@@ -76,12 +76,12 @@ impl InterfaceConfig {
         let path = Self::build_config_file_path(config_dir, interface)?;
         File::create(&path)
             .with_path(&path)?
-            .write_all(self.contents().as_bytes())?;
+            .write_all(self.as_toml().as_bytes())?;
 
         Ok(path)
     }
 
-    fn contents(&self) -> String {
+    fn as_toml(&self) -> String {
         toml::to_string(self).unwrap()
     }
 
@@ -198,7 +198,7 @@ impl PeerInvitation {
                 "
         )?;
 
-        file.write_all(self.interface_config.contents().as_bytes())?;
+        file.write_all(self.interface_config.as_toml().as_bytes())?;
 
         Ok(())
     }
