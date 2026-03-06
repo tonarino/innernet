@@ -2,10 +2,9 @@ use anyhow::{Context, Error};
 use env_logger::Env;
 use innernet_client_core::{
     interface::{InterfaceConfig, InterfaceName},
-    peer,
-    peer::NewPeerInfo,
+    peer::{self, NewPeerInfo},
     rest_client::RestClient,
-    CidrTree,
+    CidrTree, DEFAULT_CONFIG_DIR,
 };
 use innernet_shared::prompts;
 use std::{
@@ -17,7 +16,7 @@ use std::{
 fn main() -> Result<(), Error> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let config_dir = Path::new("/etc/innernet");
+    let config_dir = Path::new(DEFAULT_CONFIG_DIR);
     let interface = env::args().nth(1).context("Usage: add_peer <interface>")?;
 
     let interface: InterfaceName = interface.parse()?;

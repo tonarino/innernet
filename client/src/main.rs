@@ -10,6 +10,7 @@ use innernet_client_core::{
     interface::{fetch, redeem_invite},
     peer::create_peer_and_invitation,
     rest_client::RestClient,
+    DEFAULT_CONFIG_DIR, DEFAULT_DATA_DIR,
 };
 use innernet_shared::{
     interface_config::InterfaceConfig, prompts, wg, wg::PeerInfoExt, AddCidrOpts,
@@ -51,17 +52,10 @@ struct Opts {
     #[clap(short, long, action = ArgAction::Count)]
     verbose: u8,
 
-    #[clap(short, long, default_value = "/etc/innernet")]
+    #[clap(short, long, default_value = DEFAULT_CONFIG_DIR)]
     config_dir: PathBuf,
 
-    #[cfg_attr(
-        not(target_os = "openbsd"),
-        clap(short, long, default_value = "/var/lib/innernet")
-    )]
-    #[cfg_attr(
-        target_os = "openbsd",
-        clap(short, long, default_value = "/var/db/innernet")
-    )]
+    #[clap(short, long, default_value = DEFAULT_DATA_DIR)]
     data_dir: PathBuf,
 
     #[clap(flatten)]

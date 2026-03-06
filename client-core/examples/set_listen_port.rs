@@ -2,7 +2,7 @@ use anyhow::{Context as _, Error};
 use env_logger::Env;
 use innernet_client_core::{
     interface::{InterfaceConfig, InterfaceName},
-    set_listen_port,
+    set_listen_port, DEFAULT_CONFIG_DIR,
 };
 use log::info;
 use std::{env, path::Path};
@@ -17,7 +17,7 @@ fn main() -> Result<(), Error> {
 
     let listen_port: Option<u16> = env::args().nth(2).map(|port| port.parse()).transpose()?;
 
-    let config_dir = Path::new("/etc/innernet");
+    let config_dir = Path::new(DEFAULT_CONFIG_DIR);
     let mut config = InterfaceConfig::from_interface(config_dir, &interface)?;
     let network_backend = Default::default();
 
