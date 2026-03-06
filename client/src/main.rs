@@ -9,7 +9,7 @@ use innernet_client_core::{
     data_store::DataStore,
     interface::{fetch, redeem_invite},
     peer::create_peer_and_invitation,
-    rest_client::RestClient,
+    rest_client::{RestClient, RestError},
     DEFAULT_CONFIG_DIR, DEFAULT_DATA_DIR,
 };
 use innernet_shared::{
@@ -831,18 +831,19 @@ fn prompt_unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, E
 
 fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilities, Error> {
     let rest_client = RestClient::new(&config.server);
-    let maybe_info: Result<ServerCapabilities, ureq::Error> =
+    let maybe_info: Result<ServerCapabilities, RestError> =
         rest_client.http("GET", "/user/capabilities");
     match maybe_info {
         Ok(info) => Ok(info),
-        Err(ureq::Error::Status(404, _)) => {
-            log::debug!(
+        Err(e) => {
+            if e.has_status(404) {
+                log::debug!(
                 "innernet server endpoint capabilities not found, assuming default capabilities"
             );
-            Ok(Default::default())
-        },
-        Err(e) => {
-            bail!(e)
+                Ok(Default::default())
+            } else {
+                bail!(e)
+            }
         },
     }
 }

@@ -26,6 +26,7 @@ log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+thiserror = "2"
 ureq = { version = "2", default-features = false, features = ["json"] }
 wireguard-control = { version = "1.7.1", path = "../wireguard-control" }
 

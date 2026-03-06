@@ -5,7 +5,7 @@ use crate::{
     data_store::DataStore,
     nat::{self, NatTraverse},
     rest_client::RestClient,
-    HostsOpts, NatOpts, NetworkOpts,
+    ClientError, HostsOpts, NatOpts, NetworkOpts,
 };
 use anyhow::{bail, Context as _, Error};
 use colored::{ColoredString, Colorize};
@@ -19,23 +19,22 @@ use wireguard_control::{Device, DeviceUpdate, PeerConfigBuilder};
 
 /// Redeem an invitation to join an innernet network.
 ///
-/// - Brings the wireguard interface up.
+/// - Brings the WireGuard interface up.
 /// - Generates a fresh key pair and uses the public part to redeem the invite and the private part
-///   to update the wireguard interface.
-/// - Bails if either a wireguard or an innernet `interface` of the same name already exists and
+///   to update the WireGuard interface.
+/// - Bails if either a WireGuard or an innernet `interface` of the same name already exists and
 ///   brings the interface down if it was already up.
 pub fn redeem_invite(
     config_dir: &Path,
     network_opts: &NetworkOpts,
     interface: &InterfaceName,
     config: InterfaceConfig,
-) -> Result<(), Error> {
-    let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)?;
+) -> Result<(), ClientError> {
+    let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)
+        .map_err(ClientError::ConfigPathError)?;
+
     if config_path.exists() {
-        bail!(
-            "An existing innernet network with the name \"{}\" already exists.",
-            interface
-        );
+        return Err(ClientError::NetworkExists(*interface));
     }
 
     if Device::list(network_opts.backend)
@@ -43,21 +42,23 @@ pub fn redeem_invite(
         .flatten()
         .any(|name| name == interface)
     {
-        bail!(
-            "An existing WireGuard interface with the name \"{}\" already exists.",
-            interface
-        );
+        return Err(ClientError::WireguardInterfaceExists(*interface));
     }
 
     log::info!(
         "bringing up interface {}.",
         interface.as_str_lossy().yellow()
     );
-    let resolved_endpoint = config
-        .server
-        .external_endpoint
-        .resolve()
-        .context(config.server.external_endpoint.to_string())?;
+
+    let endpoint = &config.server.external_endpoint;
+    let resolved_endpoint =
+        endpoint
+            .resolve()
+            .map_err(|e| ClientError::FailedToResolveServerAddress {
+                endpoint: endpoint.clone(),
+                error: e,
+            })?;
+
     wg::up(
         interface,
         &config.interface.private_key,
@@ -70,7 +71,10 @@ pub fn redeem_invite(
         )),
         network_opts,
     )
-    .context(interface.to_string())?;
+    .map_err(|e| ClientError::WireguardError {
+        interface: *interface,
+        error: e,
+    })?;
 
     update_keypair(network_opts, interface, &config_path, config).inspect_err(|e| {
         log::error!("failed to update keypair (is the innernet server reachable?): {e}.",);
@@ -88,7 +92,7 @@ fn update_keypair(
     interface: &InterfaceName,
     config_path: &Path,
     mut config: InterfaceConfig,
-) -> Result<(), Error> {
+) -> Result<(), ClientError> {
     log::info!("Generating new keypair.");
     let keypair = wireguard_control::KeyPair::generate();
 
@@ -105,7 +109,9 @@ fn update_keypair(
     )?;
 
     config.interface.private_key = keypair.private.to_base64();
-    config.save_new(config_path, 0o600)?;
+    config
+        .save_new(config_path, 0o600)
+        .map_err(ClientError::ConfigPathError)?;
     log::info!(
         "New keypair registered. Copied config to {}.\n",
         config_path.to_string_lossy().yellow()
@@ -115,7 +121,10 @@ fn update_keypair(
     DeviceUpdate::new()
         .set_private_key(keypair.private)
         .apply(interface, network_opts.backend)
-        .context(interface.to_string())?;
+        .map_err(|e| ClientError::WireguardError {
+            interface: *interface,
+            error: e,
+        })?;
     thread::sleep(REDEEM_TRANSITION_WAIT);
 
     Ok(())
@@ -177,24 +186,28 @@ pub fn fetch(
     let (State { peers, cidrs }, server_is_reachable) = match rest_client.http("GET", "/user/state")
     {
         Ok(state) => (state, true),
-        Err(ureq::Error::Transport(_)) => {
-            if store.peers().is_empty() {
-                bail!(
-                    "Could not connect to the innernet server and there are no cached peers, \
+        Err(e) => {
+            if e.is_transport_error() {
+                if store.peers().is_empty() {
+                    bail!(
+                        "Could not connect to the innernet server and there are no cached peers, \
                      exiting."
-                )
-            }
+                    )
+                }
 
-            log::warn!(
-                "Could not connect to the innernet server, proceeding with cached state instead."
-            );
-            let state = State {
-                peers: store.peers().to_vec(),
-                cidrs: store.cidrs().to_vec(),
-            };
-            (state, false)
+                log::warn!(
+                    "Could not connect to the innernet server, proceeding with cached state instead."
+                );
+
+                let state = State {
+                    peers: store.peers().to_vec(),
+                    cidrs: store.cidrs().to_vec(),
+                };
+                (state, false)
+            } else {
+                bail!(e)
+            }
         },
-        Err(e) => bail!(e),
     };
 
     let device = Device::get(interface, network_opts.backend)?;
@@ -339,12 +352,12 @@ fn report_candidates(
     for candidate in &candidates {
         log::debug!("  candidate: {}", candidate);
     }
-    match rest_client.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
-        Err(ureq::Error::Status(404, _)) => {
+    if let Err(e) = rest_client.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
+        if e.has_status(404) {
             log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
-        },
-        Err(e) => return Err(e.into()),
-        _ => {},
+        } else {
+            return Err(e.into());
+        }
     }
 
     log::debug!("candidates successfully reported");
