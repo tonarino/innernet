@@ -19,15 +19,16 @@ use wireguard_control::{Device, DeviceUpdate, PeerConfigBuilder};
 
 /// Redeem an invitation to join an innernet network.
 ///
-/// - Bails if either a wireguard or an innernet `interface` of the same name already exists.
-/// - Brings the wireguard interface up (and leaves it up even if the process does not complete).
+/// - Brings the wireguard interface up.
 /// - Generates a fresh key pair and uses the public part to redeem the invite and the private part
 ///   to update the wireguard interface.
+/// - Bails if either a wireguard or an innernet `interface` of the same name already exists and
+///   brings the interface down if it was already up.
 pub fn redeem_invite(
     config_dir: &Path,
     network_opts: &NetworkOpts,
     interface: &InterfaceName,
-    mut config: InterfaceConfig,
+    config: InterfaceConfig,
 ) -> Result<(), Error> {
     let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)?;
     if config_path.exists() {
@@ -71,6 +72,23 @@ pub fn redeem_invite(
     )
     .context(interface.to_string())?;
 
+    update_keypair(network_opts, interface, &config_path, config).inspect_err(|e| {
+        log::error!("failed to update keypair (is the innernet server reachable?): {e}.",);
+        log::info!("bringing down the interface.");
+        if let Err(e) = wg::down(interface, network_opts.backend) {
+            log::warn!("failed to bring down interface: {}.", e);
+        };
+    })?;
+
+    Ok(())
+}
+
+fn update_keypair(
+    network_opts: &NetworkOpts,
+    interface: &InterfaceName,
+    config_path: &Path,
+    mut config: InterfaceConfig,
+) -> Result<(), Error> {
     log::info!("Generating new keypair.");
     let keypair = wireguard_control::KeyPair::generate();
 
@@ -87,7 +105,7 @@ pub fn redeem_invite(
     )?;
 
     config.interface.private_key = keypair.private.to_base64();
-    config.save_new(&config_path, 0o600)?;
+    config.save_new(config_path, 0o600)?;
     log::info!(
         "New keypair registered. Copied config to {}.\n",
         config_path.to_string_lossy().yellow()

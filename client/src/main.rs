@@ -281,15 +281,7 @@ fn install(
     };
 
     let interface_name = interface_name.parse()?;
-    redeem_invite(&opts.config_dir, &opts.network, &interface_name, config).map_err(|e| {
-        log::error!("failed to start the interface: {}.", e);
-        log::info!("bringing down the interface.");
-        if let Err(e) = wg::down(&interface_name, opts.network.backend) {
-            log::warn!("failed to bring down interface: {}.", e);
-        };
-        log::error!("Failed to redeem invite. Now's a good time to make sure the server is started and accessible!");
-        e
-    })?;
+    redeem_invite(&opts.config_dir, &opts.network, &interface_name, config)?;
 
     let mut fetch_success = false;
     for _ in 0..3 {
