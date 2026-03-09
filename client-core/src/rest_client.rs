@@ -79,40 +79,37 @@ impl<'a> RestClient<'a> {
             .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
 
         let result = if let Some(form) = form {
-            let payload =
-                serde_json::to_value(form).map_err(RestError::RequestSerializationError)?;
+            let payload = serde_json::to_value(form).map_err(RestError::RequestSerialization)?;
             request.send_json(payload)
         } else {
             request.call()
         };
-        let response = result.map_err(|e| RestError::SendingError(Box::new(e)))?;
+        let response = result.map_err(|e| RestError::RequestSending(Box::new(e)))?;
 
-        let mut response = response
-            .into_string()
-            .map_err(RestError::ResponseReadingError)?;
+        let mut response = response.into_string().map_err(RestError::ResponseReading)?;
         // A little trick for serde to parse an empty response as `()`.
         if response.is_empty() {
             response = "null".into();
         }
-        serde_json::from_str(&response).map_err(RestError::ResponseDeserializationError)
+        serde_json::from_str(&response).map_err(RestError::ResponseDeserialization)
     }
 }
 
 #[derive(Debug, Error)]
 pub enum RestError {
     #[error("Error serializing request: {0}")]
-    RequestSerializationError(serde_json::Error),
+    RequestSerialization(serde_json::Error),
     #[error("Error deserializing response: {0}")]
-    ResponseDeserializationError(serde_json::Error),
+    ResponseDeserialization(serde_json::Error),
     #[error("Error reading response: {0}")]
-    ResponseReadingError(io::Error),
+    ResponseReading(io::Error),
     #[error("Error sending request: {0}")]
-    SendingError(Box<ureq::Error>),
+    RequestSending(Box<ureq::Error>),
 }
 
 impl RestError {
     pub fn has_status(&self, status: u16) -> bool {
-        if let RestError::SendingError(error) = self {
+        if let RestError::RequestSending(error) = self {
             matches!(**error, ureq::Error::Status(s, _) if s == status)
         } else {
             false
@@ -120,7 +117,7 @@ impl RestError {
     }
 
     pub fn is_transport_error(&self) -> bool {
-        if let RestError::SendingError(error) = self {
+        if let RestError::RequestSending(error) = self {
             matches!(**error, ureq::Error::Transport(_))
         } else {
             false

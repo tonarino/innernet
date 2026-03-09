@@ -31,7 +31,7 @@ pub fn redeem_invite(
     config: InterfaceConfig,
 ) -> Result<(), ClientError> {
     let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)
-        .map_err(ClientError::InterfaceConfigAccessError)?;
+        .map_err(ClientError::InterfaceConfigAccess)?;
 
     if config_path.exists() {
         return Err(ClientError::InterfaceConfigExists(*interface));
@@ -51,13 +51,12 @@ pub fn redeem_invite(
     );
 
     let endpoint = &config.server.external_endpoint;
-    let resolved_endpoint =
-        endpoint
-            .resolve()
-            .map_err(|e| ClientError::FailedToResolveServerAddress {
-                endpoint: endpoint.clone(),
-                error: e,
-            })?;
+    let resolved_endpoint = endpoint
+        .resolve()
+        .map_err(|e| ClientError::ServerAddressResolve {
+            endpoint: endpoint.clone(),
+            error: e,
+        })?;
 
     wg::up(
         interface,
@@ -71,7 +70,7 @@ pub fn redeem_invite(
         )),
         network_opts,
     )
-    .map_err(|e| ClientError::WireguardError {
+    .map_err(|e| ClientError::WireguardOperation {
         interface: *interface,
         error: e,
     })?;
@@ -111,7 +110,7 @@ fn update_keypair(
     config.interface.private_key = keypair.private.to_base64();
     config
         .save_new(config_path, 0o600)
-        .map_err(ClientError::InterfaceConfigAccessError)?;
+        .map_err(ClientError::InterfaceConfigAccess)?;
     log::info!(
         "New keypair registered. Copied config to {}.\n",
         config_path.to_string_lossy().yellow()
@@ -121,7 +120,7 @@ fn update_keypair(
     DeviceUpdate::new()
         .set_private_key(keypair.private)
         .apply(interface, network_opts.backend)
-        .map_err(|e| ClientError::WireguardError {
+        .map_err(|e| ClientError::WireguardOperation {
             interface: *interface,
             error: e,
         })?;
