@@ -5,7 +5,6 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use indoc::eprintdoc;
 use innernet_client_core::{
-    self as core,
     data_store::DataStore,
     interface::{fetch, redeem_invite},
     peer::create_peer_and_invitation,
@@ -743,7 +742,7 @@ fn set_listen_port(
 
     let listen_port = prompts::set_listen_port(&config.interface, sub_opts)?;
     if let Some(listen_port) = listen_port {
-        core::set_listen_port(
+        innernet_client_core::set_listen_port(
             opts.network.backend,
             &opts.config_dir,
             interface,
