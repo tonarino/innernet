@@ -25,6 +25,7 @@ pub use types::*;
 pub const REDEEM_TRANSITION_WAIT: Duration = Duration::from_secs(5);
 pub const PERSISTENT_KEEPALIVE_INTERVAL_SECS: u16 = 25;
 pub const INNERNET_PUBKEY_HEADER: &str = "X-Innernet-Server-Key";
+pub const DEFAULT_HOSTS_PATH: &str = "/etc/hosts";
 
 pub fn ensure_dirs_exist(dirs: &[&Path]) -> Result<(), WrappedIoError> {
     for dir in dirs {

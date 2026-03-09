@@ -2,7 +2,9 @@
 //!
 //! This is a work in progress but the final goal is to match the `innernet` CLI API surface.
 
-pub use innernet_shared::{CidrTree, Endpoint, HostsOpts, NatOpts, NetworkOpts, WrappedIoError};
+pub use innernet_shared::{
+    CidrTree, Endpoint, HostsOpts, NatOpts, NetworkOpts, WrappedIoError, DEFAULT_HOSTS_PATH,
+};
 pub use wireguard_control::Backend;
 
 use crate::rest_client::RestError;
