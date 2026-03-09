@@ -4,8 +4,8 @@ pub use wireguard_control::InterfaceName;
 use crate::{
     data_store::DataStore,
     nat::{self, NatTraverse},
-    rest_client::RestClient,
-    ClientError, HostsOpts, NatOpts, NetworkOpts,
+    rest_client::{RestClient, RestError},
+    HostsOpts, NatOpts, NetworkOpts, WrappedIoError,
 };
 use anyhow::{bail, Context as _, Error};
 use colored::{ColoredString, Colorize};
@@ -14,8 +14,31 @@ use innernet_shared::{
     wg::{self, DeviceExt as _},
     Endpoint, PeerChange, PeerDiff, RedeemContents, State, REDEEM_TRANSITION_WAIT,
 };
-use std::{net::SocketAddr, path::Path, thread, time::Instant};
+use std::{io, net::SocketAddr, path::Path, thread, time::Instant};
+use thiserror::Error;
 use wireguard_control::{Device, DeviceUpdate, PeerConfigBuilder};
+
+#[derive(Debug, Error)]
+pub enum RedeemInviteError {
+    #[error("Error accessing innernet interface config file: {0}")]
+    InterfaceConfigAccess(WrappedIoError),
+    #[error("Config file for innernet interface {0} already exists.")]
+    InterfaceConfigExists(InterfaceName),
+    #[error("Error making a REST request: {0}")]
+    RestRequest(#[from] RestError),
+    #[error("Could not resolve server address for endpoint {endpoint}: {error}")]
+    ServerAddressResolve {
+        endpoint: Endpoint,
+        error: io::Error,
+    },
+    #[error("WireGuard interface {0} already exists.")]
+    WireguardInterfaceExists(InterfaceName),
+    #[error("Error managing the Wireguard interface {interface}: {error}")]
+    WireguardOperation {
+        interface: InterfaceName,
+        error: io::Error,
+    },
+}
 
 /// Redeem an invitation to join an innernet network.
 ///
@@ -29,12 +52,12 @@ pub fn redeem_invite(
     network_opts: &NetworkOpts,
     interface: &InterfaceName,
     config: InterfaceConfig,
-) -> Result<(), ClientError> {
+) -> Result<(), RedeemInviteError> {
     let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)
-        .map_err(ClientError::InterfaceConfigAccess)?;
+        .map_err(RedeemInviteError::InterfaceConfigAccess)?;
 
     if config_path.exists() {
-        return Err(ClientError::InterfaceConfigExists(*interface));
+        return Err(RedeemInviteError::InterfaceConfigExists(*interface));
     }
 
     if Device::list(network_opts.backend)
@@ -42,7 +65,7 @@ pub fn redeem_invite(
         .flatten()
         .any(|name| name == interface)
     {
-        return Err(ClientError::WireguardInterfaceExists(*interface));
+        return Err(RedeemInviteError::WireguardInterfaceExists(*interface));
     }
 
     log::info!(
@@ -51,12 +74,13 @@ pub fn redeem_invite(
     );
 
     let endpoint = &config.server.external_endpoint;
-    let resolved_endpoint = endpoint
-        .resolve()
-        .map_err(|e| ClientError::ServerAddressResolve {
-            endpoint: endpoint.clone(),
-            error: e,
-        })?;
+    let resolved_endpoint =
+        endpoint
+            .resolve()
+            .map_err(|e| RedeemInviteError::ServerAddressResolve {
+                endpoint: endpoint.clone(),
+                error: e,
+            })?;
 
     wg::up(
         interface,
@@ -70,7 +94,7 @@ pub fn redeem_invite(
         )),
         network_opts,
     )
-    .map_err(|e| ClientError::WireguardOperation {
+    .map_err(|e| RedeemInviteError::WireguardOperation {
         interface: *interface,
         error: e,
     })?;
@@ -91,7 +115,7 @@ fn update_keypair(
     interface: &InterfaceName,
     config_path: &Path,
     mut config: InterfaceConfig,
-) -> Result<(), ClientError> {
+) -> Result<(), RedeemInviteError> {
     log::info!("Generating new keypair.");
     let keypair = wireguard_control::KeyPair::generate();
 
@@ -110,7 +134,7 @@ fn update_keypair(
     config.interface.private_key = keypair.private.to_base64();
     config
         .save_new(config_path, 0o600)
-        .map_err(ClientError::InterfaceConfigAccess)?;
+        .map_err(RedeemInviteError::InterfaceConfigAccess)?;
     log::info!(
         "New keypair registered. Copied config to {}.\n",
         config_path.to_string_lossy().yellow()
@@ -120,7 +144,7 @@ fn update_keypair(
     DeviceUpdate::new()
         .set_private_key(keypair.private)
         .apply(interface, network_opts.backend)
-        .map_err(|e| ClientError::WireguardOperation {
+        .map_err(|e| RedeemInviteError::WireguardOperation {
             interface: *interface,
             error: e,
         })?;
