@@ -26,10 +26,10 @@ pub const DEFAULT_DATA_DIR: &str = "/var/db/innernet";
 
 #[derive(Debug, Error)]
 pub enum ClientError {
-    #[error("Error accessing config path: {0}")]
-    ConfigPathError(WrappedIoError),
-    #[error("Innernet network {0} already exists.")]
-    NetworkExists(interface::InterfaceName),
+    #[error("Error accessing innernet interface config file: {0}")]
+    InterfaceConfigAccessError(WrappedIoError),
+    #[error("Config file for innernet interface {0} already exists.")]
+    InterfaceConfigExists(interface::InterfaceName),
     #[error("WireGuard interface {0} already exists.")]
     WireguardInterfaceExists(interface::InterfaceName),
     #[error("Could not resolve server address for endpoint {endpoint}: {error}")]

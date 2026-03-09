@@ -31,10 +31,10 @@ pub fn redeem_invite(
     config: InterfaceConfig,
 ) -> Result<(), ClientError> {
     let config_path = InterfaceConfig::build_config_file_path(config_dir, interface)
-        .map_err(ClientError::ConfigPathError)?;
+        .map_err(ClientError::InterfaceConfigAccessError)?;
 
     if config_path.exists() {
-        return Err(ClientError::NetworkExists(*interface));
+        return Err(ClientError::InterfaceConfigExists(*interface));
     }
 
     if Device::list(network_opts.backend)
@@ -111,7 +111,7 @@ fn update_keypair(
     config.interface.private_key = keypair.private.to_base64();
     config
         .save_new(config_path, 0o600)
-        .map_err(ClientError::ConfigPathError)?;
+        .map_err(ClientError::InterfaceConfigAccessError)?;
     log::info!(
         "New keypair registered. Copied config to {}.\n",
         config_path.to_string_lossy().yellow()
