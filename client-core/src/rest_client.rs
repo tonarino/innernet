@@ -79,37 +79,37 @@ impl<'a> RestClient<'a> {
             .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
 
         let result = if let Some(form) = form {
-            let payload = serde_json::to_value(form).map_err(RestError::RequestSerialization)?;
+            let payload = serde_json::to_value(form).map_err(RestError::RequestSerialize)?;
             request.send_json(payload)
         } else {
             request.call()
         };
-        let response = result.map_err(|e| RestError::RequestSending(Box::new(e)))?;
+        let response = result.map_err(|e| RestError::RequestSend(Box::new(e)))?;
 
-        let mut response = response.into_string().map_err(RestError::ResponseReading)?;
+        let mut response = response.into_string().map_err(RestError::ResponseRead)?;
         // A little trick for serde to parse an empty response as `()`.
         if response.is_empty() {
             response = "null".into();
         }
-        serde_json::from_str(&response).map_err(RestError::ResponseDeserialization)
+        serde_json::from_str(&response).map_err(RestError::ResponseDeserialize)
     }
 }
 
 #[derive(Debug, Error)]
 pub enum RestError {
-    #[error("Error serializing request: {0}")]
-    RequestSerialization(serde_json::Error),
-    #[error("Error deserializing response: {0}")]
-    ResponseDeserialization(serde_json::Error),
-    #[error("Error reading response: {0}")]
-    ResponseReading(io::Error),
     #[error("Error sending request: {0}")]
-    RequestSending(Box<ureq::Error>),
+    RequestSend(Box<ureq::Error>),
+    #[error("Error serializing request: {0}")]
+    RequestSerialize(serde_json::Error),
+    #[error("Error deserializing response: {0}")]
+    ResponseDeserialize(serde_json::Error),
+    #[error("Error reading response: {0}")]
+    ResponseRead(io::Error),
 }
 
 impl RestError {
     pub fn has_status_of(&self, status: u16) -> bool {
-        if let RestError::RequestSending(error) = self {
+        if let RestError::RequestSend(error) = self {
             matches!(**error, ureq::Error::Status(s, _) if s == status)
         } else {
             false
@@ -117,7 +117,7 @@ impl RestError {
     }
 
     pub fn is_transport_error(&self) -> bool {
-        if let RestError::RequestSending(error) = self {
+        if let RestError::RequestSend(error) = self {
             matches!(**error, ureq::Error::Transport(_))
         } else {
             false
