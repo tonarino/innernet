@@ -352,7 +352,7 @@ fn report_candidates(
         log::debug!("  candidate: {}", candidate);
     }
     if let Err(e) = rest_client.http_form::<_, ()>("PUT", "/user/candidates", &candidates) {
-        if e.has_status(404) {
+        if e.has_status_of(404) {
             log::warn!("your network is using an old version of innernet-server that doesn't support NAT traversal candidate reporting.")
         } else {
             return Err(e.into());

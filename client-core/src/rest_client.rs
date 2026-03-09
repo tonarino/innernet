@@ -108,7 +108,7 @@ pub enum RestError {
 }
 
 impl RestError {
-    pub fn has_status(&self, status: u16) -> bool {
+    pub fn has_status_of(&self, status: u16) -> bool {
         if let RestError::RequestSending(error) = self {
             matches!(**error, ureq::Error::Status(s, _) if s == status)
         } else {

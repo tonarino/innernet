@@ -836,7 +836,7 @@ fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilitie
     match maybe_info {
         Ok(info) => Ok(info),
         Err(e) => {
-            if e.has_status(404) {
+            if e.has_status_of(404) {
                 log::debug!(
                 "innernet server endpoint capabilities not found, assuming default capabilities"
             );
