@@ -1,36 +1,37 @@
 pub use innernet_shared::peer::NewPeerInfo;
 
-use crate::rest_client::RestClient;
-use anyhow::Error;
+use crate::{rest_client::RestClient, Cidr, Peer, PeerInvitation};
+use anyhow::Result;
 use innernet_shared::{
-    interface_config::PeerInvitation, peer::make_peer_contents_and_key_pair, CidrTree, Peer,
+    interface_config::{InterfaceConfig, InterfaceInfo, ServerInfo},
+    CidrTree,
 };
-use std::net::SocketAddr;
-use wireguard_control::InterfaceName;
+use std::path::Path;
+use wireguard_control::{InterfaceName, KeyPair};
 
 /// Create a new innernet [`Peer`] and a [`PeerInvitation`] they can use to join the network.
 //
-//  TODO(mbernat): The shape of this API is only provisional, it reflects the client-side `add-peer`
-//                 CLI, where it was pulled from.
-//                 See https://github.com/tonarino/innernet/pull/382#discussion_r2859409122
-pub fn create_peer_and_invitation(
-    rest_client: &RestClient,
+//  TODO: custom error type
+pub fn create_peer(
+    config_dir: &Path,
     interface: &InterfaceName,
-    cidr_tree: &CidrTree,
-    server_peer: &Peer,
+    cidrs: &[Cidr],
+    peers: &[Peer],
     new_peer_info: NewPeerInfo,
-    server_api_addr: &SocketAddr,
-) -> Result<(Peer, PeerInvitation), Error> {
-    let (peer_contents, keypair) = make_peer_contents_and_key_pair(new_peer_info);
-    let peer = rest_client.create_peer(&peer_contents)?;
-    let invitation = PeerInvitation::new(
-        interface,
-        &peer,
-        server_peer,
-        cidr_tree,
-        keypair,
-        server_api_addr,
-    )?;
+) -> Result<(Peer, PeerInvitation)> {
+    let interface_config = InterfaceConfig::from_interface(config_dir, interface)?;
+    let rest_client = RestClient::new(&interface_config.server);
 
-    Ok((peer, invitation))
+    let keypair = KeyPair::generate();
+    let peer_contents = new_peer_info.into_peer_contents(&keypair);
+    let peer = rest_client.create_peer(&peer_contents)?;
+
+    let cidr_tree = CidrTree::new(cidrs);
+    let address = &cidr_tree.ip_net_for(peer.ip)?;
+    let interface_info = InterfaceInfo::new(interface, &keypair, address);
+
+    let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
+    let server_info = ServerInfo::new(server_peer, &interface_config.server.internal_endpoint);
+
+    Ok((peer, PeerInvitation::new(interface_info, server_info)))
 }

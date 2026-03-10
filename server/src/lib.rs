@@ -5,10 +5,11 @@ use dialoguer::Confirm;
 use hyper::{http, server::conn::AddrStream, Body, Request, Response};
 use indoc::printdoc;
 use innernet_shared::{
-    get_local_addrs, interface_config::PeerInvitation, peer, prompts, update_hosts_file, wg,
-    AddCidrOpts, AddPeerOpts, CidrTree, DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, Error,
-    HostsOpts, Interface, IoErrorContext, NetworkOpts, PeerContents, RenameCidrOpts,
-    RenamePeerOpts, INNERNET_PUBKEY_HEADER,
+    get_local_addrs,
+    interface_config::{InterfaceInfo, PeerInvitation, ServerInfo},
+    prompts, update_hosts_file, wg, AddCidrOpts, AddPeerOpts, CidrTree, DeleteCidrOpts,
+    EnableDisablePeerOpts, Endpoint, Error, HostsOpts, Interface, IoErrorContext, NetworkOpts,
+    PeerContents, RenameCidrOpts, RenamePeerOpts, INNERNET_PUBKEY_HEADER,
 };
 use ipnet::IpNet;
 use parking_lot::{Mutex, RwLock};
@@ -27,7 +28,9 @@ use std::{
     time::Duration,
 };
 use subtle::ConstantTimeEq;
-use wireguard_control::{Backend, Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder};
+use wireguard_control::{
+    Backend, Device, DeviceUpdate, InterfaceName, Key, KeyPair, PeerConfigBuilder,
+};
 
 mod api;
 mod db;
@@ -189,7 +192,8 @@ pub fn add_peer(
     if let Some((new_peer_info, target_path)) =
         innernet_shared::prompts::gather_new_peer_info(&peers, &cidr_tree, &opts)?
     {
-        let (peer_contents, keypair) = peer::make_peer_contents_and_key_pair(new_peer_info);
+        let keypair = KeyPair::generate();
+        let peer_contents = new_peer_info.into_peer_contents(&keypair);
         let peer = DatabasePeer::create(&conn, peer_contents)?;
         if cfg!(not(test)) && Device::get(interface, network.backend).is_ok() {
             // Update the current WireGuard interface with the new peers.
@@ -201,16 +205,14 @@ pub fn add_peer(
             println!("adding to WireGuard interface: {}", &*peer);
         }
 
-        let server_peer = DatabasePeer::get(&conn, 1)?;
-        let invitation = PeerInvitation::new(
-            interface,
-            &peer,
-            &server_peer,
-            &cidr_tree,
-            keypair,
-            &SocketAddr::new(config.address, config.listen_port),
-        )?;
+        let address = &cidr_tree.ip_net_for(peer.ip)?;
+        let interface_info = InterfaceInfo::new(interface, &keypair, address);
 
+        let internal_endpoint = SocketAddr::new(config.address, config.listen_port);
+        let server_peer = DatabasePeer::get(&conn, 1)?;
+        let server_info = ServerInfo::new(&server_peer, &internal_endpoint);
+
+        let invitation = PeerInvitation::new(interface_info, server_info);
         invitation.save_new(target_path)?;
     } else {
         println!("exited without creating peer.");

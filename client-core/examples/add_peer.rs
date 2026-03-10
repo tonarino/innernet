@@ -2,9 +2,9 @@ use anyhow::{Context, Error};
 use env_logger::Env;
 use innernet_client_core::{
     interface::{InterfaceConfig, InterfaceName},
-    peer::{self, NewPeerInfo},
+    peer::{create_peer, NewPeerInfo},
     rest_client::RestClient,
-    CidrTree, DEFAULT_CONFIG_DIR,
+    DEFAULT_CONFIG_DIR,
 };
 use innernet_shared::prompts;
 use std::{
@@ -22,12 +22,8 @@ fn main() -> Result<(), Error> {
     let interface: InterfaceName = interface.parse()?;
     let interface_config = InterfaceConfig::from_interface(config_dir, &interface)?;
     let rest_client = RestClient::new(&interface_config.server);
-
-    let peers = rest_client.get_peers()?;
-    let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
-
     let cidrs = rest_client.get_cidrs()?;
-    let cidr_tree = CidrTree::new(&cidrs);
+    let peers = rest_client.get_peers()?;
 
     let new_peer_info = NewPeerInfo {
         name: "joe".parse().unwrap(),
@@ -38,17 +34,7 @@ fn main() -> Result<(), Error> {
     };
 
     let target_path = "invitation.toml";
-    let server_api_addr = &interface_config.server.internal_endpoint;
-
-    let (peer, invitation) = peer::create_peer_and_invitation(
-        &rest_client,
-        &interface,
-        &cidr_tree,
-        server_peer,
-        new_peer_info,
-        server_api_addr,
-    )?;
-
+    let (peer, invitation) = create_peer(config_dir, &interface, &cidrs, &peers, new_peer_info)?;
     invitation.save_new(target_path)?;
     prompts::print_invitation_info(&peer, target_path);
 

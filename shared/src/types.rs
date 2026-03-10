@@ -4,7 +4,7 @@ use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Args,
 };
-use ipnet::IpNet;
+use ipnet::{IpNet, PrefixLenError};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -290,6 +290,10 @@ impl<'a> CidrTree<'a> {
         } else {
             self.children().flat_map(|child| child.leaves()).collect()
         }
+    }
+
+    pub fn ip_net_for(&self, ip: IpAddr) -> Result<IpNet, PrefixLenError> {
+        IpNet::new(ip, self.contents.prefix_len())
     }
 }
 

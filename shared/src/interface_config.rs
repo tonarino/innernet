@@ -1,6 +1,4 @@
-use crate::{
-    chmod, ensure_dirs_exist, Cidr, Endpoint, Error, IoErrorContext, Peer, WrappedIoError,
-};
+use crate::{chmod, ensure_dirs_exist, Endpoint, Error, IoErrorContext, Peer, WrappedIoError};
 use indoc::writedoc;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
@@ -41,6 +39,17 @@ pub struct InterfaceInfo {
     pub listen_port: Option<u16>,
 }
 
+impl InterfaceInfo {
+    pub fn new(network_name: &InterfaceName, keypair: &KeyPair, address: &IpNet) -> Self {
+        Self {
+            network_name: network_name.to_string(),
+            private_key: keypair.private.to_base64(),
+            address: *address,
+            listen_port: None,
+        }
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct ServerInfo {
@@ -52,6 +61,19 @@ pub struct ServerInfo {
 
     /// An internal endpoint in the WireGuard network that hosts the coordination API.
     pub internal_endpoint: SocketAddr,
+}
+
+impl ServerInfo {
+    pub fn new(server_peer: &Peer, internal_endpoint: &SocketAddr) -> Self {
+        Self {
+            external_endpoint: server_peer
+                .endpoint
+                .clone()
+                .expect("The innernet server should have a WireGuard endpoint"),
+            internal_endpoint: *internal_endpoint,
+            public_key: server_peer.public_key.clone(),
+        }
+    }
 }
 
 impl InterfaceConfig {
@@ -111,32 +133,8 @@ impl InterfaceConfig {
         Ok(Self::get_path(config_dir, interface))
     }
 
-    fn new(
-        network_name: &InterfaceName,
-        peer: &Peer,
-        server_peer: &Peer,
-        root_cidr: &Cidr,
-        keypair: KeyPair,
-        server_api_addr: &SocketAddr,
-    ) -> Result<InterfaceConfig, Error> {
-        let invitation = InterfaceConfig {
-            interface: InterfaceInfo {
-                network_name: network_name.to_string(),
-                private_key: keypair.private.to_base64(),
-                address: IpNet::new(peer.ip, root_cidr.prefix_len())?,
-                listen_port: None,
-            },
-            server: ServerInfo {
-                external_endpoint: server_peer
-                    .endpoint
-                    .clone()
-                    .expect("The innernet server should have a WireGuard endpoint"),
-                internal_endpoint: *server_api_addr,
-                public_key: server_peer.public_key.clone(),
-            },
-        };
-
-        Ok(invitation)
+    fn new(interface: InterfaceInfo, server: ServerInfo) -> Self {
+        InterfaceConfig { interface, server }
     }
 }
 
@@ -154,24 +152,10 @@ pub struct PeerInvitation {
 }
 
 impl PeerInvitation {
-    pub fn new(
-        network_name: &InterfaceName,
-        peer: &Peer,
-        server_peer: &Peer,
-        root_cidr: &Cidr,
-        keypair: KeyPair,
-        server_api_addr: &SocketAddr,
-    ) -> Result<Self, Error> {
-        let interface_config = InterfaceConfig::new(
-            network_name,
-            peer,
-            server_peer,
-            root_cidr,
-            keypair,
-            server_api_addr,
-        )?;
-
-        Ok(Self { interface_config })
+    pub fn new(interface: InterfaceInfo, server: ServerInfo) -> Self {
+        Self {
+            interface_config: InterfaceConfig::new(interface, server),
+        }
     }
 
     /// Save a new invitation file, failing if it already exists.

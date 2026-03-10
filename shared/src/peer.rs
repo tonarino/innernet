@@ -10,21 +10,20 @@ pub struct NewPeerInfo {
     pub invite_expires: Timestring,
 }
 
-pub fn make_peer_contents_and_key_pair(info: NewPeerInfo) -> (PeerContents, KeyPair) {
-    let default_keypair = KeyPair::generate();
-    let peer_contents = PeerContents {
-        name: info.name,
-        ip: info.ip,
-        cidr_id: info.cidr_id,
-        public_key: default_keypair.public.to_base64(),
-        endpoint: None,
-        is_admin: info.is_admin,
-        is_disabled: false,
-        is_redeemed: false,
-        persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
-        invite_expires: Some(SystemTime::now() + info.invite_expires.into()),
-        candidates: vec![],
-    };
-
-    (peer_contents, default_keypair)
+impl NewPeerInfo {
+    pub fn into_peer_contents(self, keypair: &KeyPair) -> PeerContents {
+        PeerContents {
+            name: self.name,
+            ip: self.ip,
+            cidr_id: self.cidr_id,
+            public_key: keypair.public.to_base64(),
+            endpoint: None,
+            is_admin: self.is_admin,
+            is_disabled: false,
+            is_redeemed: false,
+            persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
+            invite_expires: Some(SystemTime::now() + self.invite_expires.into()),
+            candidates: vec![],
+        }
+    }
 }
