@@ -7,7 +7,7 @@ use indoc::eprintdoc;
 use innernet_client_core::{
     data_store::DataStore,
     interface::{fetch, redeem_invite},
-    peer::create_peer_and_invitation,
+    peer::create_peer,
     rest_client::{RestClient, RestError},
     DEFAULT_CONFIG_DIR, DEFAULT_DATA_DIR,
 };
@@ -558,17 +558,9 @@ fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Re
     if let Some((new_peer_info, target_path)) =
         prompts::gather_new_peer_info(&peers, &cidr_tree, &sub_opts)?
     {
-        let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
-        let server_api_addr = &server.internal_endpoint;
         log::info!("Creating peer...");
-        let (peer, invitation) = create_peer_and_invitation(
-            &rest_client,
-            interface,
-            &cidr_tree,
-            server_peer,
-            new_peer_info,
-            server_api_addr,
-        )?;
+        let (peer, invitation) =
+            create_peer(&opts.config_dir, interface, &cidrs, &peers, new_peer_info)?;
 
         invitation.save_new(&target_path)?;
         prompts::print_invitation_info(&peer, &target_path);
