@@ -1,3 +1,4 @@
+use crate::{wg::PeerInfoExt, DEFAULT_HOSTS_PATH};
 use anyhow::{anyhow, Error};
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
@@ -22,8 +23,6 @@ use wireguard_control::{
     AllowedIp, Backend, InterfaceName, InvalidInterfaceName, Key, PeerConfig, PeerConfigBuilder,
     PeerInfo,
 };
-
-use crate::wg::PeerInfoExt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Interface {
@@ -523,7 +522,7 @@ pub struct NetworkOpts {
 #[derive(Clone, Debug, Args)]
 pub struct HostsOpts {
     /// The path to write hosts to
-    #[clap(long = "hosts-path", default_value = "/etc/hosts")]
+    #[clap(long = "hosts-path", default_value = DEFAULT_HOSTS_PATH)]
     pub hosts_path: PathBuf,
 
     /// Don't write to any hosts files

@@ -1,8 +1,9 @@
 use innernet_shared::{
-    interface_config::ServerInfo, Cidr, Error, Peer, PeerContents, INNERNET_PUBKEY_HEADER,
+    interface_config::ServerInfo, Cidr, Peer, PeerContents, INNERNET_PUBKEY_HEADER,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{io, time::Duration};
+use thiserror::Error;
 use ureq::{Agent, AgentBuilder};
 
 /// A REST client that can be used to communicate with an innernet REST server.
@@ -26,17 +27,17 @@ impl<'a> RestClient<'a> {
         Self { agent, server }
     }
 
-    pub fn create_peer(&self, peer_contents: &PeerContents) -> Result<Peer, Error> {
+    pub fn create_peer(&self, peer_contents: &PeerContents) -> Result<Peer, RestError> {
         let peer = self.http_form("POST", "/admin/peers", peer_contents)?;
         Ok(peer)
     }
 
-    pub fn get_peers(&self) -> Result<Vec<Peer>, Error> {
+    pub fn get_peers(&self) -> Result<Vec<Peer>, RestError> {
         let peers = self.http("GET", "/admin/peers")?;
         Ok(peers)
     }
 
-    pub fn get_cidrs(&self) -> Result<Vec<Cidr>, Error> {
+    pub fn get_cidrs(&self) -> Result<Vec<Cidr>, RestError> {
         let cidrs = self.http("GET", "/admin/cidrs")?;
         Ok(cidrs)
     }
@@ -45,7 +46,7 @@ impl<'a> RestClient<'a> {
     /// Perform a `verb` HTTP request at the given `endpoint`.
     ///
     /// Example: `rest_client.http("GET", "/admin/peers")?;`.
-    pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, ureq::Error> {
+    pub fn http<T: DeserializeOwned>(&self, verb: &str, endpoint: &str) -> Result<T, RestError> {
         self.request::<(), _>(verb, endpoint, None)
     }
 
@@ -58,7 +59,7 @@ impl<'a> RestClient<'a> {
         verb: &str,
         endpoint: &str,
         form: S,
-    ) -> Result<T, ureq::Error> {
+    ) -> Result<T, RestError> {
         self.request(verb, endpoint, Some(form))
     }
 
@@ -68,7 +69,7 @@ impl<'a> RestClient<'a> {
         verb: &str,
         endpoint: &str,
         form: Option<S>,
-    ) -> Result<T, ureq::Error> {
+    ) -> Result<T, RestError> {
         let request = self
             .agent
             .request(
@@ -77,30 +78,49 @@ impl<'a> RestClient<'a> {
             )
             .set(INNERNET_PUBKEY_HEADER, &self.server.public_key);
 
-        let response = if let Some(form) = form {
-            request.send_json(serde_json::to_value(form).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("failed to serialize JSON request: {e}"),
-                )
-            })?)?
+        let result = if let Some(form) = form {
+            let payload = serde_json::to_value(form).map_err(RestError::RequestSerialize)?;
+            request.send_json(payload)
         } else {
-            request.call()?
+            request.call()
         };
+        let response = result.map_err(|e| RestError::RequestSend(Box::new(e)))?;
 
-        let mut response = response.into_string()?;
+        let mut response = response.into_string().map_err(RestError::ResponseRead)?;
         // A little trick for serde to parse an empty response as `()`.
         if response.is_empty() {
             response = "null".into();
         }
-        Ok(serde_json::from_str(&response).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "failed to deserialize JSON response from the server: {}, response={}",
-                    e, &response
-                ),
-            )
-        })?)
+        serde_json::from_str(&response).map_err(RestError::ResponseDeserialize)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum RestError {
+    #[error("Error sending request: {0}")]
+    RequestSend(Box<ureq::Error>),
+    #[error("Error serializing request: {0}")]
+    RequestSerialize(serde_json::Error),
+    #[error("Error deserializing response: {0}")]
+    ResponseDeserialize(serde_json::Error),
+    #[error("Error reading response: {0}")]
+    ResponseRead(io::Error),
+}
+
+impl RestError {
+    pub fn has_status_of(&self, status: u16) -> bool {
+        if let RestError::RequestSend(error) = self {
+            matches!(**error, ureq::Error::Status(s, _) if s == status)
+        } else {
+            false
+        }
+    }
+
+    pub fn is_transport_error(&self) -> bool {
+        if let RestError::RequestSend(error) = self {
+            matches!(**error, ureq::Error::Transport(_))
+        } else {
+            false
+        }
     }
 }

@@ -1,17 +1,23 @@
 use anyhow::{Context, Error};
-use innernet_client_core::{peer, rest_client::RestClient};
-use innernet_shared::{interface_config::InterfaceConfig, peer::NewPeerInfo, prompts, CidrTree};
+use env_logger::Env;
+use innernet_client_core::{
+    interface::{InterfaceConfig, InterfaceName},
+    peer::{self, NewPeerInfo},
+    rest_client::RestClient,
+    CidrTree, DEFAULT_CONFIG_DIR,
+};
+use innernet_shared::prompts;
 use std::{
+    env,
     net::{IpAddr, Ipv4Addr},
     path::Path,
 };
-use wireguard_control::InterfaceName;
 
 fn main() -> Result<(), Error> {
-    let config_dir = Path::new("/etc/innernet");
-    let interface = std::env::args()
-        .nth(1)
-        .context("Usage: add_peer <interface>")?;
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
+    let config_dir = Path::new(DEFAULT_CONFIG_DIR);
+    let interface = env::args().nth(1).context("Usage: add_peer <interface>")?;
 
     let interface: InterfaceName = interface.parse()?;
     let interface_config = InterfaceConfig::from_interface(config_dir, &interface)?;
