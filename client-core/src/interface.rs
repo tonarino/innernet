@@ -5,7 +5,7 @@ use crate::{
     data_store::DataStore,
     nat::{self, NatTraverse},
     rest_client::{RestClient, RestError},
-    HostsOpts, NatOpts, NetworkOpts, WrappedIoError,
+    Context, HostsOpts, NatOpts, NetworkOpts, WrappedIoError,
 };
 use anyhow::{bail, Context as _, Error};
 use colored::{ColoredString, Colorize};
@@ -123,7 +123,8 @@ fn update_keypair(
         "Registering keypair with server (at {}).",
         &config.server.internal_endpoint
     );
-    RestClient::new(&config.server).http_form::<_, ()>(
+    let agent = RestClient::create_agent();
+    RestClient::new(&agent, &config.server).http_form::<_, ()>(
         "POST",
         "/user/redeem",
         RedeemContents {
@@ -154,15 +155,16 @@ fn update_keypair(
 }
 
 pub fn fetch(
-    config_dir: &Path,
+    context: &Context,
     data_dir: &Path,
     network_opts: &NetworkOpts,
     hosts_opts: &HostsOpts,
     nat: &NatOpts,
-    interface: &InterfaceName,
     bring_up_interface: bool,
 ) -> Result<(), Error> {
-    let config = InterfaceConfig::from_interface(config_dir, interface)?;
+    let interface = &context.interface;
+    let interface_info = context.interface_info();
+    let server_info = context.server_info();
     let interface_up = match Device::list(network_opts.backend) {
         Ok(interfaces) => interfaces.iter().any(|name| name == interface),
         _ => false,
@@ -180,19 +182,19 @@ pub fn fetch(
             "bringing up interface {}.",
             interface.as_str_lossy().yellow()
         );
-        let resolved_endpoint = config
-            .server
+        let resolved_endpoint = context
+            .server_info()
             .external_endpoint
             .resolve()
-            .context(config.server.external_endpoint.to_string())?;
+            .context(server_info.external_endpoint.to_string())?;
         wg::up(
             interface,
-            &config.interface.private_key,
-            config.interface.address,
-            config.interface.listen_port,
+            &interface_info.private_key,
+            interface_info.address,
+            interface_info.listen_port,
             Some((
-                &config.server.public_key,
-                config.server.internal_endpoint.ip(),
+                &server_info.public_key,
+                server_info.internal_endpoint.ip(),
                 resolved_endpoint,
             )),
             network_opts,
@@ -205,9 +207,7 @@ pub fn fetch(
         interface.as_str_lossy().yellow()
     );
     let mut store = DataStore::open_or_create(data_dir, interface)?;
-    let rest_client = RestClient::new(&config.server);
-    let (State { peers, cidrs }, server_is_reachable) = match rest_client.http("GET", "/user/state")
-    {
+    let (State { peers, cidrs }, server_is_reachable) = match context.rest_client().get_state() {
         Ok(state) => (state, true),
         Err(e) => {
             if e.is_transport_error() {
@@ -266,7 +266,7 @@ pub fn fetch(
 
     let listen_port = device.listen_port.unwrap_or(51820);
     if server_is_reachable {
-        report_candidates(&rest_client, nat, listen_port)?;
+        report_candidates(&context.rest_client(), nat, listen_port)?;
     }
 
     if nat.no_nat_traversal {

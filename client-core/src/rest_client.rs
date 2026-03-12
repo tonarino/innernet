@@ -1,5 +1,6 @@
 use innernet_shared::{
-    interface_config::ServerInfo, Cidr, CidrContents, Peer, PeerContents, INNERNET_PUBKEY_HEADER,
+    interface_config::ServerInfo, Cidr, CidrContents, Peer, PeerContents, State,
+    INNERNET_PUBKEY_HEADER,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{io, time::Duration};
@@ -11,20 +12,23 @@ use ureq::{Agent, AgentBuilder};
 /// We recommend to use the high level API (like [`Self::create_peer()`]) when possible and fall
 /// back on the low level [`Self::http()`] and [`Self::http_form()`] otherwise.
 pub struct RestClient<'a> {
-    agent: Agent,
+    agent: &'a Agent,
     server: &'a ServerInfo,
 }
 
 impl<'a> RestClient<'a> {
-    /// Create a [`Self`] to communicate with an innernet server described by [`ServerInfo`].
-    pub fn new(server: &'a ServerInfo) -> Self {
-        let agent = AgentBuilder::new()
+    /// Create a [`RestClient`] to communicate with an innernet server described by [`ServerInfo`].
+    pub fn new(agent: &'a Agent, server: &'a ServerInfo) -> Self {
+        Self { agent, server }
+    }
+
+    pub fn create_agent() -> Agent {
+        AgentBuilder::new()
             // Some platforms (e.g. OpenBSD) can take longer to complete the first WireGuard
             // handshake, hence a lower timeout value could result in an unwarranted failure
             .timeout(Duration::from_secs(10))
             .redirects(0)
-            .build();
-        Self { agent, server }
+            .build()
     }
 
     pub fn create_cidr(&self, cidr_contents: &CidrContents) -> Result<Cidr, RestError> {
@@ -45,6 +49,11 @@ impl<'a> RestClient<'a> {
     pub fn get_peers(&self) -> Result<Vec<Peer>, RestError> {
         let peers = self.http("GET", "/admin/peers")?;
         Ok(peers)
+    }
+
+    pub fn get_state(&self) -> Result<State, RestError> {
+        let state = self.http("GET", "/user/state")?;
+        Ok(state)
     }
 
     #[allow(clippy::result_large_err)]
