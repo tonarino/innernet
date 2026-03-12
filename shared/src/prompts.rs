@@ -96,11 +96,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
         input("CIDR", Prefill::None)?
     };
 
-    let cidr_request = CidrContents {
-        name: name.to_string(),
-        cidr,
-        parent: Some(parent_cidr.id),
-    };
+    let cidr_request = CidrContents::new(name, cidr, parent_cidr);
 
     Ok(
         if request.yes || confirm(&format!("Create CIDR \"{}\"?", cidr_request.name))? {
