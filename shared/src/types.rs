@@ -214,6 +214,16 @@ pub struct CidrContents {
     pub parent: Option<i64>,
 }
 
+impl CidrContents {
+    pub fn new(name: Hostname, cidr: IpNet, parent: &Cidr) -> Self {
+        Self {
+            name: name.to_string(),
+            cidr,
+            parent: Some(parent.id),
+        }
+    }
+}
+
 impl Deref for CidrContents {
     type Target = IpNet;
 
