@@ -1,5 +1,5 @@
 use innernet_shared::{
-    interface_config::ServerInfo, Cidr, Peer, PeerContents, INNERNET_PUBKEY_HEADER,
+    interface_config::ServerInfo, Cidr, CidrContents, Peer, PeerContents, INNERNET_PUBKEY_HEADER,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{io, time::Duration};
@@ -27,6 +27,16 @@ impl<'a> RestClient<'a> {
         Self { agent, server }
     }
 
+    pub fn create_cidr(&self, cidr_contents: &CidrContents) -> Result<Cidr, RestError> {
+        let cidr = self.http_form("POST", "/admin/cidrs", cidr_contents)?;
+        Ok(cidr)
+    }
+
+    pub fn get_cidrs(&self) -> Result<Vec<Cidr>, RestError> {
+        let cidrs = self.http("GET", "/admin/cidrs")?;
+        Ok(cidrs)
+    }
+
     pub fn create_peer(&self, peer_contents: &PeerContents) -> Result<Peer, RestError> {
         let peer = self.http_form("POST", "/admin/peers", peer_contents)?;
         Ok(peer)
@@ -35,11 +45,6 @@ impl<'a> RestClient<'a> {
     pub fn get_peers(&self) -> Result<Vec<Peer>, RestError> {
         let peers = self.http("GET", "/admin/peers")?;
         Ok(peers)
-    }
-
-    pub fn get_cidrs(&self) -> Result<Vec<Cidr>, RestError> {
-        let cidrs = self.http("GET", "/admin/cidrs")?;
-        Ok(cidrs)
     }
 
     #[allow(clippy::result_large_err)]
