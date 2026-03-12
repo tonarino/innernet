@@ -215,9 +215,9 @@ pub struct CidrContents {
 }
 
 impl CidrContents {
-    pub fn new(name: Hostname, cidr: IpNet, parent: &Cidr) -> Self {
+    pub fn new(name: String, cidr: IpNet, parent: &Cidr) -> Self {
         Self {
-            name: name.to_string(),
+            name,
             cidr,
             parent: Some(parent.id),
         }
