@@ -28,8 +28,8 @@ pub enum CreatePeerError {
 pub fn create_peer(
     config_dir: &Path,
     interface: &InterfaceName,
-    cidrs: &[Cidr],
-    peers: &[Peer],
+    existing_cidrs: &[Cidr],
+    existing_peers: &[Peer],
     new_peer_info: NewPeerInfo,
 ) -> Result<(Peer, PeerInvitation), CreatePeerError> {
     let interface_config = InterfaceConfig::from_interface(config_dir, interface)
@@ -40,13 +40,13 @@ pub fn create_peer(
     let peer_contents = new_peer_info.into_peer_contents(&keypair);
     let peer = rest_client.create_peer(&peer_contents)?;
 
-    let cidr_tree = CidrTree::new(cidrs);
+    let cidr_tree = CidrTree::new(existing_cidrs);
     let address = &cidr_tree
         .ip_net_for(peer.ip)
         .map_err(|_| CreatePeerError::PeerIpPrefixMismatch)?;
     let interface_info = InterfaceInfo::new(interface, &keypair, address);
 
-    let server_peer = peers.iter().find(|p| p.id == 1).unwrap();
+    let server_peer = existing_peers.iter().find(|p| p.id == 1).unwrap();
     let server_info = ServerInfo::new(server_peer, &interface_config.server.internal_endpoint);
 
     Ok((peer, PeerInvitation::new(interface_info, server_info)))
