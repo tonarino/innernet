@@ -20,8 +20,6 @@ pub enum CreatePeerError {
     InterfaceConfigAccess(anyhow::Error),
     #[error("Error making a REST request: {0}")]
     RestRequest(#[from] RestError),
-    #[error("Root CIDR prefix is longer than the new peer IP. Trying to use IPv4 address on an IPv6 CIDR?")]
-    PeerIpPrefixMismatch,
 }
 
 /// Create a new innernet [`Peer`] and a [`PeerInvitation`] they can use to join the network.
@@ -43,7 +41,7 @@ pub fn create_peer(
     let cidr_tree = CidrTree::new(existing_cidrs);
     let address = &cidr_tree
         .ip_net_for(peer.ip)
-        .map_err(|_| CreatePeerError::PeerIpPrefixMismatch)?;
+        .expect("Peer's IpNet address to be valid because the peer was created successfully.");
     let interface_info = InterfaceInfo::new(interface, &keypair, *address);
 
     let server_peer = existing_peers.iter().find(|p| p.id == 1).unwrap();

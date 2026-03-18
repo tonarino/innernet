@@ -205,7 +205,9 @@ pub fn add_peer(
             println!("adding to WireGuard interface: {}", &*peer);
         }
 
-        let address = cidr_tree.ip_net_for(peer.ip)?;
+        let address = cidr_tree
+            .ip_net_for(peer.ip)
+            .expect("Peer's IpNet address to be valid because the peer was created successfully.");
         let interface_info = InterfaceInfo::new(interface, &keypair, address);
 
         let internal_endpoint = SocketAddr::new(config.address, config.listen_port);
