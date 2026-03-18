@@ -205,12 +205,12 @@ pub fn add_peer(
             println!("adding to WireGuard interface: {}", &*peer);
         }
 
-        let address = &cidr_tree.ip_net_for(peer.ip)?;
+        let address = cidr_tree.ip_net_for(peer.ip)?;
         let interface_info = InterfaceInfo::new(interface, &keypair, address);
 
         let internal_endpoint = SocketAddr::new(config.address, config.listen_port);
         let server_peer = DatabasePeer::get(&conn, 1)?;
-        let server_info = ServerInfo::new(&server_peer, &internal_endpoint);
+        let server_info = ServerInfo::new(&server_peer, internal_endpoint);
 
         let invitation = PeerInvitation::new(interface_info, server_info);
         invitation.save_new(target_path)?;

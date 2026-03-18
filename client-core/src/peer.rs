@@ -44,10 +44,10 @@ pub fn create_peer(
     let address = &cidr_tree
         .ip_net_for(peer.ip)
         .map_err(|_| CreatePeerError::PeerIpPrefixMismatch)?;
-    let interface_info = InterfaceInfo::new(interface, &keypair, address);
+    let interface_info = InterfaceInfo::new(interface, &keypair, *address);
 
     let server_peer = existing_peers.iter().find(|p| p.id == 1).unwrap();
-    let server_info = ServerInfo::new(server_peer, &interface_config.server.internal_endpoint);
+    let server_info = ServerInfo::new(server_peer, interface_config.server.internal_endpoint);
 
     Ok((peer, PeerInvitation::new(interface_info, server_info)))
 }

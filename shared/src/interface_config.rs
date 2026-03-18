@@ -40,11 +40,11 @@ pub struct InterfaceInfo {
 }
 
 impl InterfaceInfo {
-    pub fn new(network_name: &InterfaceName, keypair: &KeyPair, address: &IpNet) -> Self {
+    pub fn new(network_name: &InterfaceName, keypair: &KeyPair, address: IpNet) -> Self {
         Self {
             network_name: network_name.to_string(),
             private_key: keypair.private.to_base64(),
-            address: *address,
+            address,
             listen_port: None,
         }
     }
@@ -64,13 +64,13 @@ pub struct ServerInfo {
 }
 
 impl ServerInfo {
-    pub fn new(server_peer: &Peer, internal_endpoint: &SocketAddr) -> Self {
+    pub fn new(server_peer: &Peer, internal_endpoint: SocketAddr) -> Self {
         Self {
             external_endpoint: server_peer
                 .endpoint
                 .clone()
                 .expect("The innernet server should have a WireGuard endpoint"),
-            internal_endpoint: *internal_endpoint,
+            internal_endpoint,
             public_key: server_peer.public_key.clone(),
         }
     }
