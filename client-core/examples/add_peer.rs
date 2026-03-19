@@ -1,10 +1,9 @@
-use anyhow::{Context, Error};
+use anyhow::{Context as _, Error};
 use env_logger::Env;
 use innernet_client_core::{
-    interface::{InterfaceConfig, InterfaceName},
+    interface::InterfaceName,
     peer::{create_peer, NewPeerInfo},
-    rest_client::RestClient,
-    DEFAULT_CONFIG_DIR,
+    Context, DEFAULT_CONFIG_DIR,
 };
 use innernet_shared::prompts;
 use std::{
@@ -20,10 +19,8 @@ fn main() -> Result<(), Error> {
     let interface = env::args().nth(1).context("Usage: add_peer <interface>")?;
 
     let interface: InterfaceName = interface.parse()?;
-    let interface_config = InterfaceConfig::from_interface(config_dir, &interface)?;
-    let rest_client = RestClient::new(&interface_config.server);
-    let cidrs = rest_client.get_cidrs()?;
-    let peers = rest_client.get_peers()?;
+    let context = Context::new(config_dir.into(), interface)?;
+    let cidrs = context.rest_client().get_cidrs()?;
 
     let new_peer_info = NewPeerInfo {
         name: "joe".parse().unwrap(),
@@ -34,7 +31,7 @@ fn main() -> Result<(), Error> {
     };
 
     let target_path = "invitation.toml";
-    let (peer, invitation) = create_peer(config_dir, &interface, &cidrs, &peers, new_peer_info)?;
+    let (peer, invitation) = create_peer(&context, &cidrs, new_peer_info)?;
     invitation.save_new(target_path)?;
     prompts::print_invitation_info(&peer, target_path);
 

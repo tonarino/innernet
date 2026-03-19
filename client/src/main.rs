@@ -8,8 +8,8 @@ use innernet_client_core::{
     data_store::DataStore,
     interface::{fetch, redeem_invite},
     peer::create_peer,
-    rest_client::{RestClient, RestError},
-    DEFAULT_CONFIG_DIR, DEFAULT_DATA_DIR,
+    rest_client::RestError,
+    Context, DEFAULT_CONFIG_DIR, DEFAULT_DATA_DIR,
 };
 use innernet_shared::{
     interface_config::InterfaceConfig, prompts, wg, wg::PeerInfoExt, AddCidrOpts,
@@ -281,16 +281,16 @@ fn install(
 
     let interface_name = interface_name.parse()?;
     redeem_invite(&opts.config_dir, &opts.network, &interface_name, config)?;
+    let context = Context::new(opts.config_dir.clone(), interface_name)?;
 
     let mut fetch_success = false;
     for _ in 0..3 {
         if fetch(
-            &opts.config_dir,
+            &context,
             &opts.data_dir,
             &opts.network,
             hosts_opts,
             nat_opts,
-            &interface_name,
             true,
         )
         .is_ok()
@@ -389,13 +389,14 @@ fn up(
         };
 
         for interface in interfaces {
+            let context = Context::new(opts.config_dir.clone(), *interface)?;
+
             fetch(
-                &opts.config_dir,
+                &context,
                 &opts.data_dir,
                 &opts.network,
                 &hosts_opts,
                 nat_opts,
-                &interface,
                 true,
             )?;
         }
@@ -449,15 +450,14 @@ fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Er
 }
 
 fn add_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: AddCidrOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
+
     log::info!("Fetching CIDRs");
-    let rest_client = RestClient::new(&server);
-    let cidrs: Vec<Cidr> = rest_client.get_cidrs()?;
+    let cidrs: Vec<Cidr> = context.rest_client().get_cidrs()?;
 
     if let Some(cidr_request) = prompts::add_cidr(&cidrs, &sub_opts)? {
         log::info!("Creating CIDR...");
-        let cidr: Cidr = rest_client.create_cidr(&cidr_request)?;
+        let cidr: Cidr = context.rest_client().create_cidr(&cidr_request)?;
 
         eprintdoc!(
             "
@@ -482,12 +482,10 @@ fn rename_cidr(
     opts: &Opts,
     sub_opts: RenameCidrOpts,
 ) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = rest_client.http("GET", "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = context.rest_client().http("GET", "/admin/cidrs")?;
 
     if let Some((cidr_request, old_name)) = prompts::rename_cidr(&cidrs, &sub_opts)? {
         log::info!("Renaming CIDR...");
@@ -498,7 +496,11 @@ fn rename_cidr(
             .ok_or_else(|| anyhow!("CIDR not found."))?
             .id;
 
-        rest_client.http_form::<_, ()>("PUT", &format!("/admin/cidrs/{id}"), cidr_request)?;
+        context.rest_client().http_form::<_, ()>(
+            "PUT",
+            &format!("/admin/cidrs/{id}"),
+            cidr_request,
+        )?;
         log::info!("CIDR renamed.");
     } else {
         log::info!("Exited without renaming CIDR.");
@@ -512,19 +514,21 @@ fn delete_cidr(
     opts: &Opts,
     sub_opts: DeleteCidrOpts,
 ) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    println!("Fetching eligible CIDRs");
-    let rest_client = RestClient::new(&server);
-    let cidrs: Vec<Cidr> = rest_client.http("GET", "/admin/cidrs")?;
-    let peers: Vec<Peer> = rest_client.http("GET", "/admin/peers")?;
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
+
+    log::info!("Fetching CIDRs");
+    let cidrs: Vec<Cidr> = context.rest_client().http("GET", "/admin/cidrs")?;
+    log::info!("Fetching peers");
+    let peers: Vec<Peer> = context.rest_client().http("GET", "/admin/peers")?;
 
     let cidr_id = prompts::delete_cidr(&cidrs, &peers, &sub_opts)?;
 
-    println!("Deleting CIDR...");
-    rest_client.http::<()>("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
+    log::info!("Deleting CIDR...");
+    context
+        .rest_client()
+        .http::<()>("DELETE", &format!("/admin/cidrs/{cidr_id}"))?;
 
-    println!("CIDR deleted.");
+    log::info!("CIDR deleted.");
 
     Ok(())
 }
@@ -545,22 +549,19 @@ fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), 
 }
 
 fn add_peer(interface: &InterfaceName, opts: &Opts, sub_opts: AddPeerOpts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching CIDRs");
-    let cidrs = rest_client.get_cidrs()?;
+    let cidrs = context.rest_client().get_cidrs()?;
     log::info!("Fetching peers");
-    let peers = rest_client.get_peers()?;
+    let peers = context.rest_client().get_peers()?;
     let cidr_tree = CidrTree::new(&cidrs[..]);
 
     if let Some((new_peer_info, target_path)) =
         prompts::gather_new_peer_info(&peers, &cidr_tree, &sub_opts)?
     {
         log::info!("Creating peer...");
-        let (peer, invitation) =
-            create_peer(&opts.config_dir, interface, &cidrs, &peers, new_peer_info)?;
+        let (peer, invitation) = create_peer(&context, &cidrs, new_peer_info)?;
 
         invitation.save_new(&target_path)?;
         prompts::print_invitation_info(&peer, &target_path);
@@ -576,12 +577,10 @@ fn rename_peer(
     opts: &Opts,
     sub_opts: RenamePeerOpts,
 ) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching peers");
-    let peers: Vec<Peer> = rest_client.http("GET", "/admin/peers")?;
+    let peers: Vec<Peer> = context.rest_client().http("GET", "/admin/peers")?;
 
     if let Some((peer_request, old_name)) = prompts::rename_peer(&peers, &sub_opts)? {
         log::info!("Renaming peer...");
@@ -593,7 +592,11 @@ fn rename_peer(
             .next()
             .ok_or_else(|| anyhow!("Peer not found."))?;
 
-        rest_client.http_form::<_, ()>("PUT", &format!("/admin/peers/{id}"), peer_request)?;
+        context.rest_client().http_form::<_, ()>(
+            "PUT",
+            &format!("/admin/peers/{id}"),
+            peer_request,
+        )?;
         log::info!("Peer renamed.");
     } else {
         log::info!("exited without renaming peer.");
@@ -608,17 +611,17 @@ fn enable_or_disable_peer(
     sub_opts: EnableDisablePeerOpts,
     enable: bool,
 ) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching peers.");
-    let peers: Vec<Peer> = rest_client.http("GET", "/admin/peers")?;
+    let peers: Vec<Peer> = context.rest_client().http("GET", "/admin/peers")?;
 
     if let Some(peer) = prompts::enable_or_disable_peer(&peers[..], &sub_opts, enable)? {
         let Peer { id, mut contents } = peer;
         contents.is_disabled = !enable;
-        rest_client.http_form::<_, ()>("PUT", &format!("/admin/peers/{id}"), contents)?;
+        context
+            .rest_client()
+            .http_form::<_, ()>("PUT", &format!("/admin/peers/{id}"), contents)?;
     } else {
         log::info!("exiting without enabling or disabling peer.");
     }
@@ -631,12 +634,10 @@ fn add_association(
     opts: &Opts,
     sub_opts: AddDeleteAssociationOpts,
 ) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = rest_client.http("GET", "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = context.rest_client().http("GET", "/admin/cidrs")?;
 
     let association = if let (Some(ref cidr1), Some(ref cidr2)) = (&sub_opts.cidr1, &sub_opts.cidr2)
     {
@@ -656,7 +657,7 @@ fn add_association(
         return Ok(());
     };
 
-    rest_client.http_form::<_, ()>(
+    context.rest_client().http_form::<_, ()>(
         "POST",
         "/admin/associations",
         AssociationContents {
@@ -673,19 +674,20 @@ fn delete_association(
     opts: &Opts,
     sub_opts: AddDeleteAssociationOpts,
 ) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = rest_client.http("GET", "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = context.rest_client().http("GET", "/admin/cidrs")?;
     log::info!("Fetching associations");
-    let associations: Vec<Association> = rest_client.http("GET", "/admin/associations")?;
+    let associations: Vec<Association> =
+        context.rest_client().http("GET", "/admin/associations")?;
 
     if let Some(association) =
         prompts::delete_association(&associations[..], &cidrs[..], &sub_opts)?
     {
-        rest_client.http::<()>("DELETE", &format!("/admin/associations/{}", association.id))?;
+        context
+            .rest_client()
+            .http::<()>("DELETE", &format!("/admin/associations/{}", association.id))?;
     } else {
         log::info!("exiting without adding association.");
     }
@@ -694,14 +696,13 @@ fn delete_association(
 }
 
 fn list_associations(interface: &InterfaceName, opts: &Opts) -> Result<(), Error> {
-    let InterfaceConfig { server, .. } =
-        InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-    let rest_client = RestClient::new(&server);
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     log::info!("Fetching CIDRs");
-    let cidrs: Vec<Cidr> = rest_client.http("GET", "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = context.rest_client().http("GET", "/admin/cidrs")?;
     log::info!("Fetching associations");
-    let associations: Vec<Association> = rest_client.http("GET", "/admin/associations")?;
+    let associations: Vec<Association> =
+        context.rest_client().http("GET", "/admin/associations")?;
 
     for association in associations {
         println!(
@@ -730,17 +731,11 @@ fn set_listen_port(
     opts: &Opts,
     sub_opts: ListenPortOpts,
 ) -> Result<(), Error> {
-    let mut config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let mut context = Context::new(opts.config_dir.clone(), *interface)?;
 
-    let listen_port = prompts::set_listen_port(&config.interface, sub_opts)?;
+    let listen_port = prompts::set_listen_port(context.interface_info(), sub_opts)?;
     if let Some(listen_port) = listen_port {
-        innernet_client_core::set_listen_port(
-            opts.network.backend,
-            &opts.config_dir,
-            interface,
-            &mut config,
-            listen_port,
-        )?;
+        innernet_client_core::set_listen_port(&mut context, opts.network.backend, listen_port)?;
     } else {
         log::info!("exiting without updating the listen port.");
     }
@@ -753,13 +748,13 @@ fn override_endpoint(
     opts: &Opts,
     sub_opts: OverrideEndpointOpts,
 ) -> Result<(), Error> {
-    let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let context = Context::new(opts.config_dir.clone(), *interface)?;
 
     let endpoint_contents = if sub_opts.unset {
         prompt_unset_override_endpoint(&sub_opts)?.then_some(EndpointContents::Unset)
     } else {
-        let server_capabilities = get_server_capabilities(&config)?;
-        let port = match config.interface.listen_port {
+        let server_capabilities = get_server_capabilities(&context)?;
+        let port = match context.interface_info().listen_port {
             Some(port) => port,
             None => bail!("you need to set a listen port with set-listen-port before overriding the endpoint (otherwise port randomization on the interface would make it useless).")
         };
@@ -769,7 +764,9 @@ fn override_endpoint(
 
     if let Some(contents) = endpoint_contents {
         log::info!("requesting endpoint update...");
-        RestClient::new(&config.server).http_form::<_, ()>("PUT", "/user/endpoint", contents)?;
+        context
+            .rest_client()
+            .http_form::<_, ()>("PUT", "/user/endpoint", contents)?;
         log::info!(
             "endpoint override {}",
             if sub_opts.unset { "unset" } else { "set" }
@@ -820,10 +817,9 @@ fn prompt_unset_override_endpoint(args: &OverrideEndpointOpts) -> Result<bool, E
         || prompts::confirm("Unset external endpoint to enable automatic endpoint discovery?")?)
 }
 
-fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilities, Error> {
-    let rest_client = RestClient::new(&config.server);
+fn get_server_capabilities(context: &Context) -> Result<ServerCapabilities, Error> {
     let maybe_info: Result<ServerCapabilities, RestError> =
-        rest_client.http("GET", "/user/capabilities");
+        context.rest_client().http("GET", "/user/capabilities");
     match maybe_info {
         Ok(info) => Ok(info),
         Err(e) => {
@@ -1062,15 +1058,8 @@ fn run(opts: &Opts) -> Result<(), Error> {
             hosts,
             nat,
         } => {
-            fetch(
-                &opts.config_dir,
-                &opts.data_dir,
-                &opts.network,
-                &hosts,
-                &nat,
-                &interface,
-                false,
-            )?;
+            let context = Context::new(opts.config_dir.clone(), *interface)?;
+            fetch(&context, &opts.data_dir, &opts.network, &hosts, &nat, false)?;
         },
         Command::Up {
             interface,
