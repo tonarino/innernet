@@ -168,8 +168,10 @@ If you're running a service on innernet, there are some important security consi
 Strict RPF prevents packets from _other_ interfaces from having internal source IP addresses. This is _not_ the default on Linux, even though it is the right choice for 99.99% of situations. You can enable it by adding the following to a `/etc/sysctl.d/60-network-security.conf`:
 
 ```
-net.ipv4.conf.all.rp_filter=1
-net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+# also apply to existing interfaces:
+net.ipv4.conf.*.rp_filter = 1
 ```
 
 ### Bind to the WireGuard device
