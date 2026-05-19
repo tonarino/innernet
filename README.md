@@ -170,7 +170,10 @@ Strict RPF prevents packets from _other_ interfaces from having internal source 
 ```
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1
-# also apply to existing interfaces:
+
+# Also apply to interfaces that exist at the time this sysctl is applied, as they might have been
+# created with value 2 (loose), which takes precedence even when all.rp_filter is 1.
+# Note that using the * match does not apply to the special `all` and `default` knobs.
 net.ipv4.conf.*.rp_filter = 1
 ```
 
