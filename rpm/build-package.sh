@@ -29,6 +29,15 @@ else
     echo "Unsupported architecture: $ARCH"
     exit 1
   fi
+
+  # Check architecture compatibility
+  HOST_ARCH=$(uname -m)
+  if [[ "$ARCH" != "$HOST_ARCH" ]]; then
+    echo "Error: Host architecture ($HOST_ARCH) does not match requested target architecture ($ARCH)."
+    echo "This script does not support cross-compilation natively."
+    echo "Please run this script on a native $ARCH host, or modify the script to use 'docker buildx' for cross-compilation."
+    exit 1
+  fi
 fi
 
 
