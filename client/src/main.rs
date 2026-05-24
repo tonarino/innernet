@@ -453,11 +453,11 @@ fn add_cidr(interface: &InterfaceName, opts: &Opts, sub_opts: AddCidrOpts) -> Re
         InterfaceConfig::from_interface(&opts.config_dir, interface)?;
     log::info!("Fetching CIDRs");
     let rest_client = RestClient::new(&server);
-    let cidrs: Vec<Cidr> = rest_client.http("GET", "/admin/cidrs")?;
+    let cidrs: Vec<Cidr> = rest_client.get_cidrs()?;
 
     if let Some(cidr_request) = prompts::add_cidr(&cidrs, &sub_opts)? {
         log::info!("Creating CIDR...");
-        let cidr: Cidr = rest_client.http_form("POST", "/admin/cidrs", cidr_request)?;
+        let cidr: Cidr = rest_client.create_cidr(&cidr_request)?;
 
         eprintdoc!(
             "
