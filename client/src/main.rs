@@ -534,7 +534,7 @@ fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), 
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0);
+        print_tree(&cidr_tree, &[], 0, &data_store);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
@@ -910,17 +910,17 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peer_states, 1);
+            print_tree(&cidr_tree, &peer_states, 1, &store);
         } else {
             for peer_state in peer_states {
-                print_peer(&peer_state, short, 1);
+                print_peer(&peer_state, short, 1, &store);
             }
         }
     }
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
+fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize, data_store: &DataStore) {
     println_pad!(
         level * 2,
         "{} {}",
@@ -932,10 +932,10 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     children.sort();
     children
         .iter()
-        .for_each(|child| print_tree(child, peers, level + 1));
+        .for_each(|child| print_tree(child, peers, level + 1, data_store));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level);
+        print_peer(peer, true, level, data_store);
     }
 }
 
@@ -963,19 +963,26 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_peer(peer: &PeerState, short: bool, level: usize) {
+fn print_peer(peer: &PeerState, short: bool, level: usize, data_store: &DataStore) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
+
+    let endpoint_has_local_override = data_store.endpoint_override_for_peer(peer.ip).is_some();
+    let endpoint_override_msg = if endpoint_has_local_override {
+        " (local endpoint override)"
+    } else {
+        ""
+    };
+
     if short {
         let connected = info
             .map(|info| info.is_recently_connected())
             .unwrap_or_default();
-
         let is_you = info.is_none();
 
         println_pad!(
             pad,
-            "| {} {}: {} ({}{}…)",
+            "| {} {}: {} ({}{}…){}",
             if connected || is_you {
                 "◉".bold()
             } else {
@@ -985,6 +992,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             peer.name.yellow(),
             if is_you { "you, " } else { "" },
             &peer.public_key[..6].dimmed(),
+            endpoint_override_msg,
         );
     } else {
         println_pad!(
@@ -997,7 +1005,13 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
         if let Some(info) = info {
             if let Some(endpoint) = info.config.endpoint {
-                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
+                println_pad!(
+                    pad,
+                    "  {}: {}{}",
+                    "endpoint".bold(),
+                    endpoint,
+                    endpoint_override_msg
+                );
             }
             if let Some(last_handshake) = info.stats.last_handshake_time {
                 let duration = last_handshake.elapsed().expect("horrible clock problem");
