@@ -1,11 +1,13 @@
 use anyhow::{bail, Error};
-use innernet_shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
+use innernet_shared::{
+    chmod, ensure_dirs_exist, Cidr, Endpoint, IoErrorContext, Peer, WrappedIoError,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
     io::{self, Read, Seek, Write},
-    net::{IpAddr, SocketAddr},
+    net::IpAddr,
     path::{Path, PathBuf},
 };
 use wireguard_control::InterfaceName;
@@ -27,7 +29,7 @@ enum Contents {
         peers: Vec<Peer>,
         cidrs: Vec<Cidr>,
         #[serde(default)]
-        local_endpoint_overrides: HashMap<IpAddr, SocketAddr>,
+        local_endpoint_overrides: HashMap<IpAddr, Endpoint>,
     },
 }
 
@@ -148,23 +150,45 @@ impl DataStore {
         }
     }
 
-    pub fn local_endpoint_overrides(&self) -> impl Iterator<Item = (IpAddr, SocketAddr)> + '_ {
+    pub fn local_endpoint_overrides(&self) -> impl Iterator<Item = (IpAddr, Endpoint)> + '_ {
         match &self.contents {
             Contents::V1 {
                 local_endpoint_overrides,
                 ..
             } => local_endpoint_overrides
                 .iter()
-                .map(|(ip, socket)| (*ip, *socket)),
+                .map(|(ip, socket)| (*ip, socket.clone())),
         }
     }
 
-    pub fn endpoint_override_for_peer(&self, peer_ip: IpAddr) -> Option<SocketAddr> {
+    pub fn endpoint_override_for_peer(&self, peer_ip: IpAddr) -> Option<Endpoint> {
         match &self.contents {
             Contents::V1 {
                 local_endpoint_overrides,
                 ..
-            } => local_endpoint_overrides.get(&peer_ip).copied(),
+            } => local_endpoint_overrides.get(&peer_ip).cloned(),
+        }
+    }
+
+    pub fn override_endpoint_for_peer(&mut self, peer_ip: IpAddr, endpoint: Endpoint) {
+        match &mut self.contents {
+            Contents::V1 {
+                local_endpoint_overrides,
+                ..
+            } => {
+                local_endpoint_overrides.insert(peer_ip, endpoint);
+            },
+        }
+    }
+
+    pub fn unset_endpoint_for_peer(&mut self, peer_ip: IpAddr) {
+        match &mut self.contents {
+            Contents::V1 {
+                local_endpoint_overrides,
+                ..
+            } => {
+                local_endpoint_overrides.remove(&peer_ip);
+            },
         }
     }
 
