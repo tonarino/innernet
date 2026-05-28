@@ -2,8 +2,10 @@ use anyhow::{bail, Error};
 use innernet_shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs::{File, OpenOptions},
     io::{self, Read, Seek, Write},
+    net::{IpAddr, SocketAddr},
     path::{Path, PathBuf},
 };
 use wireguard_control::InterfaceName;
@@ -21,7 +23,12 @@ pub struct DataStore {
 #[serde(tag = "version")]
 enum Contents {
     #[serde(rename = "1")]
-    V1 { peers: Vec<Peer>, cidrs: Vec<Cidr> },
+    V1 {
+        peers: Vec<Peer>,
+        cidrs: Vec<Cidr>,
+        #[serde(default)]
+        local_endpoint_overrides: HashMap<IpAddr, SocketAddr>,
+    },
 }
 
 impl DataStore {
@@ -47,6 +54,7 @@ impl DataStore {
         let contents = serde_json::from_str(&json).unwrap_or_else(|_| Contents::V1 {
             peers: vec![],
             cidrs: vec![],
+            local_endpoint_overrides: HashMap::new(),
         });
 
         Ok(Self { file, contents })
@@ -137,6 +145,17 @@ impl DataStore {
     pub fn cidrs(&self) -> &[Cidr] {
         match &self.contents {
             Contents::V1 { cidrs, .. } => cidrs,
+        }
+    }
+
+    pub fn local_endpoint_overrides(&self) -> impl Iterator<Item = (IpAddr, SocketAddr)> + '_ {
+        match &self.contents {
+            Contents::V1 {
+                local_endpoint_overrides,
+                ..
+            } => local_endpoint_overrides
+                .iter()
+                .map(|(ip, socket)| (*ip, *socket)),
         }
     }
 
