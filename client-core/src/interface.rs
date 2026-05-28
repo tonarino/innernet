@@ -243,7 +243,7 @@ pub fn fetch(
         );
 
         if let Some(peer) = peers.iter_mut().find(|p| p.ip == peer_ip) {
-            peer.endpoint = Some(endpoint_override.into());
+            peer.endpoint = Some(endpoint_override);
         }
     }
 
