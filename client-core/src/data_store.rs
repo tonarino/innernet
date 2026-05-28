@@ -159,6 +159,15 @@ impl DataStore {
         }
     }
 
+    pub fn endpoint_override_for_peer(&self, peer_ip: IpAddr) -> Option<SocketAddr> {
+        match &self.contents {
+            Contents::V1 {
+                local_endpoint_overrides,
+                ..
+            } => local_endpoint_overrides.get(&peer_ip).copied(),
+        }
+    }
+
     fn set_cidrs(&mut self, new_cidrs: Vec<Cidr>) {
         match &mut self.contents {
             Contents::V1 { ref mut cidrs, .. } => *cidrs = new_cidrs,
