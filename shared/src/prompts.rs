@@ -601,7 +601,7 @@ pub fn override_peer_endpoint_prompt(
             .clone()
     } else {
         let message = if args.unset {
-            "Peer endpoint to unset"
+            "Peer endpoint override to unset"
         } else {
             "Peer endpoint to override"
         };

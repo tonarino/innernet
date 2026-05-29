@@ -253,6 +253,7 @@ enum Command {
         sub_opts: OverrideEndpointOpts,
     },
 
+    /// Override the endpoint you use to connect to a particular peer
     OverridePeerEndpoint {
         interface: Interface,
 
