@@ -593,6 +593,9 @@ pub fn override_peer_endpoint_prompt(
             "Peer endpoint to override"
         };
 
+        // TODO(bschwind) - If we're unsetting, filter eligible_peers to just
+        //                  be peers that have an override already set.
+
         let (peer_index, _) = select(
             message,
             &eligible_peers
