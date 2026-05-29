@@ -198,7 +198,7 @@ impl DataStore {
         }
     }
 
-    fn write(&mut self) -> Result<(), io::Error> {
+    pub fn write(&mut self) -> Result<(), io::Error> {
         self.file.rewind()?;
         self.file.set_len(0)?;
         self.file

@@ -1,8 +1,8 @@
 use crate::{
     interface_config::InterfaceInfo, peer::NewPeerInfo, AddCidrOpts, AddDeleteAssociationOpts,
     AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, EnableDisablePeerOpts,
-    Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, Peer, PeerContents, RenameCidrOpts,
-    RenamePeerOpts,
+    Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, OverridePeerEndpointOpts, Peer,
+    PeerContents, RenameCidrOpts, RenamePeerOpts,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -15,6 +15,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
 };
+use wireguard_control::Key;
 
 pub static THEME: Lazy<ColorfulTheme> = Lazy::new(ColorfulTheme::default);
 
@@ -566,4 +567,70 @@ pub fn input_external_endpoint(
     )?;
 
     Ok(endpoint)
+}
+
+/// Bring up a prompt to override the endpoint for an existing peer.
+/// Returns the peer IP, peer public key, and desired endpoint.
+pub fn override_peer_endpoint_prompt(
+    peers: &[Peer],
+    args: &OverridePeerEndpointOpts,
+) -> Result<Option<(IpAddr, Key, Option<Endpoint>)>, Error> {
+    let eligible_peers = peers
+        .iter()
+        .filter(|p| &*p.name != "innernet-server")
+        .collect::<Vec<_>>();
+
+    let peer = if let Some(ref name) = args.name {
+        eligible_peers
+            .into_iter()
+            .find(|p| &p.name == name)
+            .ok_or_else(|| anyhow!("Peer '{}' does not exist", name))?
+            .clone()
+    } else {
+        let message = if args.unset {
+            "Peer endpoint to unset"
+        } else {
+            "Peer endpoint to override"
+        };
+
+        let (peer_index, _) = select(
+            message,
+            &eligible_peers
+                .iter()
+                .map(|ep| ep.name.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        eligible_peers[peer_index].clone()
+    };
+
+    let endpoint: Option<Endpoint> = if args.unset {
+        None
+    } else {
+        Some(input("Endpoint", Prefill::None)?)
+    };
+
+    let confirm_msg = if let Some(endpoint) = &endpoint {
+        &format!(
+            "Override endpoint for peer {} ({}) to {}?",
+            peer.name.yellow(),
+            peer.ip,
+            endpoint,
+        )
+    } else {
+        &format!(
+            "Unset endpoint override for peer {} ({})?",
+            peer.name.yellow(),
+            peer.ip,
+        )
+    };
+
+    Ok(if args.yes || confirm(confirm_msg)? {
+        Some((
+            peer.ip,
+            Key::from_base64(&peer.public_key).unwrap(),
+            endpoint,
+        ))
+    } else {
+        None
+    })
 }
