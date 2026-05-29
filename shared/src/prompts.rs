@@ -570,7 +570,7 @@ pub fn input_external_endpoint(
 }
 
 /// Bring up a prompt to override the endpoint for an existing peer.
-/// Returns the peer IP, peer public key, and desired endpoint.
+/// Returns the peer and desired endpoint.
 pub fn override_peer_endpoint_prompt(
     peers: &[Peer],
     peer_endpoint_overrides: &HashMap<IpAddr, Endpoint>,
