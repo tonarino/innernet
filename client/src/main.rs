@@ -795,13 +795,11 @@ fn override_peer_endpoint(
     opts: &Opts,
     sub_opts: OverridePeerEndpointOpts,
 ) -> Result<(), Error> {
-    let _config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
-
     let mut data_store = DataStore::open(&opts.data_dir, interface)?;
 
     if let Some((peer, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
         data_store.peers(),
-        data_store.local_endpoint_overrides(),
+        data_store.peer_endpoint_overrides(),
         &sub_opts,
     )? {
         if let Some(endpoint) = endpoint_opt {
@@ -824,6 +822,8 @@ fn override_peer_endpoint(
                 peer.ip
             );
             data_store.unset_endpoint_for_peer(peer.ip);
+
+            log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
         }
 
         // TODO(bschwind) - Should we do NAT traversal too?
@@ -1024,7 +1024,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, data_store: &DataStor
 
     let endpoint_has_local_override = data_store.endpoint_override_for_peer(peer.ip).is_some();
     let endpoint_override_msg = if endpoint_has_local_override {
-        " (local endpoint override)"
+        " (endpoint overridden locally)"
     } else {
         ""
     };
@@ -1037,7 +1037,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, data_store: &DataStor
 
         println_pad!(
             pad,
-            "| {} {}: {} ({}{}…){}",
+            "| {} {}: {} ({}{}…){endpoint_override_msg}",
             if connected || is_you {
                 "◉".bold()
             } else {
@@ -1047,7 +1047,6 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, data_store: &DataStor
             peer.name.yellow(),
             if is_you { "you, " } else { "" },
             &peer.public_key[..6].dimmed(),
-            endpoint_override_msg,
         );
     } else {
         println_pad!(
@@ -1062,10 +1061,8 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, data_store: &DataStor
             if let Some(endpoint) = info.config.endpoint {
                 println_pad!(
                     pad,
-                    "  {}: {}{}",
+                    "  {}: {endpoint}{endpoint_override_msg}",
                     "endpoint".bold(),
-                    endpoint,
-                    endpoint_override_msg
                 );
             }
             if let Some(last_handshake) = info.stats.last_handshake_time {

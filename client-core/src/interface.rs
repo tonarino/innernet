@@ -235,7 +235,7 @@ pub fn fetch(
     };
 
     // Apply the local peer endpoint overrides.
-    for (peer_ip, endpoint_override) in store.local_endpoint_overrides() {
+    for (peer_ip, endpoint_override) in store.peer_endpoint_overrides() {
         log::debug!(
             "overriding peer IP {} with endpoint {}",
             peer_ip,
