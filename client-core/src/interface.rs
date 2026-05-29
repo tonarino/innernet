@@ -242,8 +242,8 @@ pub fn fetch(
             endpoint_override
         );
 
-        if let Some(peer) = peers.iter_mut().find(|p| p.ip == peer_ip) {
-            peer.endpoint = Some(endpoint_override);
+        if let Some(peer) = peers.iter_mut().find(|p| p.ip == *peer_ip) {
+            peer.endpoint = Some(endpoint_override.clone());
         }
     }
 
