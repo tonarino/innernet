@@ -16,7 +16,8 @@ use innernet_shared::{
     AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
     DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, Error, HostsOpts,
     InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
-    OverrideEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts, ServerCapabilities, WrappedIoError,
+    OverrideEndpointOpts, OverridePeerEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts,
+    ServerCapabilities, WrappedIoError,
 };
 use std::{
     io,
@@ -25,7 +26,7 @@ use std::{
     time::Duration,
 };
 use util::{human_duration, human_size};
-use wireguard_control::{Device, InterfaceName, PeerInfo};
+use wireguard_control::{Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
 
 mod util;
 
@@ -250,6 +251,14 @@ enum Command {
 
         #[clap(flatten)]
         sub_opts: OverrideEndpointOpts,
+    },
+
+    /// Override the endpoint you use to connect to a particular peer
+    OverridePeerEndpoint {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: OverridePeerEndpointOpts,
     },
 
     /// Generate shell completion scripts
@@ -534,7 +543,7 @@ fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), 
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0);
+        print_tree(&cidr_tree, &[], 0, &data_store);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
@@ -781,6 +790,52 @@ fn override_endpoint(
     Ok(())
 }
 
+fn override_peer_endpoint(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: OverridePeerEndpointOpts,
+) -> Result<(), Error> {
+    let mut data_store = DataStore::open(&opts.data_dir, interface)?;
+
+    if let Some((peer, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
+        data_store.peers(),
+        data_store.peer_endpoint_overrides(),
+        &sub_opts,
+    )? {
+        if let Some(endpoint) = endpoint_opt {
+            log::info!(
+                "overriding endpoint for peer IP {} with endpoint {}",
+                peer.ip,
+                endpoint
+            );
+            data_store.override_endpoint_for_peer(peer.ip, endpoint.clone());
+
+            let socket_addr = endpoint.resolve()?;
+            let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();
+
+            DeviceUpdate::new()
+                .add_peer(PeerConfigBuilder::new(&peer_pub_key).set_endpoint(socket_addr))
+                .apply(interface, opts.network.backend)?;
+        } else {
+            log::info!(
+                "unsetting endpoint override for peer IP {} with endpoint",
+                peer.ip
+            );
+            data_store.unset_endpoint_for_peer(peer.ip);
+
+            log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
+        }
+
+        // TODO(bschwind) - Should we do NAT traversal too?
+
+        data_store.write()?;
+    } else {
+        log::info!("exiting without overriding peer endpoint");
+    }
+
+    Ok(())
+}
+
 fn prompt_override_endpoint(
     server_capabilities: &ServerCapabilities,
     args: &OverrideEndpointOpts,
@@ -910,17 +965,17 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peer_states, 1);
+            print_tree(&cidr_tree, &peer_states, 1, &store);
         } else {
             for peer_state in peer_states {
-                print_peer(&peer_state, short, 1);
+                print_peer(&peer_state, short, 1, &store);
             }
         }
     }
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
+fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize, data_store: &DataStore) {
     println_pad!(
         level * 2,
         "{} {}",
@@ -932,10 +987,10 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     children.sort();
     children
         .iter()
-        .for_each(|child| print_tree(child, peers, level + 1));
+        .for_each(|child| print_tree(child, peers, level + 1, data_store));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level);
+        print_peer(peer, true, level, data_store);
     }
 }
 
@@ -963,19 +1018,26 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_peer(peer: &PeerState, short: bool, level: usize) {
+fn print_peer(peer: &PeerState, short: bool, level: usize, data_store: &DataStore) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
+
+    let endpoint_has_local_override = data_store.endpoint_override_for_peer(peer.ip).is_some();
+    let endpoint_override_msg = if endpoint_has_local_override {
+        " (endpoint overridden locally)"
+    } else {
+        ""
+    };
+
     if short {
         let connected = info
             .map(|info| info.is_recently_connected())
             .unwrap_or_default();
-
         let is_you = info.is_none();
 
         println_pad!(
             pad,
-            "| {} {}: {} ({}{}…)",
+            "| {} {}: {} ({}{}…){endpoint_override_msg}",
             if connected || is_you {
                 "◉".bold()
             } else {
@@ -997,7 +1059,11 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
         if let Some(info) = info {
             if let Some(endpoint) = info.config.endpoint {
-                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
+                println_pad!(
+                    pad,
+                    "  {}: {endpoint}{endpoint_override_msg}",
+                    "endpoint".bold(),
+                );
             }
             if let Some(last_handshake) = info.stats.last_handshake_time {
                 let duration = last_handshake.elapsed().expect("horrible clock problem");
@@ -1136,6 +1202,12 @@ fn run(opts: &Opts) -> Result<(), Error> {
             sub_opts,
         } => {
             override_endpoint(&interface, opts, sub_opts)?;
+        },
+        Command::OverridePeerEndpoint {
+            interface,
+            sub_opts,
+        } => {
+            override_peer_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
             use clap::CommandFactory;

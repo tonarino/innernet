@@ -206,7 +206,8 @@ pub fn fetch(
     );
     let mut store = DataStore::open_or_create(data_dir, interface)?;
     let rest_client = RestClient::new(&config.server);
-    let (State { peers, cidrs }, server_is_reachable) = match rest_client.http("GET", "/user/state")
+    let (State { mut peers, cidrs }, server_is_reachable) = match rest_client
+        .http("GET", "/user/state")
     {
         Ok(state) => (state, true),
         Err(e) => {
@@ -232,6 +233,19 @@ pub fn fetch(
             }
         },
     };
+
+    // Apply the local peer endpoint overrides.
+    for (peer_ip, endpoint_override) in store.peer_endpoint_overrides() {
+        log::debug!(
+            "overriding peer IP {} with endpoint {}",
+            peer_ip,
+            endpoint_override
+        );
+
+        if let Some(peer) = peers.iter_mut().find(|p| p.ip == *peer_ip) {
+            peer.endpoint = Some(endpoint_override.clone());
+        }
+    }
 
     let device = Device::get(interface, network_opts.backend)?;
     let modifications = device.diff(&peers);

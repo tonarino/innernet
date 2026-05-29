@@ -1,8 +1,8 @@
 use crate::{
     interface_config::InterfaceInfo, peer::NewPeerInfo, AddCidrOpts, AddDeleteAssociationOpts,
     AddPeerOpts, Association, Cidr, CidrContents, CidrTree, DeleteCidrOpts, EnableDisablePeerOpts,
-    Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, Peer, PeerContents, RenameCidrOpts,
-    RenamePeerOpts,
+    Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, OverridePeerEndpointOpts, Peer,
+    PeerContents, RenameCidrOpts, RenamePeerOpts,
 };
 use anyhow::anyhow;
 use colored::*;
@@ -10,6 +10,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use innernet_publicip::Preference;
 use once_cell::sync::Lazy;
 use std::{
+    collections::BTreeMap,
     fmt::{Debug, Display},
     io,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -75,7 +76,7 @@ where
 
 /// Bring up a prompt to create a new CIDR. Returns the peer request.
 pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrContents>, Error> {
-    let parent_cidr = if let Some(ref parent_name) = request.parent {
+    let parent_cidr = if let Some(parent_name) = &request.parent {
         cidrs
             .iter()
             .find(|cidr| &cidr.name == parent_name)
@@ -84,7 +85,7 @@ pub fn add_cidr(cidrs: &[Cidr], request: &AddCidrOpts) -> Result<Option<CidrCont
         choose_cidr(cidrs, "Parent CIDR")?
     };
 
-    let name = if let Some(ref name) = request.name {
+    let name = if let Some(name) = &request.name {
         name.clone()
     } else {
         input("Name", Prefill::None)?
@@ -116,7 +117,7 @@ pub fn rename_cidr(
     cidrs: &[Cidr],
     args: &RenameCidrOpts,
 ) -> Result<Option<(CidrContents, String)>, Error> {
-    let old_cidr = if let Some(ref name) = args.name {
+    let old_cidr = if let Some(name) = &args.name {
         cidrs
             .iter()
             .find(|c| &c.name == name)
@@ -130,7 +131,7 @@ pub fn rename_cidr(
         cidrs[cidr_index].clone()
     };
     let old_name = old_cidr.name.clone();
-    let new_name = if let Some(ref name) = args.new_name {
+    let new_name = if let Some(name) = &args.new_name {
         name.clone()
     } else {
         input("New Name", Prefill::None)?
@@ -165,7 +166,7 @@ pub fn delete_cidr(cidrs: &[Cidr], peers: &[Peer], request: &DeleteCidrOpts) -> 
             )
         })
         .collect();
-    let cidr = if let Some(ref name) = request.name {
+    let cidr = if let Some(name) = &request.name {
         cidrs
             .iter()
             .find(|cidr| &cidr.name == name)
@@ -310,7 +311,7 @@ pub fn gather_new_peer_info(
 ) -> Result<Option<(NewPeerInfo, String)>, Error> {
     let leaves = cidr_tree.leaves();
 
-    let cidr = if let Some(ref parent_name) = args.cidr {
+    let cidr = if let Some(parent_name) = &args.cidr {
         leaves
             .iter()
             .find(|cidr| &cidr.name == parent_name)
@@ -338,7 +339,7 @@ pub fn gather_new_peer_info(
         input("IP", Prefill::Default(available_ip))?
     };
 
-    let name = if let Some(ref name) = args.name {
+    let name = if let Some(name) = &args.name {
         name.clone()
     } else {
         input("Name", Prefill::None)?
@@ -350,7 +351,7 @@ pub fn gather_new_peer_info(
         confirm(&format!("Make {name} an admin?"))?
     };
 
-    let invite_expires = if let Some(ref invite_expires) = args.invite_expires {
+    let invite_expires = if let Some(invite_expires) = &args.invite_expires {
         invite_expires.clone()
     } else {
         input(
@@ -359,7 +360,7 @@ pub fn gather_new_peer_info(
         )?
     };
 
-    let invite_save_path = if let Some(ref location) = args.save_config {
+    let invite_save_path = if let Some(location) = &args.save_config {
         location.clone()
     } else {
         input(
@@ -392,7 +393,7 @@ pub fn rename_peer(
         .iter()
         .filter(|p| &*p.name != "innernet-server")
         .collect::<Vec<_>>();
-    let old_peer = if let Some(ref name) = args.name {
+    let old_peer = if let Some(name) = &args.name {
         eligible_peers
             .into_iter()
             .find(|p| &p.name == name)
@@ -409,7 +410,7 @@ pub fn rename_peer(
         eligible_peers[peer_index].clone()
     };
     let old_name = old_peer.name.clone();
-    let new_name = if let Some(ref name) = args.new_name {
+    let new_name = if let Some(name) = &args.new_name {
         name.clone()
     } else {
         input("New Name", Prefill::None)?
@@ -445,7 +446,7 @@ pub fn enable_or_disable_peer(
         .filter(|peer| enable && peer.is_disabled || !enable && !peer.is_disabled)
         .collect();
 
-    let peer = if let Some(ref name) = args.name {
+    let peer = if let Some(name) = &args.name {
         enabled_peers
             .into_iter()
             .find(|p| &p.name == name)
@@ -566,4 +567,79 @@ pub fn input_external_endpoint(
     )?;
 
     Ok(endpoint)
+}
+
+/// Bring up a prompt to override the endpoint for an existing peer.
+/// Returns the peer and desired endpoint.
+pub fn override_peer_endpoint_prompt(
+    peers: &[Peer],
+    peer_endpoint_overrides: &BTreeMap<IpAddr, Endpoint>,
+    args: &OverridePeerEndpointOpts,
+) -> Result<Option<(Peer, Option<Endpoint>)>, Error> {
+    let eligible_peers = peers
+        .iter()
+        .filter(|p| &*p.name != "innernet-server")
+        // If we're unsetting, filter eligible_peers to just be peers that have
+        // an override already set.
+        .filter(|p| !args.unset || peer_endpoint_overrides.contains_key(&p.ip))
+        .collect::<Vec<_>>();
+
+    if args.unset && eligible_peers.is_empty() {
+        return Err(anyhow!("No peers have an override endpoint set"));
+    }
+
+    let peer = if let Some(name) = &args.name {
+        eligible_peers
+            .into_iter()
+            .find(|p| &p.name == name)
+            .ok_or_else(|| {
+                anyhow!(
+                    "Peer '{}' does not exist or does not have an override set",
+                    name
+                )
+            })?
+            .clone()
+    } else {
+        let message = if args.unset {
+            "Peer endpoint override to unset"
+        } else {
+            "Peer endpoint to override"
+        };
+
+        let (peer_index, _) = select(
+            message,
+            &eligible_peers
+                .iter()
+                .map(|ep| ep.name.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        eligible_peers[peer_index].clone()
+    };
+
+    let endpoint: Option<Endpoint> = if args.unset {
+        None
+    } else {
+        Some(input("Endpoint", Prefill::None)?)
+    };
+
+    let confirm_msg = if let Some(endpoint) = &endpoint {
+        &format!(
+            "Override endpoint for peer {} ({}) to {}?",
+            peer.name.yellow(),
+            peer.ip,
+            endpoint,
+        )
+    } else {
+        &format!(
+            "Unset endpoint override for peer {} ({})?",
+            peer.name.yellow(),
+            peer.ip,
+        )
+    };
+
+    Ok(if args.yes || confirm(confirm_msg)? {
+        Some((peer, endpoint))
+    } else {
+        None
+    })
 }

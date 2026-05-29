@@ -1,9 +1,13 @@
 use anyhow::{bail, Error};
-use innernet_shared::{chmod, ensure_dirs_exist, Cidr, IoErrorContext, Peer, WrappedIoError};
+use innernet_shared::{
+    chmod, ensure_dirs_exist, Cidr, Endpoint, IoErrorContext, Peer, WrappedIoError,
+};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     fs::{File, OpenOptions},
     io::{self, Read, Seek, Write},
+    net::IpAddr,
     path::{Path, PathBuf},
 };
 use wireguard_control::InterfaceName;
@@ -21,7 +25,14 @@ pub struct DataStore {
 #[serde(tag = "version")]
 enum Contents {
     #[serde(rename = "1")]
-    V1 { peers: Vec<Peer>, cidrs: Vec<Cidr> },
+    V1 {
+        peers: Vec<Peer>,
+        cidrs: Vec<Cidr>,
+
+        /// This field was added in innernet 1.8, but the change is backwards-compatible, we thus kept it in v1
+        #[serde(default)]
+        peer_endpoint_overrides: BTreeMap<IpAddr, Endpoint>,
+    },
 }
 
 impl DataStore {
@@ -47,6 +58,7 @@ impl DataStore {
         let contents = serde_json::from_str(&json).unwrap_or_else(|_| Contents::V1 {
             peers: vec![],
             cidrs: vec![],
+            peer_endpoint_overrides: BTreeMap::new(),
         });
 
         Ok(Self { file, contents })
@@ -140,13 +152,48 @@ impl DataStore {
         }
     }
 
+    pub fn peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
+        self.inner_peer_endpoint_overrides()
+    }
+
+    pub fn endpoint_override_for_peer(&self, peer_ip: IpAddr) -> Option<Endpoint> {
+        self.inner_peer_endpoint_overrides().get(&peer_ip).cloned()
+    }
+
+    pub fn override_endpoint_for_peer(&mut self, peer_ip: IpAddr, endpoint: Endpoint) {
+        self.inner_peer_endpoint_overrides_mut()
+            .insert(peer_ip, endpoint);
+    }
+
+    pub fn unset_endpoint_for_peer(&mut self, peer_ip: IpAddr) {
+        self.inner_peer_endpoint_overrides_mut().remove(&peer_ip);
+    }
+
+    fn inner_peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
+        match &self.contents {
+            Contents::V1 {
+                peer_endpoint_overrides,
+                ..
+            } => peer_endpoint_overrides,
+        }
+    }
+
+    fn inner_peer_endpoint_overrides_mut(&mut self) -> &mut BTreeMap<IpAddr, Endpoint> {
+        match &mut self.contents {
+            Contents::V1 {
+                peer_endpoint_overrides,
+                ..
+            } => peer_endpoint_overrides,
+        }
+    }
+
     fn set_cidrs(&mut self, new_cidrs: Vec<Cidr>) {
         match &mut self.contents {
             Contents::V1 { ref mut cidrs, .. } => *cidrs = new_cidrs,
         }
     }
 
-    fn write(&mut self) -> Result<(), io::Error> {
+    pub fn write(&mut self) -> Result<(), io::Error> {
         self.file.rewind()?;
         self.file.set_len(0)?;
         self.file
