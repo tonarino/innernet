@@ -26,7 +26,7 @@ use std::{
     time::Duration,
 };
 use util::{human_duration, human_size};
-use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
+use wireguard_control::{Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
 
 mod util;
 
@@ -798,7 +798,7 @@ fn override_peer_endpoint(
 
     let mut data_store = DataStore::open(&opts.data_dir, interface)?;
 
-    if let Some((peer_ip, peer_pub_key, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
+    if let Some((peer, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
         data_store.peers(),
         data_store.local_endpoint_overrides(),
         &sub_opts,
@@ -806,12 +806,13 @@ fn override_peer_endpoint(
         if let Some(endpoint) = endpoint_opt {
             log::info!(
                 "overriding endpoint for peer IP {} with endpoint {}",
-                peer_ip,
+                peer.ip,
                 endpoint
             );
-            data_store.override_endpoint_for_peer(peer_ip, endpoint.clone());
+            data_store.override_endpoint_for_peer(peer.ip, endpoint.clone());
 
             let socket_addr = endpoint.resolve()?;
+            let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();
 
             DeviceUpdate::new()
                 .add_peer(PeerConfigBuilder::new(&peer_pub_key).set_endpoint(socket_addr))
@@ -819,9 +820,9 @@ fn override_peer_endpoint(
         } else {
             log::info!(
                 "unsetting endpoint override for peer IP {} with endpoint",
-                peer_ip
+                peer.ip
             );
-            data_store.unset_endpoint_for_peer(peer_ip);
+            data_store.unset_endpoint_for_peer(peer.ip);
         }
 
         // TODO(bschwind) - Should we do NAT traversal too?
