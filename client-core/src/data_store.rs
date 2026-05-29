@@ -4,7 +4,7 @@ use innernet_shared::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fs::{File, OpenOptions},
     io::{self, Read, Seek, Write},
     net::IpAddr,
@@ -28,8 +28,10 @@ enum Contents {
     V1 {
         peers: Vec<Peer>,
         cidrs: Vec<Cidr>,
+
+        /// This field was added in innernet 1.8, but the change is backwards-compatible, we thus kept it in v1
         #[serde(default)]
-        local_endpoint_overrides: HashMap<IpAddr, Endpoint>,
+        peer_endpoint_overrides: BTreeMap<IpAddr, Endpoint>,
     },
 }
 
@@ -56,7 +58,7 @@ impl DataStore {
         let contents = serde_json::from_str(&json).unwrap_or_else(|_| Contents::V1 {
             peers: vec![],
             cidrs: vec![],
-            local_endpoint_overrides: HashMap::new(),
+            peer_endpoint_overrides: BTreeMap::new(),
         });
 
         Ok(Self { file, contents })
@@ -150,43 +152,38 @@ impl DataStore {
         }
     }
 
-    pub fn local_endpoint_overrides(&self) -> &HashMap<IpAddr, Endpoint> {
-        match &self.contents {
-            Contents::V1 {
-                local_endpoint_overrides,
-                ..
-            } => local_endpoint_overrides,
-        }
+    pub fn peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
+        self.inner_peer_endpoint_overrides()
     }
 
     pub fn endpoint_override_for_peer(&self, peer_ip: IpAddr) -> Option<Endpoint> {
-        match &self.contents {
-            Contents::V1 {
-                local_endpoint_overrides,
-                ..
-            } => local_endpoint_overrides.get(&peer_ip).cloned(),
-        }
+        self.inner_peer_endpoint_overrides().get(&peer_ip).cloned()
     }
 
     pub fn override_endpoint_for_peer(&mut self, peer_ip: IpAddr, endpoint: Endpoint) {
-        match &mut self.contents {
-            Contents::V1 {
-                local_endpoint_overrides,
-                ..
-            } => {
-                local_endpoint_overrides.insert(peer_ip, endpoint);
-            },
-        }
+        self.inner_peer_endpoint_overrides_mut()
+            .insert(peer_ip, endpoint);
     }
 
     pub fn unset_endpoint_for_peer(&mut self, peer_ip: IpAddr) {
+        self.inner_peer_endpoint_overrides_mut().remove(&peer_ip);
+    }
+
+    fn inner_peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
+        match &self.contents {
+            Contents::V1 {
+                peer_endpoint_overrides,
+                ..
+            } => peer_endpoint_overrides,
+        }
+    }
+
+    fn inner_peer_endpoint_overrides_mut(&mut self) -> &mut BTreeMap<IpAddr, Endpoint> {
         match &mut self.contents {
             Contents::V1 {
-                local_endpoint_overrides,
+                peer_endpoint_overrides,
                 ..
-            } => {
-                local_endpoint_overrides.remove(&peer_ip);
-            },
+            } => peer_endpoint_overrides,
         }
     }
 
