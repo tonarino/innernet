@@ -798,9 +798,11 @@ fn override_peer_endpoint(
 
     let mut data_store = DataStore::open(&opts.data_dir, interface)?;
 
-    if let Some((peer_ip, peer_pub_key, endpoint_opt)) =
-        prompts::override_peer_endpoint_prompt(data_store.peers(), &sub_opts)?
-    {
+    if let Some((peer_ip, peer_pub_key, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
+        data_store.peers(),
+        data_store.local_endpoint_overrides(),
+        &sub_opts,
+    )? {
         if let Some(endpoint) = endpoint_opt {
             log::info!(
                 "overriding endpoint for peer IP {} with endpoint {}",

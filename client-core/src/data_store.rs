@@ -150,14 +150,12 @@ impl DataStore {
         }
     }
 
-    pub fn local_endpoint_overrides(&self) -> impl Iterator<Item = (IpAddr, Endpoint)> + '_ {
+    pub fn local_endpoint_overrides(&self) -> &HashMap<IpAddr, Endpoint> {
         match &self.contents {
             Contents::V1 {
                 local_endpoint_overrides,
                 ..
-            } => local_endpoint_overrides
-                .iter()
-                .map(|(ip, socket)| (*ip, socket.clone())),
+            } => local_endpoint_overrides,
         }
     }
 

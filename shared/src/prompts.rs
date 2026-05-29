@@ -10,6 +10,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use innernet_publicip::Preference;
 use once_cell::sync::Lazy;
 use std::{
+    collections::HashMap,
     fmt::{Debug, Display},
     io,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -573,18 +574,31 @@ pub fn input_external_endpoint(
 /// Returns the peer IP, peer public key, and desired endpoint.
 pub fn override_peer_endpoint_prompt(
     peers: &[Peer],
+    peer_endpoint_overrides: &HashMap<IpAddr, Endpoint>,
     args: &OverridePeerEndpointOpts,
 ) -> Result<Option<(IpAddr, Key, Option<Endpoint>)>, Error> {
     let eligible_peers = peers
         .iter()
         .filter(|p| &*p.name != "innernet-server")
+        // If we're unsetting, filter eligible_peers to just be peers that have
+        // an override already set.
+        .filter(|p| !args.unset || peer_endpoint_overrides.contains_key(&p.ip))
         .collect::<Vec<_>>();
+
+    if args.unset && eligible_peers.is_empty() {
+        return Err(anyhow!("No peers have an override endpoint set"));
+    }
 
     let peer = if let Some(ref name) = args.name {
         eligible_peers
             .into_iter()
             .find(|p| &p.name == name)
-            .ok_or_else(|| anyhow!("Peer '{}' does not exist", name))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Peer '{}' does not exist or does not have an override set",
+                    name
+                )
+            })?
             .clone()
     } else {
         let message = if args.unset {
@@ -592,9 +606,6 @@ pub fn override_peer_endpoint_prompt(
         } else {
             "Peer endpoint to override"
         };
-
-        // TODO(bschwind) - If we're unsetting, filter eligible_peers to just
-        //                  be peers that have an override already set.
 
         let (peer_index, _) = select(
             message,
