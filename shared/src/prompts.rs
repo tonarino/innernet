@@ -16,7 +16,6 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
 };
-use wireguard_control::Key;
 
 pub static THEME: Lazy<ColorfulTheme> = Lazy::new(ColorfulTheme::default);
 
@@ -576,7 +575,7 @@ pub fn override_peer_endpoint_prompt(
     peers: &[Peer],
     peer_endpoint_overrides: &HashMap<IpAddr, Endpoint>,
     args: &OverridePeerEndpointOpts,
-) -> Result<Option<(IpAddr, Key, Option<Endpoint>)>, Error> {
+) -> Result<Option<(Peer, Option<Endpoint>)>, Error> {
     let eligible_peers = peers
         .iter()
         .filter(|p| &*p.name != "innernet-server")
@@ -639,11 +638,7 @@ pub fn override_peer_endpoint_prompt(
     };
 
     Ok(if args.yes || confirm(confirm_msg)? {
-        Some((
-            peer.ip,
-            Key::from_base64(&peer.public_key).unwrap(),
-            endpoint,
-        ))
+        Some((peer, endpoint))
     } else {
         None
     })
