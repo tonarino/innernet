@@ -16,7 +16,8 @@ use innernet_shared::{
     AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
     DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, Error, HostsOpts,
     InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
-    OverrideEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts, ServerCapabilities, WrappedIoError,
+    OverrideEndpointOpts, OverridePeerEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts,
+    ServerCapabilities, WrappedIoError,
 };
 use std::{
     io,
@@ -25,7 +26,7 @@ use std::{
     time::Duration,
 };
 use util::{human_duration, human_size};
-use wireguard_control::{Device, InterfaceName, PeerInfo};
+use wireguard_control::{Device, DeviceUpdate, InterfaceName, PeerConfigBuilder, PeerInfo};
 
 mod util;
 
@@ -250,6 +251,13 @@ enum Command {
 
         #[clap(flatten)]
         sub_opts: OverrideEndpointOpts,
+    },
+
+    OverridePeerEndpoint {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: OverridePeerEndpointOpts,
     },
 
     /// Generate shell completion scripts
@@ -781,6 +789,49 @@ fn override_endpoint(
     Ok(())
 }
 
+fn override_peer_endpoint(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: OverridePeerEndpointOpts,
+) -> Result<(), Error> {
+    let _config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+
+    let mut data_store = DataStore::open(&opts.data_dir, interface)?;
+
+    if let Some((peer_ip, peer_pub_key, endpoint_opt)) =
+        prompts::override_peer_endpoint_prompt(data_store.peers(), &sub_opts)?
+    {
+        if let Some(endpoint) = endpoint_opt {
+            log::info!(
+                "overriding endpoint for peer IP {} with endpoint {}",
+                peer_ip,
+                endpoint
+            );
+            data_store.override_endpoint_for_peer(peer_ip, endpoint.clone());
+
+            let socket_addr = endpoint.resolve()?;
+
+            DeviceUpdate::new()
+                .add_peer(PeerConfigBuilder::new(&peer_pub_key).set_endpoint(socket_addr))
+                .apply(interface, opts.network.backend)?;
+        } else {
+            log::info!(
+                "unsetting endpoint override for peer IP {} with endpoint",
+                peer_ip
+            );
+            data_store.unset_endpoint_for_peer(peer_ip);
+        }
+
+        // TODO(bschwind) - Should we do NAT traversal too?
+
+        data_store.write()?;
+    } else {
+        log::info!("exiting without overriding peer endpoint");
+    }
+
+    Ok(())
+}
+
 fn prompt_override_endpoint(
     server_capabilities: &ServerCapabilities,
     args: &OverrideEndpointOpts,
@@ -1162,6 +1213,12 @@ fn run(opts: &Opts) -> Result<(), Error> {
             sub_opts,
         } => {
             override_endpoint(&interface, opts, sub_opts)?;
+        },
+        Command::OverridePeerEndpoint {
+            interface,
+            sub_opts,
+        } => {
+            override_peer_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
             use clap::CommandFactory;
