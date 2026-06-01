@@ -826,8 +826,6 @@ fn override_peer_endpoint(
             log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
         }
 
-        // TODO(bschwind) - Should we do NAT traversal too?
-
         data_store.write()?;
     } else {
         log::info!("exiting without overriding peer endpoint");
