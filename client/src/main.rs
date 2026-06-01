@@ -808,7 +808,7 @@ fn override_peer_endpoint(
                 peer.ip,
                 endpoint
             );
-            data_store.override_endpoint_for_peer(peer.ip, endpoint.clone());
+            data_store.set_endpoint_override_for_peer(peer.ip, endpoint.clone());
 
             let socket_addr = endpoint.resolve()?;
             let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();

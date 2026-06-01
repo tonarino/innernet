@@ -160,12 +160,12 @@ impl DataStore {
         self.inner_peer_endpoint_overrides().get(&peer_ip).cloned()
     }
 
-    pub fn override_endpoint_for_peer(&mut self, peer_ip: IpAddr, endpoint: Endpoint) {
+    pub fn set_endpoint_override_for_peer(&mut self, peer_ip: IpAddr, endpoint: Endpoint) {
         self.inner_peer_endpoint_overrides_mut()
             .insert(peer_ip, endpoint);
     }
 
-    pub fn unset_endpoint_for_peer(&mut self, peer_ip: IpAddr) {
+    pub fn unset_endpoint_override_for_peer(&mut self, peer_ip: IpAddr) {
         self.inner_peer_endpoint_overrides_mut().remove(&peer_ip);
     }
 
