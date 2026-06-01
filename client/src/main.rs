@@ -420,7 +420,7 @@ fn up(
 
 fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Error> {
     let config = InterfaceConfig::get_path(&opts.config_dir, interface);
-    let data = DataStore::get_path(&opts.data_dir, interface);
+    let data = DataStore::get_peers_and_cidrs_path(&opts.data_dir, interface);
 
     if !config.exists() && !data.exists() {
         bail!(
@@ -445,10 +445,7 @@ fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Er
             .with_path(&config)
             .map_err(|e| log::warn!("{}", e.to_string().yellow()))
             .ok();
-        std::fs::remove_file(&data)
-            .with_path(&data)
-            .map_err(|e| log::warn!("{}", e.to_string().yellow()))
-            .ok();
+        DataStore::remove_files(&opts.data_dir, interface);
         log::info!(
             "network {} is uninstalled.",
             interface.as_str_lossy().yellow()
@@ -821,12 +818,12 @@ fn override_peer_endpoint(
                 "unsetting endpoint override for peer IP {} with endpoint",
                 peer.ip
             );
-            data_store.unset_endpoint_for_peer(peer.ip);
+            data_store.unset_endpoint_override_for_peer(peer.ip);
 
             log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
         }
 
-        data_store.write()?;
+        data_store.write_peer_endpoint_overrides()?;
     } else {
         log::info!("exiting without overriding peer endpoint");
     }

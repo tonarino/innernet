@@ -1,8 +1,9 @@
 use anyhow::{bail, Error};
+use colored::Colorize;
 use innernet_shared::{
     chmod, ensure_dirs_exist, Cidr, Endpoint, IoErrorContext, Peer, WrappedIoError,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs::{File, OpenOptions},
@@ -12,30 +13,13 @@ use std::{
 };
 use wireguard_control::InterfaceName;
 
-/// File-backed storage of [`Peer`]s and [`Cidr`]s.
-///
-/// The file is stored at [`Self::get_path()`].
 #[derive(Debug)]
-pub struct DataStore {
+struct FileBackedData<T> {
     file: File,
-    contents: Contents,
+    contents: T,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "version")]
-enum Contents {
-    #[serde(rename = "1")]
-    V1 {
-        peers: Vec<Peer>,
-        cidrs: Vec<Cidr>,
-
-        /// This field was added in innernet 1.8, but the change is backwards-compatible, we thus kept it in v1
-        #[serde(default)]
-        peer_endpoint_overrides: BTreeMap<IpAddr, Endpoint>,
-    },
-}
-
-impl DataStore {
+impl<T: Default + DeserializeOwned> FileBackedData<T> {
     fn open_with_path<P: AsRef<Path>>(path: P, create: bool) -> Result<Self, WrappedIoError> {
         let path = path.as_ref();
         let is_existing_file = path.exists();
@@ -55,18 +39,75 @@ impl DataStore {
 
         let mut json = String::new();
         file.read_to_string(&mut json).with_path(path)?;
-        let contents = serde_json::from_str(&json).unwrap_or_else(|_| Contents::V1 {
-            peers: vec![],
-            cidrs: vec![],
-            peer_endpoint_overrides: BTreeMap::new(),
-        });
+        let contents = serde_json::from_str(&json).unwrap_or_else(|_| T::default());
 
         Ok(Self { file, contents })
     }
+}
 
+#[derive(Debug)]
+pub struct DataStore {
+    /// File-backed storage of [`Peer`]s and [`Cidr`]s.
+    ///
+    /// The file is stored at [`Self::get_peers_and_cidrs_path()`].
+    peers_and_cidrs: FileBackedData<PeersAndCidrs>,
+
+    /// File-backed storage of [`PeerEndpointOverrides`]s.
+    ///
+    /// The file is stored at [`Self::get_peer_endpoint_overrides_path()`].
+    peer_endpoint_overrides: FileBackedData<PeerEndpointOverrides>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "version")]
+enum PeersAndCidrs {
+    #[serde(rename = "1")]
+    V1 { peers: Vec<Peer>, cidrs: Vec<Cidr> },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "version")]
+enum PeerEndpointOverrides {
+    #[serde(rename = "1")]
+    V1 {
+        /// This field was added in innernet 1.8, but the change is
+        /// backwards-compatible, we thus kept it in v1
+        #[serde(default)]
+        peer_endpoint_overrides: BTreeMap<IpAddr, Endpoint>,
+    },
+}
+
+impl Default for PeersAndCidrs {
+    fn default() -> Self {
+        Self::V1 {
+            peers: vec![],
+            cidrs: vec![],
+        }
+    }
+}
+
+impl Default for PeerEndpointOverrides {
+    fn default() -> Self {
+        Self::V1 {
+            peer_endpoint_overrides: BTreeMap::new(),
+        }
+    }
+}
+
+impl DataStore {
     /// Produce the path "`data_dir`/`interface`.json".
-    pub fn get_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
+    pub fn get_peers_and_cidrs_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
         data_dir.join(interface.to_string()).with_extension("json")
+    }
+
+    /// Produce the path "`data_dir`/`interface`.peer-endpoint-overrides.json".
+    pub fn get_peer_endpoint_overrides_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
+        let file_name = format!("{interface}.peer-endpoint-overrides");
+        data_dir.join(file_name).with_extension("json")
+    }
+
+    pub fn peers_and_cidrs_file_exists(data_dir: &Path, interface: &InterfaceName) -> bool {
+        Self::get_peers_and_cidrs_path(data_dir, interface).exists()
     }
 
     fn _open(
@@ -75,7 +116,19 @@ impl DataStore {
         create: bool,
     ) -> Result<Self, WrappedIoError> {
         ensure_dirs_exist(&[data_dir])?;
-        Self::open_with_path(Self::get_path(data_dir, interface), create)
+        let peers_and_cidrs = FileBackedData::open_with_path(
+            Self::get_peers_and_cidrs_path(data_dir, interface),
+            create,
+        )?;
+        let peer_endpoint_overrides = FileBackedData::open_with_path(
+            Self::get_peer_endpoint_overrides_path(data_dir, interface),
+            create,
+        )?;
+
+        Ok(Self {
+            peers_and_cidrs,
+            peer_endpoint_overrides,
+        })
     }
 
     /// Open the data store residing at "`data_dir`/`interface`.json".
@@ -106,14 +159,14 @@ impl DataStore {
     ) -> Result<(), Error> {
         self.update_peers(new_peers)?;
         self.set_cidrs(new_cidrs);
-        self.write()?;
+        self.write_peers_and_cidrs()?;
 
         Ok(())
     }
 
     fn update_peers(&mut self, new_peers: &[Peer]) -> Result<(), Error> {
-        let peers = match &mut self.contents {
-            Contents::V1 { ref mut peers, .. } => peers,
+        let peers = match &mut self.peers_and_cidrs.contents {
+            PeersAndCidrs::V1 { ref mut peers, .. } => peers,
         };
 
         for new_peer in new_peers.iter() {
@@ -141,15 +194,30 @@ impl DataStore {
     }
 
     pub fn peers(&self) -> &[Peer] {
-        match &self.contents {
-            Contents::V1 { peers, .. } => peers,
+        match &self.peers_and_cidrs.contents {
+            PeersAndCidrs::V1 { peers, .. } => peers,
         }
     }
 
     pub fn cidrs(&self) -> &[Cidr] {
-        match &self.contents {
-            Contents::V1 { cidrs, .. } => cidrs,
+        match &self.peers_and_cidrs.contents {
+            PeersAndCidrs::V1 { cidrs, .. } => cidrs,
         }
+    }
+
+    fn set_cidrs(&mut self, new_cidrs: Vec<Cidr>) {
+        match &mut self.peers_and_cidrs.contents {
+            PeersAndCidrs::V1 { ref mut cidrs, .. } => *cidrs = new_cidrs,
+        }
+    }
+
+    fn write_peers_and_cidrs(&mut self) -> Result<(), io::Error> {
+        self.peers_and_cidrs.file.rewind()?;
+        self.peers_and_cidrs.file.set_len(0)?;
+        self.peers_and_cidrs
+            .file
+            .write_all(serde_json::to_string_pretty(&self.peers_and_cidrs.contents)?.as_bytes())?;
+        Ok(())
     }
 
     pub fn peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
@@ -170,8 +238,8 @@ impl DataStore {
     }
 
     fn inner_peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
-        match &self.contents {
-            Contents::V1 {
+        match &self.peer_endpoint_overrides.contents {
+            PeerEndpointOverrides::V1 {
                 peer_endpoint_overrides,
                 ..
             } => peer_endpoint_overrides,
@@ -179,26 +247,36 @@ impl DataStore {
     }
 
     fn inner_peer_endpoint_overrides_mut(&mut self) -> &mut BTreeMap<IpAddr, Endpoint> {
-        match &mut self.contents {
-            Contents::V1 {
+        match &mut self.peer_endpoint_overrides.contents {
+            PeerEndpointOverrides::V1 {
                 peer_endpoint_overrides,
                 ..
             } => peer_endpoint_overrides,
         }
     }
 
-    fn set_cidrs(&mut self, new_cidrs: Vec<Cidr>) {
-        match &mut self.contents {
-            Contents::V1 { ref mut cidrs, .. } => *cidrs = new_cidrs,
-        }
+    pub fn write_peer_endpoint_overrides(&mut self) -> Result<(), io::Error> {
+        self.peer_endpoint_overrides.file.rewind()?;
+        self.peer_endpoint_overrides.file.set_len(0)?;
+        self.peer_endpoint_overrides.file.write_all(
+            serde_json::to_string_pretty(&self.peer_endpoint_overrides.contents)?.as_bytes(),
+        )?;
+        Ok(())
     }
 
-    pub fn write(&mut self) -> Result<(), io::Error> {
-        self.file.rewind()?;
-        self.file.set_len(0)?;
-        self.file
-            .write_all(serde_json::to_string_pretty(&self.contents)?.as_bytes())?;
-        Ok(())
+    pub fn remove_files(data_dir: &Path, interface: &InterfaceName) {
+        let peers_and_cidrs = Self::get_peers_and_cidrs_path(data_dir, interface);
+        let peer_endpoint_overrides = Self::get_peer_endpoint_overrides_path(data_dir, interface);
+
+        std::fs::remove_file(&peers_and_cidrs)
+            .with_path(&peers_and_cidrs)
+            .map_err(|e| log::warn!("{}", e.to_string().yellow()))
+            .ok();
+
+        std::fs::remove_file(&peer_endpoint_overrides)
+            .with_path(&peer_endpoint_overrides)
+            .map_err(|e| log::warn!("{}", e.to_string().yellow()))
+            .ok();
     }
 }
 
@@ -237,7 +315,8 @@ mod tests {
     });
 
     fn setup_basic_store(dir: &Path) {
-        let mut store = DataStore::open_with_path(dir.join("peer_store.json"), true).unwrap();
+        let interface_name: InterfaceName = "peer_store".parse().unwrap();
+        let mut store = DataStore::open_or_create(dir, &interface_name).unwrap();
 
         println!("{store:?}");
         assert_eq!(0, store.peers().len());
@@ -252,7 +331,8 @@ mod tests {
     fn test_sanity() {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
-        let store = DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
+        let interface_name: InterfaceName = "peer_store".parse().unwrap();
+        let store = DataStore::open(dir.path(), &interface_name).unwrap();
         assert_eq!(store.peers(), &*BASE_PEERS);
         assert_eq!(store.cidrs(), &*BASE_CIDRS);
     }
@@ -261,8 +341,9 @@ mod tests {
     fn test_pinning() {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
-        let mut store =
-            DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
+
+        let interface_name: InterfaceName = "peer_store".parse().unwrap();
+        let mut store = DataStore::open(dir.path(), &interface_name).unwrap();
 
         // Should work, since peer is unmodified.
         store.update_peers(&BASE_PEERS).unwrap();
@@ -278,8 +359,9 @@ mod tests {
     fn test_peer_persistence() {
         let dir = tempfile::tempdir().unwrap();
         setup_basic_store(dir.path());
-        let mut store =
-            DataStore::open_with_path(dir.path().join("peer_store.json"), false).unwrap();
+
+        let interface_name: InterfaceName = "peer_store".parse().unwrap();
+        let mut store = DataStore::open(dir.path(), &interface_name).unwrap();
 
         // Should work, since peer is unmodified.
         store.update_peers(&[]).unwrap();
