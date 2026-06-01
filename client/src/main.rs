@@ -1,5 +1,5 @@
 use crate::util::all_installed;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Error};
 use clap::{ArgAction, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
@@ -14,10 +14,10 @@ use innernet_client_core::{
 use innernet_shared::{
     interface_config::InterfaceConfig, prompts, wg, wg::PeerInfoExt, AddCidrOpts,
     AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
-    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, Error, HostsOpts,
-    InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
-    OverrideEndpointOpts, OverridePeerEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts,
-    ServerCapabilities, WrappedIoError,
+    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpts, InstallOpts,
+    Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts,
+    OverridePeerEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts, ServerCapabilities,
+    WrappedIoError,
 };
 use std::{
     io,
@@ -540,14 +540,12 @@ fn delete_cidr(
 
 fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), Error> {
     let data_store = DataStore::open(&opts.data_dir, interface)?;
-
-    // TODO(bschwind) - Get this from InterfaceConfig.
-    let endpoint_has_local_override = false;
+    let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
 
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0, false, endpoint_has_local_override);
+        print_tree(&cidr_tree, &[], 0, false, &config);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
@@ -905,18 +903,24 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
     let devices = interfaces
         .into_iter()
-        .filter_map(|name| {
-            match DataStore::open(&opts.data_dir, &name) {
-                Ok(store) => {
-                    let device =
-                        Device::get(&name, opts.network.backend).with_str(name.as_str_lossy());
-                    Some(device.map(|device| (device, store)))
-                },
+        .filter_map(|name| -> Option<Result<_, Error>> {
+            let data_store = match DataStore::open(&opts.data_dir, &name) {
+                Ok(store) => store,
                 // Skip WireGuard interfaces that aren't managed by innernet.
-                Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+                Err(e) if e.kind() == io::ErrorKind::NotFound => return None,
                 // Error on interfaces that *are* managed by innernet but are not readable.
-                Err(e) => Some(Err(e)),
-            }
+                Err(e) => return Some(Err(e.into())),
+            };
+
+            let fallible_things = || {
+                let device =
+                    Device::get(&name, opts.network.backend).with_str(name.as_str_lossy())?;
+                let config = InterfaceConfig::from_interface(&opts.config_dir, &name)?;
+
+                Ok((device, data_store, config))
+            };
+
+            Some(fallible_things())
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -925,7 +929,7 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
         return Ok(());
     }
 
-    for (device_info, store) in devices {
+    for (device_info, store, interface_config) in devices {
         let public_key = match &device_info.public_key {
             Some(key) => key.to_base64(),
             None => {
@@ -967,20 +971,14 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
         peer_states.sort_by_key(|peer| peer.peer.ip);
         let verbose = opts.verbose > 0;
 
-        // TODO(bschwind) - Get this from InterfaceConfig.
-        let endpoint_has_local_override = false;
-
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(
-                &cidr_tree,
-                &peer_states,
-                1,
-                verbose,
-                endpoint_has_local_override,
-            );
+            print_tree(&cidr_tree, &peer_states, 1, verbose, &interface_config);
         } else {
             for peer_state in peer_states {
+                let endpoint_has_local_override = interface_config
+                    .peer_endpoint_overrides()
+                    .contains_key(&peer_state.peer.contents.ip);
                 print_peer(&peer_state, short, 1, verbose, endpoint_has_local_override);
             }
         }
@@ -993,7 +991,7 @@ fn print_tree(
     peers: &[PeerState],
     level: usize,
     verbose: bool,
-    endpoint_has_local_override: bool,
+    interface_config: &InterfaceConfig,
 ) {
     println_pad!(
         level * 2,
@@ -1004,17 +1002,14 @@ fn print_tree(
 
     let mut children: Vec<_> = cidr.children().collect();
     children.sort();
-    children.iter().for_each(|child| {
-        print_tree(
-            child,
-            peers,
-            level + 1,
-            verbose,
-            endpoint_has_local_override,
-        )
-    });
+    children
+        .iter()
+        .for_each(|child| print_tree(child, peers, level + 1, verbose, interface_config));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
+        let endpoint_has_local_override = interface_config
+            .peer_endpoint_overrides()
+            .contains_key(&peer.peer.contents.ip);
         print_peer(peer, true, level, verbose, endpoint_has_local_override);
     }
 }
