@@ -420,7 +420,7 @@ fn up(
 
 fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Error> {
     let config = InterfaceConfig::get_path(&opts.config_dir, interface);
-    let data = DataStore::get_peers_and_cidrs_path(&opts.data_dir, interface);
+    let data = DataStore::get_path(&opts.data_dir, interface);
 
     if !config.exists() && !data.exists() {
         bail!(
@@ -445,7 +445,10 @@ fn uninstall(interface: &InterfaceName, opts: &Opts, yes: bool) -> Result<(), Er
             .with_path(&config)
             .map_err(|e| log::warn!("{}", e.to_string().yellow()))
             .ok();
-        DataStore::remove_files(&opts.data_dir, interface);
+        std::fs::remove_file(&data)
+            .with_path(&data)
+            .map_err(|e| log::warn!("{}", e.to_string().yellow()))
+            .ok();
         log::info!(
             "network {} is uninstalled.",
             interface.as_str_lossy().yellow()
@@ -537,10 +540,14 @@ fn delete_cidr(
 
 fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), Error> {
     let data_store = DataStore::open(&opts.data_dir, interface)?;
+
+    // TODO(bschwind) - Get this from InterfaceConfig.
+    let endpoint_has_local_override = false;
+
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0, false, &data_store);
+        print_tree(&cidr_tree, &[], 0, false, endpoint_has_local_override);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
@@ -960,12 +967,21 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
         peer_states.sort_by_key(|peer| peer.peer.ip);
         let verbose = opts.verbose > 0;
 
+        // TODO(bschwind) - Get this from InterfaceConfig.
+        let endpoint_has_local_override = false;
+
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peer_states, 1, verbose, &store);
+            print_tree(
+                &cidr_tree,
+                &peer_states,
+                1,
+                verbose,
+                endpoint_has_local_override,
+            );
         } else {
             for peer_state in peer_states {
-                print_peer(&peer_state, short, 1, verbose, &store);
+                print_peer(&peer_state, short, 1, verbose, endpoint_has_local_override);
             }
         }
     }
@@ -977,7 +993,7 @@ fn print_tree(
     peers: &[PeerState],
     level: usize,
     verbose: bool,
-    data_store: &DataStore,
+    endpoint_has_local_override: bool,
 ) {
     println_pad!(
         level * 2,
@@ -988,12 +1004,18 @@ fn print_tree(
 
     let mut children: Vec<_> = cidr.children().collect();
     children.sort();
-    children
-        .iter()
-        .for_each(|child| print_tree(child, peers, level + 1, verbose, data_store));
+    children.iter().for_each(|child| {
+        print_tree(
+            child,
+            peers,
+            level + 1,
+            verbose,
+            endpoint_has_local_override,
+        )
+    });
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level, verbose, data_store);
+        print_peer(peer, true, level, verbose, endpoint_has_local_override);
     }
 }
 
@@ -1021,7 +1043,13 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_peer(peer: &PeerState, short: bool, level: usize, verbose: bool, data_store: &DataStore) {
+fn print_peer(
+    peer: &PeerState,
+    short: bool,
+    level: usize,
+    verbose: bool,
+    endpoint_has_local_override: bool,
+) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     let public_key = if verbose {
@@ -1030,7 +1058,6 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, verbose: bool, data_s
         &format!("{}…", &peer.public_key[..10])
     };
 
-    let endpoint_has_local_override = data_store.endpoint_override_for_peer(peer.ip).is_some();
     let endpoint_override_msg = if endpoint_has_local_override {
         " (endpoint overridden locally)"
     } else {
