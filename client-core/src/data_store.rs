@@ -19,7 +19,7 @@ struct FileBackedData<T> {
     contents: T,
 }
 
-impl<T: Default + DeserializeOwned> FileBackedData<T> {
+impl<T: Default + DeserializeOwned + Serialize> FileBackedData<T> {
     fn open_with_path<P: AsRef<Path>>(path: P, create: bool) -> Result<Self, WrappedIoError> {
         let path = path.as_ref();
         let is_existing_file = path.exists();
@@ -42,6 +42,14 @@ impl<T: Default + DeserializeOwned> FileBackedData<T> {
         let contents = serde_json::from_str(&json).unwrap_or_else(|_| T::default());
 
         Ok(Self { file, contents })
+    }
+
+    fn write(&mut self) -> Result<(), io::Error> {
+        self.file.rewind()?;
+        self.file.set_len(0)?;
+        self.file
+            .write_all(serde_json::to_string_pretty(&self.contents)?.as_bytes())?;
+        Ok(())
     }
 }
 
@@ -102,12 +110,11 @@ impl DataStore {
 
     /// Produce the path "`data_dir`/`interface`.peer-endpoint-overrides.json".
     pub fn get_peer_endpoint_overrides_path(data_dir: &Path, interface: &InterfaceName) -> PathBuf {
-        let file_name = format!("{interface}.peer-endpoint-overrides");
-        data_dir.join(file_name).with_extension("json")
-    }
+        let file_name = format!("{interface}.peer-endpoint-overrides.json");
 
-    pub fn peers_and_cidrs_file_exists(data_dir: &Path, interface: &InterfaceName) -> bool {
-        Self::get_peers_and_cidrs_path(data_dir, interface).exists()
+        // Warning - if you use `.with_extension("json")` here instead of inlining it above,
+        //           it will result in `{interface}.json` which is undesirable.
+        data_dir.join(file_name)
     }
 
     fn _open(
@@ -116,13 +123,16 @@ impl DataStore {
         create: bool,
     ) -> Result<Self, WrappedIoError> {
         ensure_dirs_exist(&[data_dir])?;
+
         let peers_and_cidrs = FileBackedData::open_with_path(
             Self::get_peers_and_cidrs_path(data_dir, interface),
             create,
         )?;
+
         let peer_endpoint_overrides = FileBackedData::open_with_path(
             Self::get_peer_endpoint_overrides_path(data_dir, interface),
-            create,
+            // Always create the peer overrides file if it doesn't exist.
+            true,
         )?;
 
         Ok(Self {
@@ -131,12 +141,12 @@ impl DataStore {
         })
     }
 
-    /// Open the data store residing at "`data_dir`/`interface`.json".
+    /// Open the data store residing in the "`data_dir`" directory.
     pub fn open(data_dir: &Path, interface: &InterfaceName) -> Result<Self, WrappedIoError> {
         Self::_open(data_dir, interface, false)
     }
 
-    /// Open or create the data store residing at "`data_dir`/`interface`.json".
+    /// Open or create the data store residing in the "`data_dir`" directory.
     pub fn open_or_create(
         data_dir: &Path,
         interface: &InterfaceName,
@@ -212,11 +222,7 @@ impl DataStore {
     }
 
     fn write_peers_and_cidrs(&mut self) -> Result<(), io::Error> {
-        self.peers_and_cidrs.file.rewind()?;
-        self.peers_and_cidrs.file.set_len(0)?;
-        self.peers_and_cidrs
-            .file
-            .write_all(serde_json::to_string_pretty(&self.peers_and_cidrs.contents)?.as_bytes())?;
+        self.peers_and_cidrs.write()?;
         Ok(())
     }
 
@@ -256,11 +262,7 @@ impl DataStore {
     }
 
     pub fn write_peer_endpoint_overrides(&mut self) -> Result<(), io::Error> {
-        self.peer_endpoint_overrides.file.rewind()?;
-        self.peer_endpoint_overrides.file.set_len(0)?;
-        self.peer_endpoint_overrides.file.write_all(
-            serde_json::to_string_pretty(&self.peer_endpoint_overrides.contents)?.as_bytes(),
-        )?;
+        self.peer_endpoint_overrides.write()?;
         Ok(())
     }
 
