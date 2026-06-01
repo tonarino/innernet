@@ -792,11 +792,12 @@ fn override_peer_endpoint(
     opts: &Opts,
     sub_opts: OverridePeerEndpointOpts,
 ) -> Result<(), Error> {
-    let mut data_store = DataStore::open(&opts.data_dir, interface)?;
+    let mut config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let data_store = DataStore::open(&opts.data_dir, interface)?;
 
     if let Some((peer, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
         data_store.peers(),
-        data_store.peer_endpoint_overrides(),
+        config.peer_endpoint_overrides(),
         &sub_opts,
     )? {
         if let Some(endpoint) = endpoint_opt {
@@ -805,7 +806,7 @@ fn override_peer_endpoint(
                 peer.ip,
                 endpoint
             );
-            data_store.set_endpoint_override_for_peer(peer.ip, endpoint.clone());
+            config.set_endpoint_override_for_peer(peer.ip, endpoint.clone());
 
             let socket_addr = endpoint.resolve()?;
             let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();
@@ -818,12 +819,12 @@ fn override_peer_endpoint(
                 "unsetting endpoint override for peer IP {} with endpoint",
                 peer.ip
             );
-            data_store.unset_endpoint_override_for_peer(peer.ip);
+            config.unset_endpoint_override_for_peer(peer.ip);
 
             log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
         }
 
-        data_store.write_peer_endpoint_overrides()?;
+        config.save(&opts.config_dir, interface)?;
     } else {
         log::info!("exiting without overriding peer endpoint");
     }
