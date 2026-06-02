@@ -286,7 +286,8 @@ pub fn fetch(
     if nat.no_nat_traversal {
         log::debug!("NAT traversal explicitly disabled, not attempting.");
     } else {
-        let mut nat_traverse = NatTraverse::new(interface, network_opts.backend, &modifications)?;
+        let mut nat_traverse =
+            NatTraverse::new(interface, &config, network_opts.backend, &modifications)?;
 
         // Give time for handshakes with recently changed endpoints to complete before attempting traversal.
         if !nat_traverse.is_finished() {
