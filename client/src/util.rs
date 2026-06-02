@@ -7,7 +7,7 @@ use std::{ffi::OsStr, io, path::Path, time::Duration};
 static LOGGER: Logger = Logger;
 struct Logger;
 
-const BASE_MODULES: &[&str] = &["innernet", "innernet_shared"];
+const BASE_MODULES: &[&str] = &["innernet", "innernet_client_core", "innernet_shared"];
 
 fn target_is_base(target: &str) -> bool {
     BASE_MODULES
