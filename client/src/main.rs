@@ -26,7 +26,7 @@ use std::{
     time::Duration,
 };
 use util::{human_duration, human_size};
-use wireguard_control::{Device, DeviceUpdate, InterfaceName, Key, PeerConfigBuilder, PeerInfo};
+use wireguard_control::{Device, InterfaceName, PeerInfo};
 
 mod util;
 
@@ -811,25 +811,30 @@ fn override_peer_endpoint(
                 peer.ip,
                 endpoint
             );
-            config.set_endpoint_override_for_peer(peer.ip, endpoint.clone());
 
-            let socket_addr = endpoint.resolve()?;
-            let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();
-
-            DeviceUpdate::new()
-                .add_peer(PeerConfigBuilder::new(&peer_pub_key).set_endpoint(socket_addr))
-                .apply(interface, opts.network.backend)?;
+            innernet_client_core::set_endpoint_override_for_peer(
+                opts.network.backend,
+                &opts.config_dir,
+                interface,
+                &mut config,
+                &peer,
+                endpoint,
+            )?;
         } else {
             log::info!(
                 "unsetting endpoint override for peer IP {} with endpoint",
                 peer.ip
             );
-            config.unset_endpoint_override_for_peer(peer.ip);
+
+            innernet_client_core::unset_endpoint_override_for_peer(
+                &opts.config_dir,
+                interface,
+                &mut config,
+                &peer,
+            )?;
 
             log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
         }
-
-        config.save(&opts.config_dir, interface)?;
     } else {
         log::info!("exiting without overriding peer endpoint");
     }
