@@ -821,10 +821,7 @@ fn override_peer_endpoint(
                 endpoint,
             )?;
         } else {
-            log::info!(
-                "unsetting endpoint override for peer IP {} with endpoint",
-                peer.ip
-            );
+            log::info!("unsetting endpoint override for peer IP {}", peer.ip);
 
             innernet_client_core::unset_endpoint_override_for_peer(
                 &opts.config_dir,
