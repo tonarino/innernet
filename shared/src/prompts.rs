@@ -4,7 +4,7 @@ use crate::{
     Endpoint, Error, Hostname, IpNetExt, ListenPortOpts, OverridePeerEndpointOpts, Peer,
     PeerContents, RenameCidrOpts, RenamePeerOpts,
 };
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use innernet_publicip::Preference;
@@ -584,23 +584,22 @@ pub fn override_peer_endpoint_prompt(
         .filter(|p| !args.unset || peer_endpoint_overrides.contains_key(&p.ip))
         .collect::<Vec<_>>();
 
-    if args.unset && eligible_peers.is_empty() {
-        return Err(anyhow!("No peers have an override endpoint set"));
-    }
-
     let peer = if let Some(name) = &args.name {
-        eligible_peers
-            .into_iter()
-            .find(|p| &p.name == name)
-            .ok_or_else(|| {
-                anyhow!(
-                    "Peer '{}' does not exist or does not have an override set",
-                    name
-                )
-            })?
-            .clone()
+        let Some(peer) = eligible_peers.into_iter().find(|p| &p.name == name) else {
+            return if args.unset && peers.iter().find(|p| &p.name == name).is_some() {
+                log::info!("Peer '{name}' does not have an override set");
+                Ok(None)
+            } else {
+                Err(anyhow!("Peer '{name}' does not exist"))
+            };
+        };
+        peer.clone()
     } else {
         let message = if args.unset {
+            if eligible_peers.is_empty() {
+                bail!("No peers have an override endpoint set");
+            }
+
             "Peer endpoint override to unset"
         } else {
             "Peer endpoint to override"
