@@ -908,25 +908,23 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
     let devices = interfaces
         .into_iter()
-        .filter_map(|name| -> Option<Result<_, Error>> {
-            let data_store = match DataStore::open(&opts.data_dir, &name) {
-                Ok(store) => store,
+        .map(|name| -> Result<Option<_>, Error> {
+            match DataStore::open(&opts.data_dir, &name) {
+                Ok(store) => {
+                    let device =
+                        Device::get(&name, opts.network.backend).with_str(name.as_str_lossy())?;
+                    let config = InterfaceConfig::from_interface(&opts.config_dir, &name)?;
+
+                    Ok(Some((device, store, config)))
+                },
                 // Skip WireGuard interfaces that aren't managed by innernet.
-                Err(e) if e.kind() == io::ErrorKind::NotFound => return None,
+                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
                 // Error on interfaces that *are* managed by innernet but are not readable.
-                Err(e) => return Some(Err(e.into())),
-            };
-
-            let fallible_things = || {
-                let device =
-                    Device::get(&name, opts.network.backend).with_str(name.as_str_lossy())?;
-                let config = InterfaceConfig::from_interface(&opts.config_dir, &name)?;
-
-                Ok((device, data_store, config))
-            };
-
-            Some(fallible_things())
+                Err(e) => Err(e.into()),
+            }
         })
+        // Filter out Ok(None).
+        .filter_map(Result::transpose)
         .collect::<Result<Vec<_>, _>>()?;
 
     if devices.is_empty() {
