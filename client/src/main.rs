@@ -90,6 +90,10 @@ enum Command {
         #[clap(short, long)]
         tree: bool,
 
+        /// Show full public keys (don't truncate)
+        #[clap(short, long)]
+        verbose: bool,
+
         interface: Option<Interface>,
     },
 
@@ -534,7 +538,7 @@ fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), 
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0);
+        print_tree(&cidr_tree, &[], false, 0);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
@@ -839,7 +843,13 @@ fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilitie
     }
 }
 
-fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
+fn show(
+    opts: &Opts,
+    short: bool,
+    tree: bool,
+    verbose: bool,
+    interface: Option<Interface>,
+) -> Result<(), Error> {
     let interfaces = interface.map_or_else(
         || Device::list(opts.network.backend),
         |interface| Ok(vec![*interface]),
@@ -910,17 +920,17 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peer_states, 1);
+            print_tree(&cidr_tree, &peer_states, verbose, 1);
         } else {
             for peer_state in peer_states {
-                print_peer(&peer_state, short, 1);
+                print_peer(&peer_state, short, verbose, 1);
             }
         }
     }
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
+fn print_tree(cidr: &CidrTree, peers: &[PeerState], verbose: bool, level: usize) {
     println_pad!(
         level * 2,
         "{} {}",
@@ -932,10 +942,10 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize) {
     children.sort();
     children
         .iter()
-        .for_each(|child| print_tree(child, peers, level + 1));
+        .for_each(|child| print_tree(child, peers, verbose, level + 1));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level);
+        print_peer(peer, true, verbose, level);
     }
 }
 
@@ -963,9 +973,16 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_peer(peer: &PeerState, short: bool, level: usize) {
+fn print_peer(peer: &PeerState, short: bool, verbose: bool, level: usize) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
+
+    let public_key = if verbose {
+        peer.public_key.clone()
+    } else {
+        format!("{}…", &peer.public_key[..10])
+    };
+
     if short {
         let connected = info
             .map(|info| info.is_recently_connected())
@@ -975,7 +992,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
 
         println_pad!(
             pad,
-            "| {} {}: {} ({}{}…)",
+            "| {} {}: {} ({}{})",
             if connected || is_you {
                 "◉".bold()
             } else {
@@ -984,15 +1001,15 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             peer.ip.to_string().yellow().bold(),
             peer.name.yellow(),
             if is_you { "you, " } else { "" },
-            &peer.public_key[..6].dimmed(),
+            &public_key.dimmed(),
         );
     } else {
         println_pad!(
             pad,
-            "{}: {} ({}...)",
+            "{}: {} ({})",
             "peer".yellow().bold(),
             peer.name.yellow(),
-            &peer.public_key[..10].yellow(),
+            &public_key.yellow(),
         );
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
         if let Some(info) = info {
@@ -1042,6 +1059,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
     let command = opts.command.clone().unwrap_or(Command::Show {
         short: false,
         tree: false,
+        verbose: false,
         interface: None,
     });
 
@@ -1055,8 +1073,9 @@ fn run(opts: &Opts) -> Result<(), Error> {
         Command::Show {
             short,
             tree,
+            verbose,
             interface,
-        } => show(opts, short, tree, interface)?,
+        } => show(opts, short, tree, verbose, interface)?,
         Command::Fetch {
             interface,
             hosts,
