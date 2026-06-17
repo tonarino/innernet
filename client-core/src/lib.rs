@@ -2,6 +2,7 @@
 //!
 //! This is a work in progress but the final goal is to match the `innernet` CLI API surface.
 
+use crate::interface::interface_is_up;
 pub use innernet_shared::{
     interface_config::PeerInvitation, Cidr, CidrTree, Endpoint, HostsOpts, NatOpts, NetworkOpts,
     Peer, WrappedIoError, DEFAULT_HOSTS_PATH,
@@ -55,12 +56,14 @@ pub fn set_endpoint_override_for_peer(
     config.set_endpoint_override_for_peer(peer.ip, endpoint.clone());
     config.save(config_dir, interface)?;
 
-    let socket_addr = endpoint.resolve()?;
-    let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();
+    if interface_is_up(network_backend, interface) {
+        let socket_addr = endpoint.resolve()?;
+        let peer_pub_key = Key::from_base64(&peer.public_key).unwrap();
 
-    DeviceUpdate::new()
-        .add_peer(PeerConfigBuilder::new(&peer_pub_key).set_endpoint(socket_addr))
-        .apply(interface, network_backend)?;
+        DeviceUpdate::new()
+            .add_peer(PeerConfigBuilder::new(&peer_pub_key).set_endpoint(socket_addr))
+            .apply(interface, network_backend)?;
+    }
 
     Ok(())
 }

@@ -16,7 +16,7 @@ use innernet_shared::{
 };
 use std::{io, net::SocketAddr, path::Path, thread, time::Instant};
 use thiserror::Error;
-use wireguard_control::{Device, DeviceUpdate, PeerConfigBuilder};
+use wireguard_control::{Backend, Device, DeviceUpdate, PeerConfigBuilder};
 
 #[derive(Debug, Error)]
 pub enum RedeemInviteError {
@@ -163,10 +163,7 @@ pub fn fetch(
     bring_up_interface: bool,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(config_dir, interface)?;
-    let interface_up = match Device::list(network_opts.backend) {
-        Ok(interfaces) => interfaces.iter().any(|name| name == interface),
-        _ => false,
-    };
+    let interface_up = interface_is_up(network_opts.backend, interface);
 
     if !interface_up {
         if !bring_up_interface {
@@ -400,4 +397,11 @@ fn report_candidates(
 
     log::debug!("candidates successfully reported");
     Ok(())
+}
+
+pub fn interface_is_up(backend: Backend, interface_name: &InterfaceName) -> bool {
+    match Device::list(backend) {
+        Ok(interfaces) => interfaces.contains(interface_name),
+        _ => false,
+    }
 }
