@@ -984,7 +984,7 @@ fn print_peer(peer: &PeerState, short: bool, level: usize) {
             peer.ip.to_string().yellow().bold(),
             peer.name.yellow(),
             if is_you { "you, " } else { "" },
-            &peer.public_key[..6].dimmed(),
+            &peer.public_key[..10].dimmed(),
         );
     } else {
         println_pad!(
