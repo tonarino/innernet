@@ -617,6 +617,8 @@ pub fn override_peer_endpoint_prompt(
 
     let endpoint: Option<Endpoint> = if args.unset {
         None
+    } else if let Some(endpoint) = &args.endpoint {
+        Some(endpoint.clone())
     } else {
         Some(input("Endpoint", Prefill::None)?)
     };
