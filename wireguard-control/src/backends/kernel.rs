@@ -22,7 +22,7 @@ use netlink_packet_wireguard::{
 };
 use netlink_request::{max_genl_payload_length, netlink_request_genl, netlink_request_rtnl};
 
-use std::{convert::TryFrom, io};
+use std::{convert::TryFrom, io, time::UNIX_EPOCH};
 
 macro_rules! get_nla_value {
     ($nlas:expr, $e:ident, $v:ident) => {
@@ -104,7 +104,9 @@ impl TryFrom<WgPeer> for PeerInfo {
             .into_iter()
             .map(AllowedIp::try_from)
             .collect::<Result<Vec<_>, _>>()?;
-        let last_handshake_time = get_nla_value!(attrs, WgPeerAttrs, LastHandshake).cloned();
+        let last_handshake_time = get_nla_value!(attrs, WgPeerAttrs, LastHandshake)
+            .filter(|&&time| time != UNIX_EPOCH)
+            .cloned();
         let rx_bytes = get_nla_value!(attrs, WgPeerAttrs, RxBytes)
             .cloned()
             .unwrap_or_default();
