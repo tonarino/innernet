@@ -3,6 +3,7 @@
 //! Doesn't follow the specific ICE protocol, but takes great inspiration from RFC 8445
 //! and applies it to a protocol more specific to innernet.
 
+use innernet_shared::interface_config::InterfaceConfig;
 use std::time::{Duration, Instant};
 
 use anyhow::Error;
@@ -23,11 +24,18 @@ pub struct NatTraverse<'a> {
 impl<'a> NatTraverse<'a> {
     pub fn new(
         interface: &'a InterfaceName,
+        interface_config: &InterfaceConfig,
         backend: Backend,
         diffs: &[PeerDiff],
     ) -> Result<Self, Error> {
         // Filter out removed peers from diffs list.
-        let mut remaining: Vec<_> = diffs.iter().filter_map(|diff| diff.new).cloned().collect();
+        let mut remaining: Vec<_> = diffs
+            .iter()
+            .filter_map(|diff| diff.new)
+            // Don't attempt NAT traversal for peers with an overridden endpoint.
+            .filter(|peer| !interface_config.peer_endpoint_overrides().contains_key(&peer.ip))
+            .cloned()
+            .collect();
 
         for peer in &mut remaining {
             // Limit reported alternative candidates to 10.

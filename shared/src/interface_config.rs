@@ -3,9 +3,10 @@ use indoc::writedoc;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     fs::{File, OpenOptions},
     io::{self, Write},
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     path::{Path, PathBuf},
 };
 use wireguard_control::{InterfaceName, KeyPair};
@@ -20,6 +21,12 @@ pub struct InterfaceConfig {
 
     /// The necessary contact information for the server.
     pub server: ServerInfo,
+
+    /// A configurable map of peer IP addresses to Endpoints which should
+    /// be used as the WireGuard endpoint for that peer.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    peer_endpoint_overrides: BTreeMap<IpAddr, Endpoint>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -77,6 +84,14 @@ impl ServerInfo {
 }
 
 impl InterfaceConfig {
+    fn new(interface: InterfaceInfo, server: ServerInfo) -> Self {
+        InterfaceConfig {
+            interface,
+            server,
+            peer_endpoint_overrides: BTreeMap::new(),
+        }
+    }
+
     /// Save a new config file, failing if it already exists.
     pub fn save_new(&self, path: impl AsRef<Path>, mode: u32) -> Result<(), WrappedIoError> {
         let path = path.as_ref();
@@ -133,8 +148,16 @@ impl InterfaceConfig {
         Ok(Self::get_path(config_dir, interface))
     }
 
-    fn new(interface: InterfaceInfo, server: ServerInfo) -> Self {
-        InterfaceConfig { interface, server }
+    pub fn peer_endpoint_overrides(&self) -> &BTreeMap<IpAddr, Endpoint> {
+        &self.peer_endpoint_overrides
+    }
+
+    pub fn set_endpoint_override_for_peer(&mut self, peer_ip: IpAddr, endpoint: Endpoint) {
+        self.peer_endpoint_overrides.insert(peer_ip, endpoint);
+    }
+
+    pub fn unset_endpoint_override_for_peer(&mut self, peer_ip: IpAddr) {
+        self.peer_endpoint_overrides.remove(&peer_ip);
     }
 }
 

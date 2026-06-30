@@ -469,6 +469,25 @@ pub struct OverrideEndpointOpts {
     pub yes: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct OverridePeerEndpointOpts {
+    /// Name of peer whose endpoint you want to override
+    #[clap(long)]
+    pub name: Option<Hostname>,
+
+    /// The external endpoint that you'd like to use for a given peer
+    #[clap(short, long)]
+    pub endpoint: Option<Endpoint>,
+
+    /// Unset an existing local endpoint override for this peer
+    #[clap(short, long, conflicts_with = "endpoint")]
+    pub unset: bool,
+
+    /// Bypass confirmation
+    #[clap(long)]
+    pub yes: bool,
+}
+
 #[derive(Debug, Clone, Args)]
 pub struct NatOpts {
     #[clap(long)]

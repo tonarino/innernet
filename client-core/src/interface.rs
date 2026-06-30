@@ -16,7 +16,7 @@ use innernet_shared::{
 };
 use std::{io, net::SocketAddr, path::Path, thread, time::Instant};
 use thiserror::Error;
-use wireguard_control::{Device, DeviceUpdate, PeerConfigBuilder};
+use wireguard_control::{Backend, Device, DeviceUpdate, PeerConfigBuilder};
 
 #[derive(Debug, Error)]
 pub enum RedeemInviteError {
@@ -163,10 +163,7 @@ pub fn fetch(
     bring_up_interface: bool,
 ) -> Result<(), Error> {
     let config = InterfaceConfig::from_interface(config_dir, interface)?;
-    let interface_up = match Device::list(network_opts.backend) {
-        Ok(interfaces) => interfaces.iter().any(|name| name == interface),
-        _ => false,
-    };
+    let interface_up = interface_is_up(network_opts.backend, interface);
 
     if !interface_up {
         if !bring_up_interface {
@@ -206,7 +203,8 @@ pub fn fetch(
     );
     let mut store = DataStore::open_or_create(data_dir, interface)?;
     let rest_client = RestClient::new(&config.server);
-    let (State { peers, cidrs }, server_is_reachable) = match rest_client.http("GET", "/user/state")
+    let (State { mut peers, cidrs }, server_is_reachable) = match rest_client
+        .http("GET", "/user/state")
     {
         Ok(state) => (state, true),
         Err(e) => {
@@ -232,6 +230,19 @@ pub fn fetch(
             }
         },
     };
+
+    // Apply the local peer endpoint overrides.
+    for (peer_ip, endpoint_override) in config.peer_endpoint_overrides() {
+        log::debug!(
+            "overriding peer IP {} with endpoint {}",
+            peer_ip,
+            endpoint_override
+        );
+
+        if let Some(peer) = peers.iter_mut().find(|p| p.ip == *peer_ip) {
+            peer.endpoint = Some(endpoint_override.clone());
+        }
+    }
 
     let device = Device::get(interface, network_opts.backend)?;
     let modifications = device.diff(&peers);
@@ -272,7 +283,8 @@ pub fn fetch(
     if nat.no_nat_traversal {
         log::debug!("NAT traversal explicitly disabled, not attempting.");
     } else {
-        let mut nat_traverse = NatTraverse::new(interface, network_opts.backend, &modifications)?;
+        let mut nat_traverse =
+            NatTraverse::new(interface, &config, network_opts.backend, &modifications)?;
 
         // Give time for handshakes with recently changed endpoints to complete before attempting traversal.
         if !nat_traverse.is_finished() {
@@ -385,4 +397,11 @@ fn report_candidates(
 
     log::debug!("candidates successfully reported");
     Ok(())
+}
+
+pub fn interface_is_up(backend: Backend, interface_name: &InterfaceName) -> bool {
+    match Device::list(backend) {
+        Ok(interfaces) => interfaces.contains(interface_name),
+        _ => false,
+    }
 }

@@ -1,5 +1,5 @@
 use crate::util::all_installed;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Error};
 use clap::{ArgAction, Parser, Subcommand};
 use colored::*;
 use dialoguer::{Confirm, Input};
@@ -14,9 +14,10 @@ use innernet_client_core::{
 use innernet_shared::{
     interface_config::InterfaceConfig, prompts, wg, wg::PeerInfoExt, AddCidrOpts,
     AddDeleteAssociationOpts, AddPeerOpts, Association, AssociationContents, Cidr, CidrTree,
-    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, Error, HostsOpts,
-    InstallOpts, Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts,
-    OverrideEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts, ServerCapabilities, WrappedIoError,
+    DeleteCidrOpts, EnableDisablePeerOpts, Endpoint, EndpointContents, HostsOpts, InstallOpts,
+    Interface, IoErrorContext, ListenPortOpts, NatOpts, NetworkOpts, OverrideEndpointOpts,
+    OverridePeerEndpointOpts, Peer, RenameCidrOpts, RenamePeerOpts, ServerCapabilities,
+    WrappedIoError,
 };
 use std::{
     io,
@@ -250,6 +251,14 @@ enum Command {
 
         #[clap(flatten)]
         sub_opts: OverrideEndpointOpts,
+    },
+
+    /// Override the endpoint you use to connect to a particular peer
+    OverridePeerEndpoint {
+        interface: Interface,
+
+        #[clap(flatten)]
+        sub_opts: OverridePeerEndpointOpts,
     },
 
     /// Generate shell completion scripts
@@ -531,10 +540,12 @@ fn delete_cidr(
 
 fn list_cidrs(interface: &InterfaceName, opts: &Opts, tree: bool) -> Result<(), Error> {
     let data_store = DataStore::open(&opts.data_dir, interface)?;
+    let config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+
     if tree {
         let cidr_tree = CidrTree::new(data_store.cidrs());
         colored::control::set_override(false);
-        print_tree(&cidr_tree, &[], 0, false);
+        print_tree(&cidr_tree, &[], 0, false, &config);
         colored::control::unset_override();
     } else {
         for cidr in data_store.cidrs() {
@@ -781,6 +792,53 @@ fn override_endpoint(
     Ok(())
 }
 
+fn override_peer_endpoint(
+    interface: &InterfaceName,
+    opts: &Opts,
+    sub_opts: OverridePeerEndpointOpts,
+) -> Result<(), Error> {
+    let mut config = InterfaceConfig::from_interface(&opts.config_dir, interface)?;
+    let data_store = DataStore::open(&opts.data_dir, interface)?;
+
+    if let Some((peer, endpoint_opt)) = prompts::override_peer_endpoint_prompt(
+        data_store.peers(),
+        config.peer_endpoint_overrides(),
+        &sub_opts,
+    )? {
+        if let Some(endpoint) = endpoint_opt {
+            log::info!(
+                "overriding endpoint for peer IP {} with endpoint {}",
+                peer.ip,
+                endpoint
+            );
+
+            innernet_client_core::set_endpoint_override_for_peer(
+                opts.network.backend,
+                &opts.config_dir,
+                interface,
+                &mut config,
+                &peer,
+                endpoint,
+            )?;
+        } else {
+            log::info!("unsetting endpoint override for peer IP {}", peer.ip);
+
+            innernet_client_core::unset_endpoint_override_for_peer(
+                &opts.config_dir,
+                interface,
+                &mut config,
+                &peer,
+            )?;
+
+            log::info!("normal peer endpoint/NAT traversal will be restored on the next call to 'innernet fetch'");
+        }
+    } else {
+        log::info!("exiting without overriding peer endpoint");
+    }
+
+    Ok(())
+}
+
 fn prompt_override_endpoint(
     server_capabilities: &ServerCapabilities,
     args: &OverrideEndpointOpts,
@@ -847,19 +905,23 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
     let devices = interfaces
         .into_iter()
-        .filter_map(|name| {
+        .map(|name| -> Result<Option<_>, Error> {
             match DataStore::open(&opts.data_dir, &name) {
                 Ok(store) => {
                     let device =
-                        Device::get(&name, opts.network.backend).with_str(name.as_str_lossy());
-                    Some(device.map(|device| (device, store)))
+                        Device::get(&name, opts.network.backend).with_str(name.as_str_lossy())?;
+                    let config = InterfaceConfig::from_interface(&opts.config_dir, &name)?;
+
+                    Ok(Some((device, store, config)))
                 },
                 // Skip WireGuard interfaces that aren't managed by innernet.
-                Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
                 // Error on interfaces that *are* managed by innernet but are not readable.
-                Err(e) => Some(Err(e)),
+                Err(e) => Err(e.into()),
             }
         })
+        // Filter out Ok(None).
+        .filter_map(Result::transpose)
         .collect::<Result<Vec<_>, _>>()?;
 
     if devices.is_empty() {
@@ -867,7 +929,7 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
         return Ok(());
     }
 
-    for (device_info, store) in devices {
+    for (device_info, store, interface_config) in devices {
         let public_key = match &device_info.public_key {
             Some(key) => key.to_base64(),
             None => {
@@ -911,17 +973,26 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
 
         if tree {
             let cidr_tree = CidrTree::new(cidrs);
-            print_tree(&cidr_tree, &peer_states, 1, verbose);
+            print_tree(&cidr_tree, &peer_states, 1, verbose, &interface_config);
         } else {
             for peer_state in peer_states {
-                print_peer(&peer_state, short, 1, verbose);
+                let endpoint_has_local_override = interface_config
+                    .peer_endpoint_overrides()
+                    .contains_key(&peer_state.peer.contents.ip);
+                print_peer(&peer_state, short, 1, verbose, endpoint_has_local_override);
             }
         }
     }
     Ok(())
 }
 
-fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize, verbose: bool) {
+fn print_tree(
+    cidr: &CidrTree,
+    peers: &[PeerState],
+    level: usize,
+    verbose: bool,
+    interface_config: &InterfaceConfig,
+) {
     println_pad!(
         level * 2,
         "{} {}",
@@ -933,10 +1004,13 @@ fn print_tree(cidr: &CidrTree, peers: &[PeerState], level: usize, verbose: bool)
     children.sort();
     children
         .iter()
-        .for_each(|child| print_tree(child, peers, level + 1, verbose));
+        .for_each(|child| print_tree(child, peers, level + 1, verbose, interface_config));
 
     for peer in peers.iter().filter(|p| p.peer.cidr_id == cidr.id) {
-        print_peer(peer, true, level, verbose);
+        let endpoint_has_local_override = interface_config
+            .peer_endpoint_overrides()
+            .contains_key(&peer.peer.contents.ip);
+        print_peer(peer, true, level, verbose, endpoint_has_local_override);
     }
 }
 
@@ -964,7 +1038,13 @@ fn print_interface(device_info: &Device, short: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_peer(peer: &PeerState, short: bool, level: usize, verbose: bool) {
+fn print_peer(
+    peer: &PeerState,
+    short: bool,
+    level: usize,
+    verbose: bool,
+    endpoint_has_local_override: bool,
+) {
     let pad = level * 2;
     let PeerState { peer, info } = peer;
     let public_key = if verbose {
@@ -972,16 +1052,22 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, verbose: bool) {
     } else {
         &format!("{}…", &peer.public_key[..10])
     };
+
+    let endpoint_override_msg = if endpoint_has_local_override {
+        " (endpoint overridden locally)"
+    } else {
+        ""
+    };
+
     if short {
         let connected = info
             .map(|info| info.is_recently_connected())
             .unwrap_or_default();
-
         let is_you = info.is_none();
 
         println_pad!(
             pad,
-            "| {} {}: {} ({}{})",
+            "| {} {}: {} ({}{}){endpoint_override_msg}",
             if connected || is_you {
                 "◉".bold()
             } else {
@@ -1003,7 +1089,11 @@ fn print_peer(peer: &PeerState, short: bool, level: usize, verbose: bool) {
         println_pad!(pad, "  {}: {}", "ip".bold(), peer.ip);
         if let Some(info) = info {
             if let Some(endpoint) = info.config.endpoint {
-                println_pad!(pad, "  {}: {}", "endpoint".bold(), endpoint);
+                println_pad!(
+                    pad,
+                    "  {}: {endpoint}{endpoint_override_msg}",
+                    "endpoint".bold(),
+                );
             }
             if let Some(last_handshake) = info.stats.last_handshake_time {
                 let duration = last_handshake.elapsed().expect("horrible clock problem");
@@ -1142,6 +1232,12 @@ fn run(opts: &Opts) -> Result<(), Error> {
             sub_opts,
         } => {
             override_endpoint(&interface, opts, sub_opts)?;
+        },
+        Command::OverridePeerEndpoint {
+            interface,
+            sub_opts,
+        } => {
+            override_peer_endpoint(&interface, opts, sub_opts)?;
         },
         Command::Completions { shell } => {
             use clap::CommandFactory;
