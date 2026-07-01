@@ -56,6 +56,7 @@ complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -
 userspace\t''"
 complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -l mtu -d 'Specify the desired MTU for your interface (default: 1280)' -r
 complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -l hosts-path -d 'The path to write hosts to' -r -F
+complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -l host-suffix -d 'Use a different suffix for hosts, than \'INTERFACE.wg\' , ex. --host-suffix \'evilnet\' names peers: PEER.evilnet, and --host-suffix \'\' gives peers no suffix, just: PEER' -r
 complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -l no-routing -d 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
 complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -l no-write-hosts -d 'Don\'t write to any hosts files'
 complete -c innernet-server -n "__fish_innernet_server_using_subcommand serve" -s h -l help -d 'Print help'

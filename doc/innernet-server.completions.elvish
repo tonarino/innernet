@@ -60,6 +60,7 @@ set edit:completion:arg-completer[innernet-server] = {|@words|
             cand --backend 'Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability'
             cand --mtu 'Specify the desired MTU for your interface (default: 1280)'
             cand --hosts-path 'The path to write hosts to'
+            cand --host-suffix 'Use a different suffix for hosts, than ''INTERFACE.wg'' , ex. --host-suffix ''evilnet'' names peers: PEER.evilnet, and --host-suffix '''' gives peers no suffix, just: PEER'
             cand --no-routing 'Whether the routing should be done by innernet or is done by an external tool like e.g. babeld'
             cand --no-write-hosts 'Don''t write to any hosts files'
             cand -h 'Print help'

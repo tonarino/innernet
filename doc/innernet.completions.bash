@@ -61,6 +61,9 @@ _innernet() {
             innernet,override-endpoint)
                 cmd="innernet__override__endpoint"
                 ;;
+            innernet,override-peer-endpoint)
+                cmd="innernet__override__peer__endpoint"
+                ;;
             innernet,rename-cidr)
                 cmd="innernet__rename__cidr"
                 ;;
@@ -124,6 +127,9 @@ _innernet() {
             innernet__help,override-endpoint)
                 cmd="innernet__help__override__endpoint"
                 ;;
+            innernet__help,override-peer-endpoint)
+                cmd="innernet__help__override__peer__endpoint"
+                ;;
             innernet__help,rename-cidr)
                 cmd="innernet__help__rename__cidr"
                 ;;
@@ -149,7 +155,7 @@ _innernet() {
 
     case "${cmd}" in
         innernet)
-            opts="-v -c -d -h -V --verbose --config-dir --data-dir --no-routing --backend --mtu --help --version install show up fetch uninstall down add-peer rename-peer add-cidr rename-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
+            opts="-v -c -d -h -V --verbose --config-dir --data-dir --no-routing --backend --mtu --help --version install show up fetch uninstall down add-peer rename-peer add-cidr rename-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint override-peer-endpoint completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -361,13 +367,17 @@ _innernet() {
             return 0
             ;;
         innernet__fetch)
-            opts="-h --hosts-path --no-write-hosts --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help <INTERFACE>"
+            opts="-h --hosts-path --no-write-hosts --host-suffix --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --hosts-path)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --host-suffix)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -383,7 +393,7 @@ _innernet() {
             return 0
             ;;
         innernet__help)
-            opts="install show up fetch uninstall down add-peer rename-peer add-cidr rename-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint completions help"
+            opts="install show up fetch uninstall down add-peer rename-peer add-cidr rename-cidr delete-cidr list-cidrs disable-peer enable-peer add-association delete-association list-associations set-listen-port override-endpoint override-peer-endpoint completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -606,6 +616,20 @@ _innernet() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        innernet__help__override__peer__endpoint)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         innernet__help__rename__cidr)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -691,13 +715,17 @@ _innernet() {
             return 0
             ;;
         innernet__install)
-            opts="-d -h --hosts-path --no-write-hosts --name --default-name --delete-invite --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help <INVITE>"
+            opts="-d -h --hosts-path --no-write-hosts --host-suffix --name --default-name --delete-invite --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help <INVITE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --hosts-path)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --host-suffix)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -751,6 +779,32 @@ _innernet() {
                 return 0
             fi
             case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -e)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        innernet__override__peer__endpoint)
+            opts="-e -u -h --name --endpoint --unset --yes --help <INTERFACE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --endpoint)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -861,7 +915,7 @@ _innernet() {
             return 0
             ;;
         innernet__up)
-            opts="-d -h --daemon --interval --hosts-path --no-write-hosts --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help [INTERFACE]"
+            opts="-d -h --daemon --interval --hosts-path --no-write-hosts --host-suffix --no-nat-traversal --exclude-nat-candidates --no-nat-candidates --help [INTERFACE]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -872,6 +926,10 @@ _innernet() {
                     return 0
                     ;;
                 --hosts-path)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --host-suffix)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

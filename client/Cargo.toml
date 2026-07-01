@@ -15,7 +15,7 @@ name = "innernet"
 publish = true
 readme = "../README.md"
 repository = "https://github.com/tonarino/innernet"
-version = "1.7.1"
+version = "2.0.0"
 
 [[bin]]
 name = "innernet"
@@ -28,12 +28,12 @@ clap_complete = "4.3"
 colored.workspace = true
 dialoguer.workspace = true
 indoc = "2.0.1"
-innernet-shared = { version = "1.7.1", path = "../shared" }
-innernet-client-core = { version = "1.7.1", path = "../client-core" }
+innernet-shared = { version = "2.0.0", path = "../shared" }
+innernet-client-core = { version = "2.0.0", path = "../client-core" }
 log = "0.4"
 regex = { version = "1", default-features = false, features = ["std"] }
 ureq = { version = "2", default-features = false, features = ["json"] }
-wireguard-control = { version = "1.7.1", path = "../wireguard-control" }
+wireguard-control = { version = "2.0.0", path = "../wireguard-control" }
 
 [features]
 selinux = ["innernet-shared/selinux"]

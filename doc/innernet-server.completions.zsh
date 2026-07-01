@@ -59,6 +59,7 @@ _arguments "${_arguments_options[@]}" : \
 '--backend=[Specify a WireGuard backend to use. If not set, innernet will auto-select based on availability]:BACKEND:(kernel userspace)' \
 '--mtu=[Specify the desired MTU for your interface (default\: 1280)]:MTU:_default' \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
+'--host-suffix=[Use a different suffix for hosts, than '\''INTERFACE.wg'\'' , ex. --host-suffix '\''evilnet'\'' names peers\: PEER.evilnet, and --host-suffix '\'''\'' gives peers no suffix, just\: PEER]:HOST_SUFFIX:_default' \
 '--no-routing[Whether the routing should be done by innernet or is done by an external tool like e.g. babeld]' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
 '-h[Print help]' \
