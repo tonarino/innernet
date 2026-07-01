@@ -521,7 +521,7 @@ _innernet-server() {
             return 0
             ;;
         innernet__server__serve)
-            opts="-h --no-routing --backend --mtu --hosts-path --no-write-hosts --help <INTERFACE>"
+            opts="-h --no-routing --backend --mtu --hosts-path --no-write-hosts --host-suffix --help <INTERFACE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -536,6 +536,10 @@ _innernet-server() {
                     return 0
                     ;;
                 --hosts-path)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --host-suffix)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

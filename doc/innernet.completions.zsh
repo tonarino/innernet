@@ -40,6 +40,7 @@ _innernet() {
             (install)
 _arguments "${_arguments_options[@]}" : \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
+'--host-suffix=[Use a different suffix for hosts, than '\''INTERFACE.wg'\'' , ex. --host-suffix '\''evilnet'\'' names peers\: PEER.evilnet, and --host-suffix '\'''\'' gives peers no suffix, just\: PEER]:HOST_SUFFIX:_default' \
 '(--default-name)--name=[Set a specific interface name]:NAME:_default' \
 '*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES:_default' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
@@ -68,6 +69,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--interval=[Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode]:INTERVAL:_default' \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
+'--host-suffix=[Use a different suffix for hosts, than '\''INTERFACE.wg'\'' , ex. --host-suffix '\''evilnet'\'' names peers\: PEER.evilnet, and --host-suffix '\'''\'' gives peers no suffix, just\: PEER]:HOST_SUFFIX:_default' \
 '*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES:_default' \
 '-d[Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically]' \
 '--daemon[Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically]' \
@@ -82,6 +84,7 @@ _arguments "${_arguments_options[@]}" : \
 (fetch)
 _arguments "${_arguments_options[@]}" : \
 '--hosts-path=[The path to write hosts to]:HOSTS_PATH:_files' \
+'--host-suffix=[Use a different suffix for hosts, than '\''INTERFACE.wg'\'' , ex. --host-suffix '\''evilnet'\'' names peers\: PEER.evilnet, and --host-suffix '\'''\'' gives peers no suffix, just\: PEER]:HOST_SUFFIX:_default' \
 '*--exclude-nat-candidates=[Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates '\''0.0.0.0/0'\'' would report no candidates]:EXCLUDE_NAT_CANDIDATES:_default' \
 '(--hosts-path)--no-write-hosts[Don'\''t write to any hosts files]' \
 '--no-nat-traversal[Don'\''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates]' \
@@ -239,6 +242,19 @@ _arguments "${_arguments_options[@]}" : \
 ':interface:_default' \
 && ret=0
 ;;
+(override-peer-endpoint)
+_arguments "${_arguments_options[@]}" : \
+'--name=[Name of peer whose endpoint you want to override]:NAME:_default' \
+'-e+[The external endpoint that you'\''d like to use for a given peer]:ENDPOINT:_default' \
+'--endpoint=[The external endpoint that you'\''d like to use for a given peer]:ENDPOINT:_default' \
+'(-e --endpoint)-u[Unset an existing local endpoint override for this peer]' \
+'(-e --endpoint)--unset[Unset an existing local endpoint override for this peer]' \
+'--yes[Bypass confirmation]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':interface:_default' \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -334,6 +350,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(override-peer-endpoint)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -359,7 +379,7 @@ _innernet_commands() {
 'up:Bring up your local interface, and update it with latest peer list' \
 'fetch:Fetch and update your local interface with the latest peer list' \
 'uninstall:Uninstall an innernet network' \
-'down:Bring down the interface (equivalent to '\''wg-quick down <interface>'\'')' \
+'down:Bring down the interface (equivalent to '\''wg-quick down INTERFACE'\'')' \
 'add-peer:Add a new peer' \
 'rename-peer:Rename a peer' \
 'add-cidr:Add a new CIDR' \
@@ -373,6 +393,7 @@ _innernet_commands() {
 'list-associations:List existing assocations between CIDRs' \
 'set-listen-port:Set the local listen port' \
 'override-endpoint:Override your external endpoint that the server sends to other peers' \
+'override-peer-endpoint:Override the endpoint you use to connect to a particular peer' \
 'completions:Generate shell completion scripts' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -436,7 +457,7 @@ _innernet__help_commands() {
 'up:Bring up your local interface, and update it with latest peer list' \
 'fetch:Fetch and update your local interface with the latest peer list' \
 'uninstall:Uninstall an innernet network' \
-'down:Bring down the interface (equivalent to '\''wg-quick down <interface>'\'')' \
+'down:Bring down the interface (equivalent to '\''wg-quick down INTERFACE'\'')' \
 'add-peer:Add a new peer' \
 'rename-peer:Rename a peer' \
 'add-cidr:Add a new CIDR' \
@@ -450,6 +471,7 @@ _innernet__help_commands() {
 'list-associations:List existing assocations between CIDRs' \
 'set-listen-port:Set the local listen port' \
 'override-endpoint:Override your external endpoint that the server sends to other peers' \
+'override-peer-endpoint:Override the endpoint you use to connect to a particular peer' \
 'completions:Generate shell completion scripts' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -530,6 +552,11 @@ _innernet__help__override-endpoint_commands() {
     local commands; commands=()
     _describe -t commands 'innernet help override-endpoint commands' commands "$@"
 }
+(( $+functions[_innernet__help__override-peer-endpoint_commands] )) ||
+_innernet__help__override-peer-endpoint_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet help override-peer-endpoint commands' commands "$@"
+}
 (( $+functions[_innernet__help__rename-cidr_commands] )) ||
 _innernet__help__rename-cidr_commands() {
     local commands; commands=()
@@ -579,6 +606,11 @@ _innernet__list-cidrs_commands() {
 _innernet__override-endpoint_commands() {
     local commands; commands=()
     _describe -t commands 'innernet override-endpoint commands' commands "$@"
+}
+(( $+functions[_innernet__override-peer-endpoint_commands] )) ||
+_innernet__override-peer-endpoint_commands() {
+    local commands; commands=()
+    _describe -t commands 'innernet override-peer-endpoint commands' commands "$@"
 }
 (( $+functions[_innernet__rename-cidr_commands] )) ||
 _innernet__rename-cidr_commands() {

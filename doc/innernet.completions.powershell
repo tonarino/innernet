@@ -39,7 +39,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('up', 'up', [CompletionResultType]::ParameterValue, 'Bring up your local interface, and update it with latest peer list')
             [CompletionResult]::new('fetch', 'fetch', [CompletionResultType]::ParameterValue, 'Fetch and update your local interface with the latest peer list')
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Uninstall an innernet network')
-            [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to ''wg-quick down <interface>'')')
+            [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to ''wg-quick down INTERFACE'')')
             [CompletionResult]::new('add-peer', 'add-peer', [CompletionResultType]::ParameterValue, 'Add a new peer')
             [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename a peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR')
@@ -53,12 +53,14 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('list-associations', 'list-associations', [CompletionResultType]::ParameterValue, 'List existing assocations between CIDRs')
             [CompletionResult]::new('set-listen-port', 'set-listen-port', [CompletionResultType]::ParameterValue, 'Set the local listen port')
             [CompletionResult]::new('override-endpoint', 'override-endpoint', [CompletionResultType]::ParameterValue, 'Override your external endpoint that the server sends to other peers')
+            [CompletionResult]::new('override-peer-endpoint', 'override-peer-endpoint', [CompletionResultType]::ParameterValue, 'Override the endpoint you use to connect to a particular peer')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'innernet;install' {
             [CompletionResult]::new('--hosts-path', '--hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
+            [CompletionResult]::new('--host-suffix', '--host-suffix', [CompletionResultType]::ParameterName, 'Use a different suffix for hosts, than ''INTERFACE.wg'' , ex. --host-suffix ''evilnet'' names peers: PEER.evilnet, and --host-suffix '''' gives peers no suffix, just: PEER')
             [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Set a specific interface name')
             [CompletionResult]::new('--exclude-nat-candidates', '--exclude-nat-candidates', [CompletionResultType]::ParameterName, 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates')
             [CompletionResult]::new('--no-write-hosts', '--no-write-hosts', [CompletionResultType]::ParameterName, 'Don''t write to any hosts files')
@@ -83,6 +85,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
         'innernet;up' {
             [CompletionResult]::new('--interval', '--interval', [CompletionResultType]::ParameterName, 'Keep fetching the latest peer list at the specified interval in seconds. Valid only in daemon mode')
             [CompletionResult]::new('--hosts-path', '--hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
+            [CompletionResult]::new('--host-suffix', '--host-suffix', [CompletionResultType]::ParameterName, 'Use a different suffix for hosts, than ''INTERFACE.wg'' , ex. --host-suffix ''evilnet'' names peers: PEER.evilnet, and --host-suffix '''' gives peers no suffix, just: PEER')
             [CompletionResult]::new('--exclude-nat-candidates', '--exclude-nat-candidates', [CompletionResultType]::ParameterName, 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically')
             [CompletionResult]::new('--daemon', '--daemon', [CompletionResultType]::ParameterName, 'Enable daemon mode i.e. keep the process running, while fetching the latest peer list periodically')
@@ -95,6 +98,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
         }
         'innernet;fetch' {
             [CompletionResult]::new('--hosts-path', '--hosts-path', [CompletionResultType]::ParameterName, 'The path to write hosts to')
+            [CompletionResult]::new('--host-suffix', '--host-suffix', [CompletionResultType]::ParameterName, 'Use a different suffix for hosts, than ''INTERFACE.wg'' , ex. --host-suffix ''evilnet'' names peers: PEER.evilnet, and --host-suffix '''' gives peers no suffix, just: PEER')
             [CompletionResult]::new('--exclude-nat-candidates', '--exclude-nat-candidates', [CompletionResultType]::ParameterName, 'Exclude one or more CIDRs from NAT candidate reporting. ex. --exclude-nat-candidates ''0.0.0.0/0'' would report no candidates')
             [CompletionResult]::new('--no-write-hosts', '--no-write-hosts', [CompletionResultType]::ParameterName, 'Don''t write to any hosts files')
             [CompletionResult]::new('--no-nat-traversal', '--no-nat-traversal', [CompletionResultType]::ParameterName, 'Don''t attempt NAT traversal. Note that this still will report candidates unless you also specify to exclude all NAT candidates')
@@ -217,6 +221,17 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
+        'innernet;override-peer-endpoint' {
+            [CompletionResult]::new('--name', '--name', [CompletionResultType]::ParameterName, 'Name of peer whose endpoint you want to override')
+            [CompletionResult]::new('-e', '-e', [CompletionResultType]::ParameterName, 'The external endpoint that you''d like to use for a given peer')
+            [CompletionResult]::new('--endpoint', '--endpoint', [CompletionResultType]::ParameterName, 'The external endpoint that you''d like to use for a given peer')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Unset an existing local endpoint override for this peer')
+            [CompletionResult]::new('--unset', '--unset', [CompletionResultType]::ParameterName, 'Unset an existing local endpoint override for this peer')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Bypass confirmation')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
         'innernet;completions' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -228,7 +243,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('up', 'up', [CompletionResultType]::ParameterValue, 'Bring up your local interface, and update it with latest peer list')
             [CompletionResult]::new('fetch', 'fetch', [CompletionResultType]::ParameterValue, 'Fetch and update your local interface with the latest peer list')
             [CompletionResult]::new('uninstall', 'uninstall', [CompletionResultType]::ParameterValue, 'Uninstall an innernet network')
-            [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to ''wg-quick down <interface>'')')
+            [CompletionResult]::new('down', 'down', [CompletionResultType]::ParameterValue, 'Bring down the interface (equivalent to ''wg-quick down INTERFACE'')')
             [CompletionResult]::new('add-peer', 'add-peer', [CompletionResultType]::ParameterValue, 'Add a new peer')
             [CompletionResult]::new('rename-peer', 'rename-peer', [CompletionResultType]::ParameterValue, 'Rename a peer')
             [CompletionResult]::new('add-cidr', 'add-cidr', [CompletionResultType]::ParameterValue, 'Add a new CIDR')
@@ -242,6 +257,7 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             [CompletionResult]::new('list-associations', 'list-associations', [CompletionResultType]::ParameterValue, 'List existing assocations between CIDRs')
             [CompletionResult]::new('set-listen-port', 'set-listen-port', [CompletionResultType]::ParameterValue, 'Set the local listen port')
             [CompletionResult]::new('override-endpoint', 'override-endpoint', [CompletionResultType]::ParameterValue, 'Override your external endpoint that the server sends to other peers')
+            [CompletionResult]::new('override-peer-endpoint', 'override-peer-endpoint', [CompletionResultType]::ParameterValue, 'Override the endpoint you use to connect to a particular peer')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
@@ -301,6 +317,9 @@ Register-ArgumentCompleter -Native -CommandName 'innernet' -ScriptBlock {
             break
         }
         'innernet;help;override-endpoint' {
+            break
+        }
+        'innernet;help;override-peer-endpoint' {
             break
         }
         'innernet;help;completions' {
