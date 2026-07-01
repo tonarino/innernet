@@ -4,8 +4,8 @@
 
 use crate::interface::interface_is_up;
 pub use innernet_shared::{
-    interface_config::PeerInvitation, Cidr, CidrTree, Endpoint, HostsOpts, NatOpts, NetworkOpts,
-    Peer, WrappedIoError, DEFAULT_HOSTS_PATH,
+    interface_config::PeerInvitation, Cidr, CidrContents, CidrTree, Endpoint, HostsOpts, NatOpts,
+    NetworkOpts, Peer, WrappedIoError, DEFAULT_HOSTS_PATH,
 };
 pub use wireguard_control::Backend;
 use wireguard_control::{DeviceUpdate, Key, PeerConfigBuilder};
