@@ -24,7 +24,6 @@ x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 netlink-packet-core.workspace = true
 netlink-packet-generic.workspace = true
 netlink-packet-route.workspace = true
-netlink-packet-utils.workspace = true
 netlink-packet-wireguard.workspace = true
 netlink-request = { version = "2.0.0", path = "../netlink-request" }
 netlink-sys.workspace = true

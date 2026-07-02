@@ -3,26 +3,26 @@ use crate::{
     PeerConfigBuilder, PeerInfo, PeerStats,
 };
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_DUMP, NLM_F_EXCL, NLM_F_REQUEST,
+    Emitable, NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_CREATE, NLM_F_DUMP, NLM_F_EXCL,
+    NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
 use netlink_packet_route::{
     link::{self, InfoKind, LinkInfo, LinkMessage},
     RouteNetlinkMessage,
 };
-use netlink_packet_utils::traits::Emitable;
 use netlink_packet_wireguard::{
-    self,
-    constants::{
-        AF_INET, AF_INET6, WGDEVICE_F_REPLACE_PEERS, WGPEER_F_REMOVE_ME,
-        WGPEER_F_REPLACE_ALLOWEDIPS,
-    },
-    nlas::{WgAllowedIp, WgAllowedIpAttrs, WgDeviceAttrs, WgPeer, WgPeerAttrs},
-    Wireguard, WireguardCmd,
+    self, WireguardAddressFamily, WireguardAllowedIp, WireguardAllowedIpAttr, WireguardAttribute,
+    WireguardCmd, WireguardDeviceFlags, WireguardMessage, WireguardPeer, WireguardPeerAttribute,
+    WireguardPeerFlags, WireguardTimeSpec,
 };
 use netlink_request::{max_genl_payload_length, netlink_request_genl, netlink_request_rtnl};
 
-use std::{convert::TryFrom, io, time::UNIX_EPOCH};
+use std::{
+    convert::TryFrom,
+    io,
+    time::{Duration, SystemTime},
+};
 
 macro_rules! get_nla_value {
     ($nlas:expr, $e:ident, $v:ident) => {
@@ -33,84 +33,98 @@ macro_rules! get_nla_value {
     };
 }
 
-impl TryFrom<WgAllowedIp> for AllowedIp {
+impl TryFrom<WireguardAllowedIp> for AllowedIp {
     type Error = io::Error;
 
-    fn try_from(attrs: WgAllowedIp) -> Result<Self, Self::Error> {
-        let address = *get_nla_value!(attrs, WgAllowedIpAttrs, IpAddr)
+    fn try_from(attrs: WireguardAllowedIp) -> Result<Self, Self::Error> {
+        let address = *get_nla_value!(attrs, WireguardAllowedIpAttr, IpAddr)
             .ok_or_else(|| io::ErrorKind::NotFound)?;
-        let cidr = *get_nla_value!(attrs, WgAllowedIpAttrs, Cidr)
+        let cidr = *get_nla_value!(attrs, WireguardAllowedIpAttr, Cidr)
             .ok_or_else(|| io::ErrorKind::NotFound)?;
         Ok(AllowedIp { address, cidr })
     }
 }
 
 impl AllowedIp {
-    fn to_nla(&self) -> WgAllowedIp {
-        WgAllowedIp(vec![
-            WgAllowedIpAttrs::Family(if self.address.is_ipv4() {
-                AF_INET
+    fn to_nla(&self) -> WireguardAllowedIp {
+        WireguardAllowedIp(vec![
+            WireguardAllowedIpAttr::Family(if self.address.is_ipv4() {
+                WireguardAddressFamily::Ipv4
             } else {
-                AF_INET6
+                WireguardAddressFamily::Ipv6
             }),
-            WgAllowedIpAttrs::IpAddr(self.address),
-            WgAllowedIpAttrs::Cidr(self.cidr),
+            WireguardAllowedIpAttr::IpAddr(self.address),
+            WireguardAllowedIpAttr::Cidr(self.cidr),
         ])
     }
 }
 
 impl PeerConfigBuilder {
-    fn to_nla(&self) -> WgPeer {
-        let mut attrs = vec![WgPeerAttrs::PublicKey(self.public_key.0)];
-        let mut flags = 0u32;
+    fn to_nla(&self) -> WireguardPeer {
+        let mut attrs = vec![WireguardPeerAttribute::PublicKey(self.public_key.0)];
+        let mut flags = WireguardPeerFlags::empty();
+
         if let Some(endpoint) = self.endpoint {
-            attrs.push(WgPeerAttrs::Endpoint(endpoint));
+            attrs.push(WireguardPeerAttribute::Endpoint(endpoint));
         }
         if let Some(ref key) = self.preshared_key {
-            attrs.push(WgPeerAttrs::PresharedKey(key.0));
+            attrs.push(WireguardPeerAttribute::PresharedKey(key.0));
         }
         if let Some(i) = self.persistent_keepalive_interval {
-            attrs.push(WgPeerAttrs::PersistentKeepalive(i));
+            attrs.push(WireguardPeerAttribute::PersistentKeepalive(i));
         }
         let allowed_ips: Vec<_> = self.allowed_ips.iter().map(AllowedIp::to_nla).collect();
-        attrs.push(WgPeerAttrs::AllowedIps(allowed_ips));
+        attrs.push(WireguardPeerAttribute::AllowedIps(allowed_ips));
         if self.remove_me {
-            flags |= WGPEER_F_REMOVE_ME;
+            flags |= WireguardPeerFlags::RemoveMe;
         }
         if self.replace_allowed_ips {
-            flags |= WGPEER_F_REPLACE_ALLOWEDIPS;
+            flags |= WireguardPeerFlags::ReplaceAllowedIps;
         }
-        if flags != 0 {
-            attrs.push(WgPeerAttrs::Flags(flags));
+        if !flags.is_empty() {
+            attrs.push(WireguardPeerAttribute::Flags(flags));
         }
-        WgPeer(attrs)
+        WireguardPeer(attrs)
     }
 }
 
-impl TryFrom<WgPeer> for PeerInfo {
+impl TryFrom<WireguardPeer> for PeerInfo {
     type Error = io::Error;
 
-    fn try_from(attrs: WgPeer) -> Result<Self, Self::Error> {
-        let public_key = get_nla_value!(attrs, WgPeerAttrs, PublicKey)
+    fn try_from(attrs: WireguardPeer) -> Result<Self, Self::Error> {
+        let public_key = get_nla_value!(attrs, WireguardPeerAttribute, PublicKey)
             .map(|key| Key(*key))
             .ok_or(io::ErrorKind::NotFound)?;
-        let preshared_key = get_nla_value!(attrs, WgPeerAttrs, PresharedKey).map(|key| Key(*key));
-        let endpoint = get_nla_value!(attrs, WgPeerAttrs, Endpoint).cloned();
+        let preshared_key =
+            get_nla_value!(attrs, WireguardPeerAttribute, PresharedKey).map(|key| Key(*key));
+        let endpoint = get_nla_value!(attrs, WireguardPeerAttribute, Endpoint).cloned();
         let persistent_keepalive_interval =
-            get_nla_value!(attrs, WgPeerAttrs, PersistentKeepalive).cloned();
-        let allowed_ips = get_nla_value!(attrs, WgPeerAttrs, AllowedIps)
+            get_nla_value!(attrs, WireguardPeerAttribute, PersistentKeepalive).cloned();
+        let allowed_ips = get_nla_value!(attrs, WireguardPeerAttribute, AllowedIps)
             .cloned()
             .unwrap_or_default()
             .into_iter()
             .map(AllowedIp::try_from)
             .collect::<Result<Vec<_>, _>>()?;
-        let last_handshake_time = get_nla_value!(attrs, WgPeerAttrs, LastHandshake)
-            .filter(|&&time| time != UNIX_EPOCH)
-            .cloned();
-        let rx_bytes = get_nla_value!(attrs, WgPeerAttrs, RxBytes)
+        let last_handshake_time = get_nla_value!(attrs, WireguardPeerAttribute, LastHandshake)
+            .filter(|&&wg_time| wg_time != WireguardTimeSpec::default())
+            .map(|wg_time| -> Result<SystemTime, io::Error> {
+                Ok(SystemTime::UNIX_EPOCH
+                    + Duration::new(
+                        wg_time
+                            .seconds
+                            .try_into()
+                            .map_err(|_| io::Error::other("wg_time.seconds i64 converts to u64"))?,
+                        wg_time.nano_seconds.try_into().map_err(|_| {
+                            io::Error::other("wg_time.nano_seconds i64 converts to u32")
+                        })?,
+                    ))
+            })
+            .transpose()?;
+        let rx_bytes = get_nla_value!(attrs, WireguardPeerAttribute, RxBytes)
             .cloned()
             .unwrap_or_default();
-        let tx_bytes = get_nla_value!(attrs, WgPeerAttrs, TxBytes)
+        let tx_bytes = get_nla_value!(attrs, WireguardPeerAttribute, TxBytes)
             .cloned()
             .unwrap_or_default();
         Ok(PeerInfo {
@@ -130,21 +144,21 @@ impl TryFrom<WgPeer> for PeerInfo {
     }
 }
 
-impl<'a> TryFrom<&'a [WgDeviceAttrs]> for Device {
+impl<'a> TryFrom<&'a [WireguardAttribute]> for Device {
     type Error = io::Error;
 
-    fn try_from(nlas: &'a [WgDeviceAttrs]) -> Result<Self, Self::Error> {
-        let name = get_nla_value!(nlas, WgDeviceAttrs, IfName)
+    fn try_from(nlas: &'a [WireguardAttribute]) -> Result<Self, Self::Error> {
+        let name = get_nla_value!(nlas, WireguardAttribute, IfName)
             .ok_or_else(|| io::ErrorKind::NotFound)?
             .parse()?;
-        let public_key = get_nla_value!(nlas, WgDeviceAttrs, PublicKey).map(|key| Key(*key));
-        let private_key = get_nla_value!(nlas, WgDeviceAttrs, PrivateKey).map(|key| Key(*key));
-        let listen_port = get_nla_value!(nlas, WgDeviceAttrs, ListenPort).cloned();
-        let fwmark = get_nla_value!(nlas, WgDeviceAttrs, Fwmark).cloned();
+        let public_key = get_nla_value!(nlas, WireguardAttribute, PublicKey).map(|key| Key(*key));
+        let private_key = get_nla_value!(nlas, WireguardAttribute, PrivateKey).map(|key| Key(*key));
+        let listen_port = get_nla_value!(nlas, WireguardAttribute, ListenPort).cloned();
+        let fwmark = get_nla_value!(nlas, WireguardAttribute, Fwmark).cloned();
         let peers = nlas
             .iter()
             .filter_map(|nla| match nla {
-                WgDeviceAttrs::Peers(peers) => Some(peers.clone()),
+                WireguardAttribute::Peers(peers) => Some(peers.clone()),
                 _ => None,
             })
             .flatten()
@@ -222,16 +236,18 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
     add_del(iface, true)?;
     let mut payload = ApplyPayload::new(iface);
     if let Some(Key(k)) = builder.private_key {
-        payload.push(WgDeviceAttrs::PrivateKey(k))?;
+        payload.push(WireguardAttribute::PrivateKey(k))?;
     }
     if let Some(f) = builder.fwmark {
-        payload.push(WgDeviceAttrs::Fwmark(f))?;
+        payload.push(WireguardAttribute::Fwmark(f))?;
     }
     if let Some(f) = builder.listen_port {
-        payload.push(WgDeviceAttrs::ListenPort(f))?;
+        payload.push(WireguardAttribute::ListenPort(f))?;
     }
     if builder.replace_peers {
-        payload.push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS))?;
+        payload.push(WireguardAttribute::Flags(
+            WireguardDeviceFlags::ReplacePeers,
+        ))?;
     }
 
     builder
@@ -248,15 +264,15 @@ pub fn apply(builder: &DeviceUpdate, iface: &InterfaceName) -> io::Result<()> {
 
 struct ApplyPayload {
     iface: String,
-    nlas: Vec<WgDeviceAttrs>,
+    nlas: Vec<WireguardAttribute>,
     current_buffer_len: usize,
-    queue: Vec<GenlMessage<Wireguard>>,
+    queue: Vec<GenlMessage<WireguardMessage>>,
 }
 
 impl ApplyPayload {
     fn new(iface: &InterfaceName) -> Self {
         let iface_str = iface.as_str_lossy().to_string();
-        let nlas = vec![WgDeviceAttrs::IfName(iface_str.clone())];
+        let nlas = vec![WireguardAttribute::IfName(iface_str.clone())];
         let current_buffer_len = nlas.as_slice().buffer_len();
         Self {
             iface: iface_str,
@@ -269,23 +285,23 @@ impl ApplyPayload {
     fn flush_nlas(&mut self) {
         // // cleanup: clear out any empty peer lists.
         self.nlas
-            .retain(|nla| !matches!(nla, WgDeviceAttrs::Peers(peers) if peers.is_empty()));
+            .retain(|nla| !matches!(nla, WireguardAttribute::Peers(peers) if peers.is_empty()));
 
-        let name = WgDeviceAttrs::IfName(self.iface.clone());
+        let name = WireguardAttribute::IfName(self.iface.clone());
         let template = vec![name];
 
         if !self.nlas.is_empty() && self.nlas != template {
             self.current_buffer_len = template.as_slice().buffer_len();
-            let message = GenlMessage::from_payload(Wireguard {
+            let message = GenlMessage::from_payload(WireguardMessage {
                 cmd: WireguardCmd::SetDevice,
-                nlas: std::mem::replace(&mut self.nlas, template),
+                attributes: std::mem::replace(&mut self.nlas, template),
             });
             self.queue.push(message);
         }
     }
 
     /// Push a device attribute which will be optimally packed into 1 or more netlink messages
-    pub fn push(&mut self, nla: WgDeviceAttrs) -> io::Result<()> {
+    pub fn push(&mut self, nla: WireguardAttribute) -> io::Result<()> {
         let max_payload_len = max_genl_payload_length();
 
         let nla_buffer_len = nla.buffer_len();
@@ -306,13 +322,13 @@ impl ApplyPayload {
     }
 
     /// A helper function to assist in breaking up large peer lists across multiple netlink messages
-    pub fn push_peer(&mut self, peer: WgPeer) -> io::Result<()> {
-        const EMPTY_PEERS: WgDeviceAttrs = WgDeviceAttrs::Peers(vec![]);
+    pub fn push_peer(&mut self, peer: WireguardPeer) -> io::Result<()> {
+        const EMPTY_PEERS: WireguardAttribute = WireguardAttribute::Peers(vec![]);
         let max_payload_len = max_genl_payload_length();
         let mut needs_peer_nla = !self
             .nlas
             .iter()
-            .any(|nla| matches!(nla, WgDeviceAttrs::Peers(_)));
+            .any(|nla| matches!(nla, WireguardAttribute::Peers(_)));
         let peer_buffer_len = peer.buffer_len();
         let mut additional_buffer_len = peer_buffer_len;
         if needs_peer_nla {
@@ -339,10 +355,10 @@ impl ApplyPayload {
             .nlas
             .iter_mut()
             .find_map(|nla| match nla {
-                WgDeviceAttrs::Peers(peers) => Some(peers),
+                WireguardAttribute::Peers(peers) => Some(peers),
                 _ => None,
             })
-            .expect("WgDeviceAttrs::Peers missing from NLAs when it should exist.");
+            .expect("WireguardAttribute::Peers missing from NLAs when it should exist.");
 
         peers_nla.push(peer);
         self.current_buffer_len += peer_buffer_len;
@@ -350,16 +366,16 @@ impl ApplyPayload {
         Ok(())
     }
 
-    pub fn finish(mut self) -> Vec<GenlMessage<Wireguard>> {
+    pub fn finish(mut self) -> Vec<GenlMessage<WireguardMessage>> {
         self.flush_nlas();
         self.queue
     }
 }
 
 pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
-    let genlmsg: GenlMessage<Wireguard> = GenlMessage::from_payload(Wireguard {
+    let genlmsg: GenlMessage<WireguardMessage> = GenlMessage::from_payload(WireguardMessage {
         cmd: WireguardCmd::GetDevice,
-        nlas: vec![WgDeviceAttrs::IfName(name.as_str_lossy().to_string())],
+        attributes: vec![WireguardAttribute::IfName(name.as_str_lossy().to_string())],
     });
     let responses = netlink_request_genl(genlmsg, Some(NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK))?;
     log::trace!(
@@ -380,12 +396,12 @@ pub fn get_by_name(name: &InterfaceName) -> Result<Device, io::Error> {
                 ))
             },
         };
-        nlas.append(&mut message.payload.nlas);
+        nlas.append(&mut message.payload.attributes);
         Ok(nlas)
     })?;
     let device = Device::try_from(&nlas[..])?;
     log::trace!(
-        "get_by_name: parsed wireguard device {} with {} peer(s)",
+        "get_by_name: parsed wireguardmessage device {} with {} peer(s)",
         device.name,
         device.peers.len(),
     );
@@ -399,29 +415,33 @@ pub fn delete_interface(iface: &InterfaceName) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use netlink_packet_wireguard::nlas::WgAllowedIp;
+    use netlink_packet_core::DefaultNla;
     use netlink_request::max_netlink_buffer_length;
     use std::str::FromStr;
 
     #[test]
     fn test_simple_payload() {
         let mut payload = ApplyPayload::new(&InterfaceName::from_str("wg0").unwrap());
-        payload.push(WgDeviceAttrs::PrivateKey([1u8; 32])).unwrap();
-        payload.push(WgDeviceAttrs::Fwmark(111)).unwrap();
-        payload.push(WgDeviceAttrs::ListenPort(12345)).unwrap();
         payload
-            .push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS))
+            .push(WireguardAttribute::PrivateKey([1u8; 32]))
+            .unwrap();
+        payload.push(WireguardAttribute::Fwmark(111)).unwrap();
+        payload.push(WireguardAttribute::ListenPort(12345)).unwrap();
+        payload
+            .push(WireguardAttribute::Flags(
+                WireguardDeviceFlags::ReplacePeers,
+            ))
             .unwrap();
         payload
-            .push_peer(WgPeer(vec![
-                WgPeerAttrs::PublicKey([2u8; 32]),
-                WgPeerAttrs::PersistentKeepalive(25),
-                WgPeerAttrs::Endpoint("1.1.1.1:51820".parse().unwrap()),
-                WgPeerAttrs::Flags(WGPEER_F_REPLACE_ALLOWEDIPS),
-                WgPeerAttrs::AllowedIps(vec![WgAllowedIp(vec![
-                    WgAllowedIpAttrs::Family(AF_INET),
-                    WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
-                    WgAllowedIpAttrs::Cidr(24),
+            .push_peer(WireguardPeer(vec![
+                WireguardPeerAttribute::PublicKey([2u8; 32]),
+                WireguardPeerAttribute::PersistentKeepalive(25),
+                WireguardPeerAttribute::Endpoint("1.1.1.1:51820".parse().unwrap()),
+                WireguardPeerAttribute::Flags(WireguardPeerFlags::ReplaceAllowedIps),
+                WireguardPeerAttribute::AllowedIps(vec![WireguardAllowedIp(vec![
+                    WireguardAllowedIpAttr::Family(WireguardAddressFamily::Ipv4),
+                    WireguardAllowedIpAttr::IpAddr([10, 1, 1, 1].into()),
+                    WireguardAllowedIpAttr::Cidr(24),
                 ])]),
             ]))
             .unwrap();
@@ -430,27 +450,37 @@ mod tests {
 
     #[test]
     fn test_massive_payload() {
+        // Taken from older version of netlink-packet-wireguard.
+        const WGPEER_A_UNSPEC: u16 = 0;
+
         let mut payload = ApplyPayload::new(&InterfaceName::from_str("wg0").unwrap());
-        payload.push(WgDeviceAttrs::PrivateKey([1u8; 32])).unwrap();
-        payload.push(WgDeviceAttrs::Fwmark(111)).unwrap();
-        payload.push(WgDeviceAttrs::ListenPort(12345)).unwrap();
         payload
-            .push(WgDeviceAttrs::Flags(WGDEVICE_F_REPLACE_PEERS))
+            .push(WireguardAttribute::PrivateKey([1u8; 32]))
+            .unwrap();
+        payload.push(WireguardAttribute::Fwmark(111)).unwrap();
+        payload.push(WireguardAttribute::ListenPort(12345)).unwrap();
+        payload
+            .push(WireguardAttribute::Flags(
+                WireguardDeviceFlags::ReplacePeers,
+            ))
             .unwrap();
 
         for i in 0..10_000 {
             payload
-                .push_peer(WgPeer(vec![
-                    WgPeerAttrs::PublicKey([2u8; 32]),
-                    WgPeerAttrs::PersistentKeepalive(25),
-                    WgPeerAttrs::Endpoint("1.1.1.1:51820".parse().unwrap()),
-                    WgPeerAttrs::Flags(WGPEER_F_REPLACE_ALLOWEDIPS),
-                    WgPeerAttrs::AllowedIps(vec![WgAllowedIp(vec![
-                        WgAllowedIpAttrs::Family(AF_INET),
-                        WgAllowedIpAttrs::IpAddr([10, 1, 1, 1].into()),
-                        WgAllowedIpAttrs::Cidr(24),
+                .push_peer(WireguardPeer(vec![
+                    WireguardPeerAttribute::PublicKey([2u8; 32]),
+                    WireguardPeerAttribute::PersistentKeepalive(25),
+                    WireguardPeerAttribute::Endpoint("1.1.1.1:51820".parse().unwrap()),
+                    WireguardPeerAttribute::Flags(WireguardPeerFlags::ReplaceAllowedIps),
+                    WireguardPeerAttribute::AllowedIps(vec![WireguardAllowedIp(vec![
+                        WireguardAllowedIpAttr::Family(WireguardAddressFamily::Ipv4),
+                        WireguardAllowedIpAttr::IpAddr([10, 1, 1, 1].into()),
+                        WireguardAllowedIpAttr::Cidr(24),
                     ])]),
-                    WgPeerAttrs::Unspec(vec![1u8; (i % 256) as usize]),
+                    WireguardPeerAttribute::Other(DefaultNla::new(
+                        WGPEER_A_UNSPEC,
+                        vec![1u8; (i % 256) as usize],
+                    )),
                 ]))
                 .unwrap();
         }

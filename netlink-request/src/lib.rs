@@ -1,8 +1,9 @@
 #[cfg(target_os = "linux")]
 mod linux {
     use netlink_packet_core::{
-        NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
-        NETLINK_HEADER_LEN, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL, NLM_F_REQUEST,
+        Emitable, NetlinkDeserializable, NetlinkHeader, NetlinkMessage, NetlinkPayload,
+        NetlinkSerializable, ParseableParametrized, NLM_F_ACK, NLM_F_CREATE, NLM_F_EXCL,
+        NLM_F_REQUEST,
     };
     use netlink_packet_generic::{
         constants::GENL_HDRLEN,
@@ -10,7 +11,6 @@ mod linux {
         GenlFamily, GenlHeader, GenlMessage,
     };
     use netlink_packet_route::RouteNetlinkMessage;
-    use netlink_packet_utils::{Emitable, ParseableParametrized};
     use netlink_sys::{constants::NETLINK_GENERIC, protocols::NETLINK_ROUTE, Socket};
     use nix::unistd::{sysconf, SysconfVar};
     use once_cell::sync::OnceCell;
@@ -42,7 +42,7 @@ mod linux {
     }
 
     pub fn max_genl_payload_length() -> usize {
-        max_netlink_buffer_length() - NETLINK_HEADER_LEN - GENL_HDRLEN
+        max_netlink_buffer_length() - NetlinkHeader::default().buffer_len() - GENL_HDRLEN
     }
 
     pub fn netlink_request_genl<F>(

@@ -23,11 +23,8 @@ keywords = ["innernet", "networking", "overlay", "vpn", "wireguard"]
 [workspace.dependencies]
 colored = "2"
 dialoguer = { version = "0.11", default-features = false }
-netlink-packet-core = "0.7"
-netlink-packet-generic = "0.3.3"
-netlink-packet-route = "0.21"
-netlink-packet-utils = "0.5.2"
-# Pin the version to "0.2.3" because "0.2.4" bumps its `netlink-packet-generic` dependency to
-# "0.4.0", which is incompatible with our "0.3.3" version above.
-netlink-packet-wireguard = "=0.2.3"
+netlink-packet-core = "0.8"
+netlink-packet-generic = "0.4"
+netlink-packet-route = "0.31"
+netlink-packet-wireguard = "0.4"
 netlink-sys = "0.8.5"

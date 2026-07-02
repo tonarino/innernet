@@ -16,7 +16,6 @@ version = "2.0.0"
 netlink-packet-core.workspace = true
 netlink-packet-generic.workspace = true
 netlink-packet-route.workspace = true
-netlink-packet-utils.workspace = true
 netlink-sys.workspace = true
 nix = { version = "0.25", features = ["feature"] }
 once_cell = "1"
