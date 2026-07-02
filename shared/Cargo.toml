@@ -37,10 +37,10 @@ url = "2"
 wireguard-control = { version = "2.0.0", path = "../wireguard-control" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-netlink-packet-core = "0.7"
-netlink-packet-route = "0.21"
+netlink-packet-core.workspace = true
+netlink-packet-route.workspace = true
 netlink-request = { version = "2.0.0", path = "../netlink-request" }
-netlink-sys = "0.8.5"
+netlink-sys.workspace = true
 
 [target.'cfg(any(target_os = "macos", target_os= "openbsd"))'.dependencies]
 nix = "0.26"
