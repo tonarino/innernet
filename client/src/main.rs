@@ -718,13 +718,13 @@ fn list_associations(interface: &InterfaceName, opts: &Opts) -> Result<(), Error
         println!(
             "{}: {} <=> {}",
             association.id,
-            &cidrs
+            cidrs
                 .iter()
                 .find(|c| c.id == association.cidr_id_1)
                 .unwrap()
                 .name
                 .yellow(),
-            &cidrs
+            cidrs
                 .iter()
                 .find(|c| c.id == association.cidr_id_2)
                 .unwrap()

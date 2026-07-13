@@ -214,12 +214,12 @@ pub fn choose_association<'a>(
                     format!(
                         "{}: {} <=> {}",
                         association.id,
-                        &cidrs
+                        cidrs
                             .iter()
                             .find(|c| c.id == association.cidr_id_1)
                             .unwrap()
                             .name,
-                        &cidrs
+                        cidrs
                             .iter()
                             .find(|c| c.id == association.cidr_id_2)
                             .unwrap()
@@ -454,7 +454,7 @@ pub fn enable_or_disable_peer(
     } else {
         let peer_selection: Vec<_> = enabled_peers
             .iter()
-            .map(|peer| format!("{} ({})", &peer.name, &peer.ip))
+            .map(|peer| format!("{} ({})", peer.name, peer.ip))
             .collect();
         let (index, _) = select(
             &format!("Peer to {}able", if enable { "en" } else { "dis" }),

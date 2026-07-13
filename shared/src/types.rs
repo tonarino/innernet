@@ -605,7 +605,7 @@ impl DerefMut for Peer {
 
 impl Display for Peer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", &self.name, &self.public_key)
+        write!(f, "{} ({})", self.name, self.public_key)
     }
 }
 

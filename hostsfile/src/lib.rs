@@ -190,8 +190,8 @@ impl HostsBuilder {
 
         let temp_path = Self::get_temp_path(hosts_path)?;
 
-        let begin_marker = format!("# DO NOT EDIT {} BEGIN", &self.tag);
-        let end_marker = format!("# DO NOT EDIT {} END", &self.tag);
+        let begin_marker = format!("# DO NOT EDIT {} BEGIN", self.tag);
+        let end_marker = format!("# DO NOT EDIT {} END", self.tag);
 
         let hosts_file = OpenOptions::new()
             .create(true)
@@ -246,7 +246,7 @@ impl HostsBuilder {
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("start or end marker missing in {:?}", &hosts_path),
+                    format!("start or end marker missing in {:?}", hosts_path),
                 ));
             },
         };

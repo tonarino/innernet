@@ -202,7 +202,7 @@ pub fn add_peer(
                 .apply(interface, network.backend)
                 .map_err(|_| ServerError::WireGuard)?;
 
-            println!("adding to WireGuard interface: {}", &*peer);
+            println!("adding to WireGuard interface: {}", *peer);
         }
 
         let address = cidr_tree
@@ -543,7 +543,7 @@ pub async fn serve(
         let context = context.clone();
         async move {
             Ok::<_, http::Error>(hyper::service::service_fn(move |req: Request<Body>| {
-                log::debug!("{} - {} {}", &remote_addr, req.method(), req.uri());
+                log::debug!("{} - {} {}", remote_addr, req.method(), req.uri());
                 hyper_service(req, context.clone(), remote_addr)
             }))
         }

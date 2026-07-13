@@ -121,7 +121,7 @@ fn update_keypair(
 
     log::info!(
         "Registering keypair with server (at {}).",
-        &config.server.internal_endpoint
+        config.server.internal_endpoint
     );
     RestClient::new(&config.server).http_form::<_, ()>(
         "POST",
@@ -357,7 +357,7 @@ fn print_peer_diff(store: &DataStore, diff: &PeerDiff) {
     log::info!(
         "  peer {} ({}...) was {}.",
         peer_name.yellow(),
-        &public_key[..10].dimmed(),
+        public_key[..10].dimmed(),
         change_action.colored_output(),
     );
 

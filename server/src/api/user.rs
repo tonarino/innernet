@@ -123,7 +123,7 @@ mod handlers {
                 tokio::time::sleep(REDEEM_TRANSITION_WAIT).await;
                 log::info!(
                     "WireGuard: adding new peer {}, removing old pubkey {}",
-                    &*selected_peer,
+                    *selected_peer,
                     old_public_key.to_base64()
                 );
                 DeviceUpdate::new()

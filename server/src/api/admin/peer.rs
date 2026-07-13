@@ -45,7 +45,7 @@ mod handlers {
         let conn = session.context.db.lock();
 
         let peer = DatabasePeer::create(&conn, form)?;
-        log::info!("adding peer {}", &*peer);
+        log::info!("adding peer {}", *peer);
 
         if cfg!(not(test)) {
             // Update the current WireGuard interface with the new peers.
@@ -53,7 +53,7 @@ mod handlers {
                 .add_peer(PeerConfigBuilder::from(&*peer))
                 .apply(&session.context.interface, session.context.backend)
                 .map_err(|_| ServerError::WireGuard)?;
-            log::info!("updated WireGuard interface, adding {}", &*peer);
+            log::info!("updated WireGuard interface, adding {}", *peer);
         }
 
         json_status_response(&*peer, StatusCode::CREATED)
