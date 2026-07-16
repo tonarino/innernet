@@ -91,6 +91,10 @@ enum Command {
         #[clap(short, long)]
         tree: bool,
 
+        /// Display only peers in this CIDR and its descendants
+        #[clap(long)]
+        cidr_name: Option<String>,
+
         interface: Option<Interface>,
     },
 
@@ -897,7 +901,23 @@ fn get_server_capabilities(config: &InterfaceConfig) -> Result<ServerCapabilitie
     }
 }
 
-fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> Result<(), Error> {
+fn cidr_tree_for_name<'a>(cidrs: &'a [Cidr], cidr_name: Option<&str>) -> Option<CidrTree<'a>> {
+    match cidr_name {
+        Some(name) => cidrs
+            .iter()
+            .find(|cidr| cidr.name == name)
+            .map(|cidr| CidrTree::with_root(cidrs, cidr)),
+        None => Some(CidrTree::new(cidrs)),
+    }
+}
+
+fn show(
+    opts: &Opts,
+    short: bool,
+    tree: bool,
+    cidr_name: Option<&str>,
+    interface: Option<Interface>,
+) -> Result<(), Error> {
     let interfaces = interface.map_or_else(
         || Device::list(opts.network.backend),
         |interface| Ok(vec![*interface]),
@@ -929,7 +949,16 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
         return Ok(());
     }
 
+    let mut matched_cidr = cidr_name.is_none();
+
     for (device_info, store, interface_config) in devices {
+        let peers = store.peers();
+        let cidrs = store.cidrs();
+        let Some(cidr_tree) = cidr_tree_for_name(cidrs, cidr_name) else {
+            continue;
+        };
+        matched_cidr = true;
+
         let public_key = match &device_info.public_key {
             Some(key) => key.to_base64(),
             None => {
@@ -941,8 +970,6 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
             },
         };
 
-        let peers = store.peers();
-        let cidrs = store.cidrs();
         let me = peers
             .iter()
             .find(|p| p.public_key == public_key)
@@ -966,13 +993,15 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
             peer: me,
             info: None,
         });
+        if cidr_name.is_some() {
+            peer_states.retain(|peer| cidr_tree.contains_cidr_id(peer.peer.cidr_id));
+        }
 
         print_interface(&device_info, short || tree)?;
         peer_states.sort_by_key(|peer| peer.peer.ip);
         let verbose = opts.verbose > 0;
 
         if tree {
-            let cidr_tree = CidrTree::new(cidrs);
             print_tree(&cidr_tree, &peer_states, 1, verbose, &interface_config);
         } else {
             for peer_state in peer_states {
@@ -983,6 +1012,13 @@ fn show(opts: &Opts, short: bool, tree: bool, interface: Option<Interface>) -> R
             }
         }
     }
+
+    if let Some(name) = cidr_name {
+        if !matched_cidr {
+            bail!("No CIDR named '{name}' exists in any running innernet network.");
+        }
+    }
+
     Ok(())
 }
 
@@ -1138,6 +1174,7 @@ fn run(opts: &Opts) -> Result<(), Error> {
     let command = opts.command.clone().unwrap_or(Command::Show {
         short: false,
         tree: false,
+        cidr_name: None,
         interface: None,
     });
 
@@ -1151,8 +1188,9 @@ fn run(opts: &Opts) -> Result<(), Error> {
         Command::Show {
             short,
             tree,
+            cidr_name,
             interface,
-        } => show(opts, short, tree, interface)?,
+        } => show(opts, short, tree, cidr_name.as_deref(), interface)?,
         Command::Fetch {
             interface,
             hosts,
@@ -1249,4 +1287,46 @@ fn run(opts: &Opts) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cidr(id: i64, name: &str, network: &str, parent: Option<i64>) -> Cidr {
+        Cidr {
+            id,
+            contents: innernet_shared::CidrContents {
+                name: name.to_owned(),
+                cidr: network.parse().unwrap(),
+                parent,
+            },
+        }
+    }
+
+    #[test]
+    fn list_alias_accepts_cidr_name_filter() {
+        let opts = Opts::try_parse_from(["innernet", "list", "--cidr-name", "friends"])
+            .expect("list should accept --cidr-name");
+
+        assert!(matches!(
+            opts.command,
+            Some(Command::Show {
+                cidr_name: Some(ref name),
+                ..
+            }) if name == "friends"
+        ));
+    }
+
+    #[test]
+    fn selects_cidr_tree_by_name() {
+        let cidrs = vec![
+            cidr(1, "root", "10.0.0.0/8", None),
+            cidr(2, "friends", "10.10.0.0/16", Some(1)),
+        ];
+
+        assert_eq!(cidr_tree_for_name(&cidrs, None).unwrap().id, 1);
+        assert_eq!(cidr_tree_for_name(&cidrs, Some("friends")).unwrap().id, 2);
+        assert!(cidr_tree_for_name(&cidrs, Some("missing")).is_none());
+    }
 }

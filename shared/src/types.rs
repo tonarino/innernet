@@ -292,6 +292,11 @@ impl<'a> CidrTree<'a> {
         }
     }
 
+    /// Returns whether this tree contains the CIDR with the given ID.
+    pub fn contains_cidr_id(&self, id: i64) -> bool {
+        self.id == id || self.children().any(|child| child.contains_cidr_id(id))
+    }
+
     pub fn ip_net_for(&self, ip: IpAddr) -> Result<IpNet, PrefixLenError> {
         IpNet::new(ip, self.contents.prefix_len())
     }
@@ -947,6 +952,33 @@ mod tests {
     use super::*;
     use std::net::IpAddr;
     use wireguard_control::{Key, PeerConfigBuilder, PeerStats};
+
+    fn cidr(id: i64, name: &str, network: &str, parent: Option<i64>) -> Cidr {
+        Cidr {
+            id,
+            contents: CidrContents {
+                name: name.to_owned(),
+                cidr: network.parse().unwrap(),
+                parent,
+            },
+        }
+    }
+
+    #[test]
+    fn cidr_tree_contains_nested_cidr_ids() {
+        let cidrs = vec![
+            cidr(1, "root", "10.0.0.0/8", None),
+            cidr(2, "friends", "10.10.0.0/16", Some(1)),
+            cidr(3, "close-friends", "10.10.1.0/24", Some(2)),
+            cidr(4, "coworkers", "10.20.0.0/16", Some(1)),
+        ];
+        let tree = CidrTree::with_root(&cidrs, &cidrs[1]);
+
+        assert!(tree.contains_cidr_id(2));
+        assert!(tree.contains_cidr_id(3));
+        assert!(!tree.contains_cidr_id(1));
+        assert!(!tree.contains_cidr_id(4));
+    }
 
     #[test]
     fn test_peer_no_diff() {
