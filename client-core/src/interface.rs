@@ -11,12 +11,23 @@ use anyhow::{bail, Context as _, Error};
 use colored::{ColoredString, Colorize};
 use innernet_shared::{
     get_local_addrs, update_hosts_file,
-    wg::{self, DeviceExt as _},
+    wg::{self, DeviceExt as _, PeerInfoExt as _},
     Endpoint, PeerChange, PeerDiff, RedeemContents, State, REDEEM_TRANSITION_WAIT,
 };
-use std::{io, net::SocketAddr, path::Path, thread, time::Instant};
+use std::{
+    io,
+    net::SocketAddr,
+    path::Path,
+    thread,
+    time::{Duration, Instant},
+};
 use thiserror::Error;
-use wireguard_control::{Backend, Device, DeviceUpdate, PeerConfigBuilder};
+use wireguard_control::{Backend, Device, DeviceUpdate, Key, PeerConfigBuilder};
+
+/// Time allowed for a handshake with the server over one external endpoint. It exceeds
+/// WireGuard's 5 s handshake retry interval, so a single lost handshake packet does not cause
+/// a switch of endpoints.
+const SERVER_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(7);
 
 #[derive(Debug, Error)]
 pub enum RedeemInviteError {
@@ -73,31 +84,7 @@ pub fn redeem_invite(
         interface.as_str_lossy().yellow()
     );
 
-    let endpoint = &config.server.external_endpoint;
-    let resolved_endpoint =
-        endpoint
-            .resolve()
-            .map_err(|e| RedeemInviteError::ServerAddressResolve {
-                endpoint: endpoint.clone(),
-                error: e,
-            })?;
-
-    wg::up(
-        interface,
-        &config.interface.private_key,
-        config.interface.address,
-        config.interface.listen_port,
-        Some((
-            &config.server.public_key,
-            config.server.internal_endpoint.ip(),
-            resolved_endpoint,
-        )),
-        network_opts,
-    )
-    .map_err(|e| RedeemInviteError::WireguardOperation {
-        interface: *interface,
-        error: e,
-    })?;
+    connect_to_server(network_opts, interface, &config)?;
 
     update_keypair(network_opts, interface, &config_path, config).inspect_err(|e| {
         log::error!("failed to update keypair (is the innernet server reachable?): {e}.",);
@@ -108,6 +95,104 @@ pub fn redeem_invite(
     })?;
 
     Ok(())
+}
+
+/// Brings the interface up with the server as its only peer.
+///
+/// The server's external endpoint is used first. Its IPv6 external endpoint is used instead
+/// when the external endpoint does not resolve or no handshake completes over it within
+/// [`SERVER_HANDSHAKE_TIMEOUT`]. If neither endpoint completes a handshake, the first one is
+/// restored.
+fn connect_to_server(
+    network_opts: &NetworkOpts,
+    interface: &InterfaceName,
+    config: &InterfaceConfig,
+) -> Result<(), RedeemInviteError> {
+    let resolve = |endpoint: &Endpoint| {
+        endpoint
+            .resolve()
+            .map_err(|error| RedeemInviteError::ServerAddressResolve {
+                endpoint: endpoint.clone(),
+                error,
+            })
+    };
+    let wireguard_error = |error| RedeemInviteError::WireguardOperation {
+        interface: *interface,
+        error,
+    };
+
+    let server = &config.server;
+    let fallback = server
+        .external_endpoint_v6
+        .as_ref()
+        .map(resolve)
+        .transpose()?;
+    let (initial, fallback) = match (resolve(&server.external_endpoint), fallback) {
+        (Ok(primary), fallback) => (primary, fallback),
+        (Err(e), Some(fallback)) => {
+            log::warn!("{e}; using the IPv6 external endpoint {fallback}.");
+            (fallback, None)
+        },
+        (Err(e), None) => return Err(e),
+    };
+
+    wg::up(
+        interface,
+        &config.interface.private_key,
+        config.interface.address,
+        config.interface.listen_port,
+        Some((&server.public_key, server.internal_endpoint.ip(), initial)),
+        network_opts,
+    )
+    .map_err(wireguard_error)?;
+
+    let Some(fallback) = fallback else {
+        return Ok(());
+    };
+    let handshake_completes = || {
+        wait_for_handshake(network_opts.backend, interface, &server.public_key)
+            .map_err(wireguard_error)
+    };
+    let set_endpoint = |endpoint: SocketAddr| {
+        let public_key = Key::from_base64(&server.public_key)
+            .map_err(|e| wireguard_error(io::Error::new(io::ErrorKind::InvalidInput, e)))?;
+        DeviceUpdate::new()
+            .add_peer(PeerConfigBuilder::new(&public_key).set_endpoint(endpoint))
+            .apply(interface, network_opts.backend)
+            .map_err(wireguard_error)
+    };
+
+    if handshake_completes()? {
+        return Ok(());
+    }
+    log::info!("no handshake with the server over {initial}, switching to {fallback}.");
+    set_endpoint(fallback)?;
+
+    if handshake_completes()? {
+        return Ok(());
+    }
+    log::warn!("no handshake with the server over {fallback} either, switching back to {initial}.");
+    set_endpoint(initial)
+}
+
+/// Returns whether a handshake with the peer completes within [`SERVER_HANDSHAKE_TIMEOUT`].
+fn wait_for_handshake(
+    backend: Backend,
+    interface: &InterfaceName,
+    public_key: &str,
+) -> Result<bool, io::Error> {
+    let start = Instant::now();
+    while start.elapsed() < SERVER_HANDSHAKE_TIMEOUT {
+        let device = Device::get(interface, backend)?;
+        if device
+            .get_peer(public_key)
+            .is_some_and(|peer| peer.is_recently_connected())
+        {
+            return Ok(true);
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Ok(false)
 }
 
 fn update_keypair(
@@ -177,24 +262,7 @@ pub fn fetch(
             "bringing up interface {}.",
             interface.as_str_lossy().yellow()
         );
-        let resolved_endpoint = config
-            .server
-            .external_endpoint
-            .resolve()
-            .context(config.server.external_endpoint.to_string())?;
-        wg::up(
-            interface,
-            &config.interface.private_key,
-            config.interface.address,
-            config.interface.listen_port,
-            Some((
-                &config.server.public_key,
-                config.server.internal_endpoint.ip(),
-                resolved_endpoint,
-            )),
-            network_opts,
-        )
-        .context(interface.to_string())?;
+        connect_to_server(network_opts, interface, &config)?;
     }
 
     log::info!(

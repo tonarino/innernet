@@ -10,6 +10,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+/// Database ID of the peer row that represents the innernet server itself.
+pub const SERVER_PEER_ID: i64 = 1;
+
 pub static CREATE_TABLE_SQL: &str = "CREATE TABLE peers (
       id              INTEGER PRIMARY KEY,
       name            TEXT NOT NULL UNIQUE,         /* The canonical name for the peer in canonical hostname(7) format. */

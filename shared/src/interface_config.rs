@@ -66,6 +66,10 @@ pub struct ServerInfo {
     /// The external internet endpoint to reach the server.
     pub external_endpoint: Endpoint,
 
+    /// An IPv6 external endpoint, used when the server is unreachable over `external_endpoint`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_endpoint_v6: Option<Endpoint>,
+
     /// An internal endpoint in the WireGuard network that hosts the coordination API.
     pub internal_endpoint: SocketAddr,
 }
@@ -77,6 +81,7 @@ impl ServerInfo {
                 .endpoint
                 .clone()
                 .expect("The innernet server should have a WireGuard endpoint"),
+            external_endpoint_v6: server_peer.ipv6_external_endpoint().cloned(),
             internal_endpoint,
             public_key: server_peer.public_key.clone(),
         }
@@ -208,5 +213,65 @@ impl PeerInvitation {
         file.write_all(self.interface_config.as_toml().as_bytes())?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::PeerContents;
+
+    fn server_peer(candidates: Vec<Endpoint>) -> Peer {
+        Peer {
+            id: 1,
+            contents: PeerContents {
+                name: "innernet-server".parse().unwrap(),
+                ip: "10.42.0.1".parse().unwrap(),
+                cidr_id: 2,
+                public_key: "4CNZorWVtohO64n6AAaH/JyFjIIgBFrfJK2SGtKjzEE=".to_owned(),
+                endpoint: Some("203.0.113.1:51820".parse().unwrap()),
+                persistent_keepalive_interval: None,
+                is_admin: true,
+                is_disabled: false,
+                is_redeemed: true,
+                invite_expires: None,
+                candidates,
+            },
+        }
+    }
+
+    fn round_trip(server: ServerInfo) -> (String, InterfaceConfig) {
+        let keypair = KeyPair::generate();
+        let interface = InterfaceInfo::new(
+            &"test".parse().unwrap(),
+            &keypair,
+            "10.42.1.1/16".parse().unwrap(),
+        );
+        let toml = InterfaceConfig::new(interface, server).as_toml();
+        let parsed = toml::from_str(&toml).unwrap();
+        (toml, parsed)
+    }
+
+    #[test]
+    fn test_server_info_with_ipv6_endpoint() {
+        let v6: Endpoint = "[2001:db8::1]:51820".parse().unwrap();
+        let peer = server_peer(vec![v6.clone()]);
+        let server = ServerInfo::new(&peer, "10.42.0.1:51820".parse().unwrap());
+        assert_eq!(server.external_endpoint_v6, Some(v6.clone()));
+
+        let (toml, parsed) = round_trip(server);
+        assert!(toml.contains("external-endpoint-v6 = \"[2001:db8::1]:51820\""));
+        assert_eq!(parsed.server.external_endpoint_v6, Some(v6));
+    }
+
+    #[test]
+    fn test_server_info_without_ipv6_endpoint() {
+        let peer = server_peer(vec![]);
+        let server = ServerInfo::new(&peer, "10.42.0.1:51820".parse().unwrap());
+        assert_eq!(server.external_endpoint_v6, None);
+
+        let (toml, parsed) = round_trip(server);
+        assert!(!toml.contains("external-endpoint-v6"));
+        assert_eq!(parsed.server.external_endpoint_v6, None);
     }
 }

@@ -7,7 +7,6 @@ use clap::Parser;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Input};
 use indoc::printdoc;
-use innernet_publicip::Preference;
 use innernet_shared::{
     prompts, CidrContents, Endpoint, IpNetExt, PeerContents, PERSISTENT_KEEPALIVE_INTERVAL_SECS,
 };
@@ -45,7 +44,12 @@ pub struct InitializeOpts {
     #[clap(long, conflicts_with = "auto_external_endpoint")]
     pub external_endpoint: Option<Endpoint>,
 
-    /// Auto-resolve external endpoint
+    /// This server's IPv6 external endpoint, used by clients that cannot reach the
+    /// external endpoint (ex: [2001:db8::1]:51820)
+    #[clap(long, conflicts_with = "auto_external_endpoint", value_parser = Endpoint::parse_ipv6)]
+    pub external_endpoint_v6: Option<Endpoint>,
+
+    /// Auto-resolve external endpoints
     #[clap(long = "auto-external-endpoint")]
     pub auto_external_endpoint: bool,
 
@@ -61,6 +65,7 @@ struct DbInitData {
     our_ip: IpAddr,
     public_key_base64: String,
     endpoint: Endpoint,
+    endpoint_v6: Option<Endpoint>,
 }
 
 fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), Error> {
@@ -99,7 +104,7 @@ fn populate_database(conn: &Connection, db_init_data: DbInitData) -> Result<(), 
             is_redeemed: true,
             persistent_keepalive_interval: Some(PERSISTENT_KEEPALIVE_INTERVAL_SECS),
             invite_expires: None,
-            candidates: vec![],
+            candidates: db_init_data.endpoint_v6.into_iter().collect(),
         },
     )
     .map_err(|_| anyhow!("failed to create innernet peer."))?;
@@ -126,8 +131,9 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         or RFC4193 IPv6 (fd00::/8) ranges.
 
         The external endpoint specified is a <host>:<port> string that is the address clients
-        will connect to. It's up to you to forward/open ports in your routers/firewalls
-        as needed.
+        will connect to. An optional IPv6 external endpoint is used by clients that cannot
+        reach the external endpoint. It's up to you to forward/open ports in your
+        routers/firewalls as needed.
 
         For more usage instructions, see https://github.com/tonarino/innernet#usage
         \n"
@@ -163,15 +169,35 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
 
     log::info!("listen port: {}", listen_port);
 
-    let endpoint: Endpoint = if let Some(endpoint) = opts.external_endpoint {
-        endpoint
-    } else if opts.auto_external_endpoint {
-        let ip = innernet_publicip::get_any(Preference::Ipv4)
-            .ok_or_else(|| anyhow!("couldn't get external IP"))?;
-        SocketAddr::new(ip, listen_port).into()
+    // IPv4 is the primary endpoint; IPv6 is primary only when no IPv4 address is found.
+    let to_endpoint = |ip: IpAddr| -> Endpoint { SocketAddr::new(ip, listen_port).into() };
+    let detect_endpoints = || match innernet_publicip::get_both() {
+        (Some(v4), v6) => (
+            Some(to_endpoint(v4.into())),
+            v6.map(|ip| to_endpoint(ip.into())),
+        ),
+        (None, v6) => (v6.map(|ip| to_endpoint(ip.into())), None),
+    };
+    let (endpoint, endpoint_v6) = if opts.auto_external_endpoint {
+        let (endpoint, endpoint_v6) = detect_endpoints();
+        (
+            endpoint.ok_or_else(|| anyhow!("couldn't get external IP"))?,
+            endpoint_v6,
+        )
+    } else if let Some(endpoint) = opts.external_endpoint {
+        (endpoint, opts.external_endpoint_v6)
     } else {
-        let external_ip = prompts::ip_auto_detection_flow()?;
-        prompts::input_external_endpoint(external_ip, listen_port)?
+        let (detected, detected_v6) = if prompts::confirm_ip_auto_detection()? {
+            detect_endpoints()
+        } else {
+            (None, None)
+        };
+        let endpoint = prompts::input_external_endpoint(detected)?;
+        let endpoint_v6 = match opts.external_endpoint_v6 {
+            Some(endpoint_v6) => Some(endpoint_v6),
+            None => prompts::input_external_endpoint_v6(detected_v6)?,
+        };
+        (endpoint, endpoint_v6)
     };
 
     let our_ip = root_cidr
@@ -196,6 +222,7 @@ pub fn init_wizard(conf: &ServerConfig, opts: InitializeOpts) -> Result<(), Erro
         our_ip,
         public_key_base64: our_keypair.public.to_base64(),
         endpoint,
+        endpoint_v6,
     };
 
     // TODO(bschwind) - Clean up the config file and database

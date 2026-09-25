@@ -21,6 +21,7 @@ use innernet_shared::{
 };
 use std::{
     io,
+    net::SocketAddr,
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -863,7 +864,9 @@ fn prompt_override_endpoint(
                 prompts::ip_auto_detection_flow()?
             };
 
-            prompts::input_external_endpoint(external_ip, listen_port)?
+            prompts::input_external_endpoint(
+                external_ip.map(|ip| SocketAddr::new(ip, listen_port).into()),
+            )?
         },
     };
 

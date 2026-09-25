@@ -25,6 +25,16 @@ sudo innernet-server new
 
 The init wizard will ask you questions about your network and give you some reasonable defaults. It's good to familiarize yourself with [network CIDRs](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) as a lot of innernet's access control is based upon them. As an example, let's say the root CIDR for this network is `10.60.0.0/16`. Server initialization creates a special "infra" CIDR which contains the `innernet` server itself and is reachable from all CIDRs on the network.
 
+#### Dual-stack Server Endpoints
+
+A server reachable over both IPv4 and IPv6 can advertise an IPv6 external endpoint alongside its primary one, either during creation (`--external-endpoint-v6`, or the wizard prompt) or later:
+
+```sh
+sudo innernet-server set-external-endpoint <interface> --external-endpoint-v6 '[2001:db8::1]:51820'
+```
+
+Invitations created afterwards contain both endpoints. Clients connect over the primary endpoint and switch to the IPv6 endpoint when no handshake completes within 7 seconds, returning to the primary endpoint if IPv6 fails too. Clients installed from earlier invitations keep using the primary endpoint only.
+
 Next we'll also create a `humans` CIDR where we can start adding some peers.
 
 ```sh

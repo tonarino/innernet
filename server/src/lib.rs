@@ -35,6 +35,7 @@ use wireguard_control::{
 mod api;
 mod db;
 mod error;
+pub mod external_endpoint;
 pub mod initialize;
 #[cfg(test)]
 mod test;
@@ -211,7 +212,7 @@ pub fn add_peer(
         let interface_info = InterfaceInfo::new(interface, &keypair, address);
 
         let internal_endpoint = SocketAddr::new(config.address, config.listen_port);
-        let server_peer = DatabasePeer::get(&conn, 1)?;
+        let server_peer = DatabasePeer::get(&conn, db::peer::SERVER_PEER_ID)?;
         let server_info = ServerInfo::new(&server_peer, internal_endpoint);
 
         let invitation = PeerInvitation::new(interface_info, server_info);

@@ -13,7 +13,7 @@ use std::{
     collections::BTreeMap,
     fmt::{Debug, Display},
     io,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr},
     str::FromStr,
 };
 
@@ -528,7 +528,7 @@ pub fn ip_auto_detection_flow() -> Result<Option<IpAddr>, Error> {
     Ok(ip_addr)
 }
 
-fn confirm_ip_auto_detection() -> Result<bool, Error> {
+pub fn confirm_ip_auto_detection() -> Result<bool, Error> {
     let answer = Confirm::with_theme(&*THEME)
         .wait_for_newline(true)
         .with_prompt("Auto-detect external endpoint IP address (via DNS query to 9.9.9.9)?")
@@ -550,19 +550,39 @@ fn confirm_unspecified_ip_usage() -> Result<bool, Error> {
     Ok(answer)
 }
 
-pub fn input_external_endpoint(
-    external_ip: Option<IpAddr>,
-    listen_port: u16,
-) -> Result<Endpoint, Error> {
-    let endpoint = input(
-        "External endpoint",
-        match external_ip {
-            Some(ip) => Prefill::Editable(SocketAddr::new(ip, listen_port).to_string()),
-            None => Prefill::None,
-        },
-    )?;
+/// Prompts for an external endpoint, prefilled with `prefill` if given.
+pub fn input_external_endpoint(prefill: Option<Endpoint>) -> Result<Endpoint, Error> {
+    let prefill = prefill.map_or(Prefill::None, |endpoint| {
+        Prefill::Editable(endpoint.to_string())
+    });
+    Ok(input("External endpoint", prefill)?)
+}
 
-    Ok(endpoint)
+/// Prompts for an optional IPv6 external endpoint. Empty input yields `None`.
+pub fn input_external_endpoint_v6(prefill: Option<Endpoint>) -> Result<Option<Endpoint>, Error> {
+    let prompt = "IPv6 external endpoint (optional)";
+    ensure_interactive(prompt)?;
+    let input: String = Input::with_theme(&*THEME)
+        .with_prompt(prompt)
+        .with_initial_text(
+            prefill
+                .map(|endpoint| endpoint.to_string())
+                .unwrap_or_default(),
+        )
+        .allow_empty(true)
+        .validate_with(|input: &String| -> Result<(), &str> {
+            if input.is_empty() {
+                Ok(())
+            } else {
+                Endpoint::parse_ipv6(input).map(|_| ())
+            }
+        })
+        .interact_text()?;
+
+    (!input.is_empty())
+        .then(|| Endpoint::parse_ipv6(&input))
+        .transpose()
+        .map_err(|e| anyhow!(e))
 }
 
 /// Bring up a prompt to override the endpoint for an existing peer.

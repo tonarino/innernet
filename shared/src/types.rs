@@ -155,6 +155,21 @@ impl Endpoint {
         }
     }
 
+    /// Parses an endpoint whose host is a specified (non-`::`) IPv6 address.
+    pub fn parse_ipv6(s: &str) -> Result<Self, &'static str> {
+        let endpoint: Self = s.parse()?;
+        if endpoint.is_ipv6() && !endpoint.is_host_unspecified() {
+            Ok(endpoint)
+        } else {
+            Err("host must be a specified IPv6 address, ex: [2001:db8::1]:51820")
+        }
+    }
+
+    /// Returns true if the endpoint host is an IPv6 address.
+    pub fn is_ipv6(&self) -> bool {
+        matches!(self.host, Host::Ipv6(_))
+    }
+
     pub fn port(&self) -> u16 {
         self.port
     }
@@ -583,6 +598,13 @@ pub struct PeerContents {
     pub invite_expires: Option<SystemTime>,
     #[serde(default)]
     pub candidates: Vec<Endpoint>,
+}
+
+impl PeerContents {
+    /// The innernet server's IPv6 external endpoint, stored as its first IPv6 candidate.
+    pub fn ipv6_external_endpoint(&self) -> Option<&Endpoint> {
+        self.candidates.iter().find(|candidate| candidate.is_ipv6())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -1069,5 +1091,43 @@ mod tests {
         // If there *has* been a recent handshake, endpoint should *not* be being set.
         info.stats.last_handshake_time = Some(SystemTime::now());
         assert!(matches!(PeerDiff::new(Some(&info), Some(&peer)), Ok(None)));
+    }
+
+    #[test]
+    fn test_endpoint_is_ipv6() {
+        assert!("[2001:db8::1]:51820".parse::<Endpoint>().unwrap().is_ipv6());
+        assert!(!"203.0.113.1:51820".parse::<Endpoint>().unwrap().is_ipv6());
+        assert!(!"example.com:51820".parse::<Endpoint>().unwrap().is_ipv6());
+    }
+
+    #[test]
+    fn test_endpoint_parse_ipv6() {
+        assert!(Endpoint::parse_ipv6("[2001:db8::1]:51820").is_ok());
+        assert!(Endpoint::parse_ipv6("203.0.113.1:51820").is_err());
+        assert!(Endpoint::parse_ipv6("example.com:51820").is_err());
+        assert!(Endpoint::parse_ipv6("[::]:51820").is_err());
+    }
+
+    #[test]
+    fn test_ipv6_external_endpoint() {
+        let v4: Endpoint = "203.0.113.1:51820".parse().unwrap();
+        let v6: Endpoint = "[2001:db8::1]:51820".parse().unwrap();
+        let mut contents = PeerContents {
+            name: "innernet-server".parse().unwrap(),
+            ip: "10.0.0.1".parse().unwrap(),
+            cidr_id: 1,
+            public_key: "4CNZorWVtohO64n6AAaH/JyFjIIgBFrfJK2SGtKjzEE=".to_owned(),
+            endpoint: Some(v4.clone()),
+            persistent_keepalive_interval: None,
+            is_admin: true,
+            is_disabled: false,
+            is_redeemed: true,
+            invite_expires: None,
+            candidates: vec![v4],
+        };
+        assert_eq!(contents.ipv6_external_endpoint(), None);
+
+        contents.candidates.push(v6.clone());
+        assert_eq!(contents.ipv6_external_endpoint(), Some(&v6));
     }
 }

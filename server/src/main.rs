@@ -8,6 +8,7 @@ use std::{env, path::PathBuf};
 
 use innernet_server::{
     add_cidr, add_peer, delete_cidr, enable_or_disable_peer,
+    external_endpoint::{set_external_endpoint, SetExternalEndpointOpts},
     initialize::{self, InitializeOpts},
     rename_cidr, rename_peer, serve, uninstall, ServerConfig,
 };
@@ -121,6 +122,14 @@ enum Command {
         args: DeleteCidrOpts,
     },
 
+    /// Change the server's external endpoints advertised in new invitations.
+    SetExternalEndpoint {
+        interface: Interface,
+
+        #[clap(flatten)]
+        args: SetExternalEndpointOpts,
+    },
+
     /// Generate shell completion scripts
     Completions {
         #[clap(value_enum)]
@@ -168,6 +177,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::AddCidr { interface, args } => add_cidr(&interface, &conf, args)?,
         Command::RenameCidr { interface, args } => rename_cidr(&interface, &conf, args)?,
         Command::DeleteCidr { interface, args } => delete_cidr(&interface, &conf, args)?,
+        Command::SetExternalEndpoint { interface, args } => {
+            set_external_endpoint(&interface, &conf, args)?
+        },
         Command::Completions { shell } => {
             use clap::CommandFactory;
             let mut app = Opts::command();
