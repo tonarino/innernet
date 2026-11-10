@@ -213,11 +213,13 @@ pub enum InvalidInterfaceName {
 impl fmt::Display for InvalidInterfaceName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::TooLong => write!(
-                f,
-                "interface name longer than system max of {} chars",
-                libc::IFNAMSIZ
-            ),
+            Self::TooLong => {
+                write!(
+                    f,
+                    "interface name longer than system max of {} chars",
+                    libc::IFNAMSIZ
+                )
+            },
             Self::Empty => f.write_str("an empty interface name was provided"),
             Self::InvalidChars => f.write_str("interface name contained slash or space characters"),
         }

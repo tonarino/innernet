@@ -131,17 +131,24 @@ fn get_links() -> Result<Vec<String>, io::Error> {
             _ => None,
         })
         // Filter out loopback links
-        .filter_map(|link| if !link.header.flags.contains(LinkFlags::Loopback) {
+        .filter_map(|link| {
+            if !link.header.flags.contains(LinkFlags::Loopback) {
                 Some(link.attributes)
             } else {
                 None
-            })
+            }
+        })
         // Find and filter out addresses for interfaces
-        .filter(|nlas| nlas.iter().any(|nla| nla == &link::LinkAttribute::OperState(State::Up)))
-        .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
-            link::LinkAttribute::IfName(name) => Some(name.clone()),
-            _ => None,
-        }))
+        .filter(|nlas| {
+            nlas.iter()
+                .any(|nla| nla == &link::LinkAttribute::OperState(State::Up))
+        })
+        .filter_map(|nlas| {
+            nlas.iter().find_map(|nla| match nla {
+                link::LinkAttribute::IfName(name) => Some(name.clone()),
+                _ => None,
+            })
+        })
         .collect::<Vec<_>>();
 
     Ok(links)
@@ -164,21 +171,27 @@ pub fn get_local_addrs() -> Result<impl Iterator<Item = IpAddr>, io::Error> {
             _ => None,
         })
         // Filter out non-global-scoped addresses
-        .filter_map(|link| if link.header.scope == address::AddressScope::Universe {
+        .filter_map(|link| {
+            if link.header.scope == address::AddressScope::Universe {
                 Some(link.attributes)
             } else {
                 None
-            })
+            }
+        })
         // Only select addresses for helpful links
-        .filter(move |nlas| nlas.iter().any(|nla| {
-            matches!(nla, address::AddressAttribute::Label(label) if links.contains(label))
-            || matches!(nla, address::AddressAttribute::Address(IpAddr::V6(_addr)))
-        }))
-        .filter_map(|nlas| nlas.iter().find_map(|nla| match nla {
-            address::AddressAttribute::Address(IpAddr::V4(addr)) => Some(IpAddr::V4(*addr)),
-            address::AddressAttribute::Address(IpAddr::V6(addr)) => Some(IpAddr::V6(*addr)),
-            _ => None,
-        }));
+        .filter(move |nlas| {
+            nlas.iter().any(|nla| {
+                matches!(nla, address::AddressAttribute::Label(label) if links.contains(label))
+                    || matches!(nla, address::AddressAttribute::Address(IpAddr::V6(_addr)))
+            })
+        })
+        .filter_map(|nlas| {
+            nlas.iter().find_map(|nla| match nla {
+                address::AddressAttribute::Address(IpAddr::V4(addr)) => Some(IpAddr::V4(*addr)),
+                address::AddressAttribute::Address(IpAddr::V6(addr)) => Some(IpAddr::V6(*addr)),
+                _ => None,
+            })
+        });
     Ok(addrs)
 }
 
