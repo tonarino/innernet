@@ -195,15 +195,19 @@ pub fn enumerate() -> Result<Vec<InterfaceName>, io::Error> {
         .filter(|link| {
             for nla in link.attributes.iter() {
                 if let link::LinkAttribute::LinkInfo(infos) = nla {
-                    return infos.iter().any(|info| info == &LinkInfo::Kind(InfoKind::Wireguard))
+                    return infos
+                        .iter()
+                        .any(|info| info == &LinkInfo::Kind(InfoKind::Wireguard));
                 }
             }
             false
         })
-        .filter_map(|link| link.attributes.iter().find_map(|nla| match nla {
-            link::LinkAttribute::IfName(name) => Some(name.clone()),
-            _ => None,
-        }))
+        .filter_map(|link| {
+            link.attributes.iter().find_map(|nla| match nla {
+                link::LinkAttribute::IfName(name) => Some(name.clone()),
+                _ => None,
+            })
+        })
         .filter_map(|name| name.parse().ok())
         .collect::<Vec<_>>();
 

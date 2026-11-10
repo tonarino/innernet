@@ -646,12 +646,14 @@ impl Display for PeerChange {
                 old.display_string(),
                 new.display_string()
             ),
-            Self::Endpoint { old, new } => write!(
-                f,
-                "Endpoint: {} => {}",
-                old.display_string(),
-                new.display_string()
-            ),
+            Self::Endpoint { old, new } => {
+                write!(
+                    f,
+                    "Endpoint: {} => {}",
+                    old.display_string(),
+                    new.display_string()
+                )
+            },
             Self::NatTraverseReattempt => write!(f, "NAT Traversal Reattempt"),
         }
     }
