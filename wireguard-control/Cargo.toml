@@ -29,4 +29,4 @@ netlink-request = { version = "2.0.0", path = "../netlink-request" }
 netlink-sys.workspace = true
 
 [target.'cfg(target_os = "openbsd")'.dependencies]
-nix = { version = "0.30.1", features = ["net"] }
+nix = { workspace = true, features = ["net"] }
