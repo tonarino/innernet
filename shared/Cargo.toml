@@ -43,7 +43,7 @@ netlink-request = { version = "2.0.0", path = "../netlink-request" }
 netlink-sys.workspace = true
 
 [target.'cfg(any(target_os = "macos", target_os= "openbsd"))'.dependencies]
-nix = "0.26"
+nix = { workspace = true, features = ["net"] }
 
 [features]
 selinux = ["hostsfile/selinux"]
